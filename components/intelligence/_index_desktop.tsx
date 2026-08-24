@@ -110,17 +110,17 @@ export default function IntelligenceOverview() {
   return (
     <View className="flex-1 bg-surface-background flex-col">
 
-      {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-center justify-between border-b border-surface-border flex-shrink-0 gap-y-4">
-        <View className="flex-row items-center gap-4">
-          <View>
-            <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
-            <Text className="text-typography-main text-4xl font-black tracking-tighter">Overview</Text>
-          </View>
-          <View className="mt-4 px-3 py-1 bg-surface-card border border-surface-border rounded-lg">
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Global Organizational View</Text>
-          </View>
-        </View>
+{/* ── Header ── */}
+  <View className="px-8 pt-6 pb-4 flex-row flex-wrap items-center justify-between border-b border-surface-border flex-shrink-0 gap-y-3">
+    <View className="flex-row items-center gap-3">
+      <View>
+        <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
+        <Text className="text-typography-main text-3xl font-black tracking-tighter">Overview</Text>
+      </View>
+      <View className="mt-3 px-2.5 py-0.5 bg-surface-card border border-surface-border rounded-lg">
+        <Text className="text-typography-muted text-[9px] font-bold uppercase tracking-widest">Global Organizational View</Text>
+      </View>
+    </View>
 
         <View className="flex-row flex-wrap items-center gap-3">
           {canViewAnalytics && (
@@ -151,19 +151,19 @@ export default function IntelligenceOverview() {
       ) : canViewAnalytics ? (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
 
-          {/* ── KPI Row ── */}
-          <View className="px-10 pt-6 pb-0 flex-shrink-0">
-            <View className="flex-row justify-between items-center mb-4">
-              <Text className="text-typography-main font-black text-lg tracking-tight">Key Metrics</Text>
-              <Tooltip label="Customize visible metrics">
-                <TouchableOpacity onPress={() => setShowWidgetModal(true)} className="bg-surface-card px-4 py-1.5 rounded-xl border border-surface-border">
-                  <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Configure</Text>
-                </TouchableOpacity>
-              </Tooltip>
-            </View>
-            <View className="flex-row flex-wrap gap-4 mb-8">
-              {activeWidgets.map(renderWidget)}
-            </View>
+{/* ── KPI Row ── */}
+  <View className="px-8 pt-4 pb-0 flex-shrink-0">
+    <View className="flex-row justify-between items-center mb-3">
+      <Text className="text-typography-main font-black text-base tracking-tight">Key Metrics</Text>
+      <Tooltip label="Customize visible metrics">
+        <TouchableOpacity onPress={() => setShowWidgetModal(true)} className="bg-surface-card px-3 py-1 rounded-lg border border-surface-border">
+          <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Configure</Text>
+        </TouchableOpacity>
+      </Tooltip>
+    </View>
+    <View className="flex-row flex-wrap gap-3 mb-6">
+      {activeWidgets.map(renderWidget)}
+    </View>
           </View>
 
           {/* ── The project / portfolio lens (#191 Phase 10) ──
@@ -177,8 +177,8 @@ export default function IntelligenceOverview() {
             <ProjectLens />
           </View>
 
-          {/* ── Mini Widgets ── */}
-          <View className="px-10 flex-col gap-4">
+{/* ── Mini Widgets ── */}
+  <View className="px-8 flex-col gap-3">
 
             {/* Throughput over time — Pro+ */}
             <WidgetGate feature="throughput" limits={limits}>
@@ -193,7 +193,7 @@ export default function IntelligenceOverview() {
             {/* SLA risk — always available */}
             <SLARiskAlertMiniWeb data={data} onViewAll={() => router.push('/intelligence/graphs')} />
 
-            <View className="flex-row flex-wrap gap-6">
+            <View className="flex-row flex-wrap gap-4">
               {/* Stage duration — always available */}
               <View className="flex-1">
                 <StageDurationMiniWeb data={data} onViewAll={() => router.push('/intelligence/graphs')} />

@@ -52,13 +52,13 @@ const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, on
 };
 
 const KPIBox = ({ label, val, delta }: any) => (
-  <View className="flex-1 min-w-[140px] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4">
-    <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-2">{label}</Text>
+  <View className="flex-1 min-w-[120px] bg-surface-card p-3.5 rounded-2xl border border-surface-border mb-3">
+    <Text className="text-typography-muted text-[9px] font-black uppercase tracking-wider mb-1.5">{label}</Text>
     <View className="flex-row items-baseline">
-      <Text className="text-typography-main text-2xl font-black">{val}</Text>
+      <Text className="text-typography-main text-xl font-black">{val}</Text>
       {delta !== undefined && (
-        <View className={`ml-2 px-1.5 py-0.5 rounded-md ${delta >= 0 ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
-          <Text className={`text-[9px] font-black ${delta >= 0 ? 'text-state-success' : 'text-state-danger'}`}>
+        <View className={`ml-1.5 px-1 py-0.5 rounded ${delta >= 0 ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
+          <Text className={`text-[8px] font-black ${delta >= 0 ? 'text-state-success' : 'text-state-danger'}`}>
             {delta >= 0 ? '+' : ''}{delta}
           </Text>
         </View>
@@ -71,23 +71,21 @@ const SLARiskAlert = ({ data }: any) => {
   const colors = useThemeColors();
   if (!data?.sla_risks || data.sla_risks.length === 0) return null;
   return (
-    <View className="mb-6 bg-state-danger/5 border border-state-danger/20 p-5 rounded-3xl">
-      <View className="flex-row items-center mb-4">
-        <FontAwesome name="exclamation-triangle" size={14} color={colors.danger} className="mr-2" />
-        <Text className="text-state-danger font-bold">SLA Breach Risks</Text>
+    <View className="mb-4 bg-state-danger/5 border border-state-danger/20 p-4 rounded-2xl">
+      <View className="flex-row items-center mb-3">
+        <FontAwesome name="exclamation-triangle" size={12} color={colors.danger} className="mr-2" />
+        <Text className="text-state-danger font-bold text-sm">SLA Breach Risks</Text>
       </View>
       {data.sla_risks.slice(0, 3).map((r: any, i: number) => (
-        <View key={i} className="flex-row justify-between items-center gap-3 mb-2">
-          {/* Severity as tempo — the driver colouring below is untouched.
-              Kept off RadarWidgets on purpose: that module imports `recharts`. */}
+        <View key={i} className="flex-row justify-between items-center gap-2 mb-1.5">
           <SLARiskPulseDot
             riskPercent={r.risk_percent}
             color={r.reason === 'deadline' ? colors.danger : r.reason === 'over_budget' ? colors.warning : colors.textMuted}
             stagger={slaPulseStagger(i)}
           />
-          <View className="flex-1 flex-row items-center gap-2">
+          <View className="flex-1 flex-row items-center gap-1.5">
             <Text className="text-typography-main text-xs font-bold">{r.task_number || 'TASK'}</Text>
-            <Text className={`text-[9px] font-black uppercase ${
+            <Text className={`text-[8px] font-black uppercase ${
               r.reason === 'deadline' ? 'text-state-danger'
               : r.reason === 'over_budget' ? 'text-state-warning'
               : 'text-typography-muted'
@@ -123,32 +121,32 @@ const ConversionFunnelChart = ({ data }: any) => {
   if (groups.length === 0) return null;
 
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-5">Retention Funnel</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 8 }}>
+    <View className="bg-surface-card p-4 rounded-2xl border border-surface-border mb-4">
+      <Text className="text-typography-main font-bold text-base mb-4">Retention Funnel</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 6 }}>
         {groups.map((g, gi) => (
-          <View key={g.name + gi} style={{ width: 240 }} className="bg-surface-background rounded-2xl border border-surface-border/50 p-4">
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3" numberOfLines={1}>{g.name}</Text>
+          <View key={g.name + gi} style={{ width: 220 }} className="bg-surface-background rounded-xl border border-surface-border/50 p-3">
+            <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2" numberOfLines={1}>{g.name}</Text>
             {g.stages.map((stage: any, idx: number) => {
               const rate = (stage.completion_rate || 0) * 100;
               const isGood = rate >= 85;
               return (
                 <View key={idx} className="items-center">
-                  <View className="w-full bg-surface-card p-3 rounded-xl border border-surface-border/50">
-                    <View className="flex-row justify-between items-center mb-2">
+                  <View className="w-full bg-surface-card p-2.5 rounded-lg border border-surface-border/50">
+                    <View className="flex-row justify-between items-center mb-1.5">
                       <View className="flex-1 min-w-0 mr-2">
                         <Text className="text-typography-main font-black text-xs" numberOfLines={1}>{stage.stage_name}</Text>
-                        <Text className="text-typography-muted text-[8px] font-bold uppercase">{stage.task_count ?? 0} tasks</Text>
+                        <Text className="text-typography-muted text-[7px] font-bold uppercase">{stage.task_count ?? 0} tasks</Text>
                       </View>
                       <Text className={`text-sm font-black ${isGood ? 'text-state-success' : 'text-state-warning'}`}>{Math.round(rate)}%</Text>
                     </View>
-                    <View className="h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border">
+                    <View className="h-1 bg-surface-background rounded-full overflow-hidden border border-surface-border">
                       <View className={`h-full ${isGood ? 'bg-state-success' : 'bg-state-warning'}`} style={{ width: `${Math.min(rate, 100)}%` }} />
                     </View>
                   </View>
                   {idx < g.stages.length - 1 && (
-                    <View className="py-1 opacity-30">
-                      <FontAwesome name="long-arrow-down" size={14} color={colors.textDim} />
+                    <View className="py-0.5 opacity-30">
+                      <FontAwesome name="long-arrow-down" size={12} color={colors.textDim} />
                     </View>
                   )}
                 </View>
@@ -166,20 +164,20 @@ const WorkDistributionChart = ({ data }: any) => {
   if (!data?.worker_engagement) return null;
   const top = data.worker_engagement.sort((a: any, b: any) => b.action_count - a.action_count).slice(0, 5);
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-4">Operator Engagement</Text>
+    <View className="bg-surface-card p-4 rounded-2xl border border-surface-border mb-4">
+      <Text className="text-typography-main font-bold text-base mb-3">Operator Engagement</Text>
       {top.map((w: any, idx: number) => {
         const max = top[0].action_count;
         const percentage = (w.action_count / (max || 1)) * 100;
         return (
-          <View key={idx} className="mb-4">
-            <View className="flex-row items-center mb-2 gap-3">
-              <View className="w-6 h-6 rounded-full bg-surface-card border border-surface-border overflow-hidden">
+          <View key={idx} className="mb-3">
+            <View className="flex-row items-center mb-1.5 gap-2">
+              <View className="w-5 h-5 rounded-full bg-surface-card border border-surface-border overflow-hidden">
                 {w.avatar_url ? (
                   <Image source={{ uri: w.avatar_url }} className="w-full h-full" />
                 ) : (
                   <View className="w-full h-full items-center justify-center bg-brand-primary/5">
-                    <Text className="text-brand-primary font-black text-[8px]">
+                    <Text className="text-brand-primary font-black text-[7px]">
                       {(w.full_name || 'A')[0].toUpperCase()}
                     </Text>
                   </View>
@@ -188,7 +186,7 @@ const WorkDistributionChart = ({ data }: any) => {
               <Text className="text-typography-muted text-xs font-medium flex-1">{w.full_name || 'Agent'}</Text>
               <Text className="text-brand-primary text-xs font-bold">{w.action_count} ops</Text>
             </View>
-            <View className="h-2 bg-surface-background rounded-full overflow-hidden">
+            <View className="h-1.5 bg-surface-background rounded-full overflow-hidden">
               <View className="h-full bg-brand-primary" style={{ width: `${percentage}%` }} />
             </View>
           </View>
@@ -203,29 +201,29 @@ const QualityLeaderboard = ({ data }: any) => {
   if (!data?.quality_by_worker) return null;
   const best = data.quality_by_worker.sort((a: any, b: any) => a.revision_rate - b.revision_rate).slice(0, 5);
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-4">Quality Scoreboard</Text>
+    <View className="bg-surface-card p-4 rounded-2xl border border-surface-border mb-4">
+      <Text className="text-typography-main font-bold text-base mb-3">Quality Scoreboard</Text>
       {best.map((w: any, idx: number) => (
-        <View key={idx} className="flex-row justify-between mb-3 items-center">
-          <View className="flex-row items-center gap-3">
-            <View className="w-6 h-6 rounded-full bg-surface-card border border-surface-border overflow-hidden">
+        <View key={idx} className="flex-row justify-between mb-2 items-center">
+          <View className="flex-row items-center gap-2">
+            <View className="w-5 h-5 rounded-full bg-surface-card border border-surface-border overflow-hidden">
               {w.avatar_url ? (
                 <Image source={{ uri: w.avatar_url }} className="w-full h-full" />
               ) : (
                 <View className="w-full h-full items-center justify-center bg-brand-primary/5">
-                  <Text className="text-brand-primary font-black text-[8px]">
+                  <Text className="text-brand-primary font-black text-[7px]">
                     {(w.full_name || 'A')[0].toUpperCase()}
                   </Text>
                 </View>
               )}
             </View>
-            <Text className="text-typography-muted text-xs">{w.full_name || 'Agent'}</Text>
+            <Text className="text-typography-muted text-[10px]">{w.full_name || 'Agent'}</Text>
           </View>
           <View className="flex-row items-center">
-            <View className="bg-state-success/10 px-2 py-0.5 rounded-lg mr-2">
-              <Text className="text-state-success text-[10px] font-black">{Math.round(100 - (w.revision_rate || 0))}%</Text>
+            <View className="bg-state-success/10 px-1.5 py-0.5 rounded-lg mr-1.5">
+              <Text className="text-state-success text-[9px] font-black">{Math.round(100 - (w.revision_rate || 0))}%</Text>
             </View>
-            <FontAwesome name="star" size={10} color={colors.warning} />
+            <FontAwesome name="star" size={9} color={colors.warning} />
           </View>
         </View>
       ))}
@@ -243,17 +241,17 @@ const TrendComparisonCards = ({ data }: any) => {
     { label: 'Latency Drift', cur: c.avg_lead_time_minutes, prev: p.avg_lead_time_minutes, unit: 'm', reverse: true }
   ];
   return (
-    <View className="flex-row flex-wrap gap-4 mb-6">
+    <View className="flex-row flex-wrap gap-3 mb-4">
       {metrics.map((m, i) => {
         const diff = (m.cur || 0) - (m.prev || 0);
         const isBetter = m.reverse ? diff <= 0 : diff >= 0;
         return (
-          <View key={i} className="flex-1 bg-surface-card p-4 rounded-2xl border border-surface-border">
-            <Text className="text-typography-muted text-[9px] font-bold uppercase mb-2">{m.label}</Text>
+          <View key={i} className="flex-1 bg-surface-card p-3 rounded-xl border border-surface-border">
+            <Text className="text-typography-muted text-[8px] font-bold uppercase mb-1.5">{m.label}</Text>
             <View className="flex-row items-center">
-              <Text className="text-typography-main font-black text-lg">{Math.round(m.cur || 0)}{m.unit}</Text>
-              <View className={`ml-2 px-1 rounded ${isBetter ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
-                <Text className={`text-[8px] font-black ${isBetter ? 'text-state-success' : 'text-state-danger'}`}>{diff > 0 ? '+' : ''}{Math.round(diff)}</Text>
+              <Text className="text-typography_main font-black text-base">{Math.round(m.cur || 0)}{m.unit}</Text>
+              <View className={`ml-1.5 px-1 rounded ${isBetter ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
+                <Text className={`text-[7px] font-black ${isBetter ? 'text-state-success' : 'text-state-danger'}`}>{diff > 0 ? '+' : ''}{Math.round(diff)}</Text>
               </View>
             </View>
           </View>
@@ -293,17 +291,17 @@ const PipelineLoadChart = ({ data }: any) => {
   }
   const groups = allGroups.filter(g => g.stages.some((s: any) => (s.task_count || 0) > 0));
 
-  const size = 92, stroke = 14, r = (size - stroke) / 2, cx = size / 2, cy = size / 2;
+const size = 80, stroke = 12, r = (size - stroke) / 2, cx = size / 2, cy = size / 2;
   const C = 2 * Math.PI * r;
-  const GAP = 2;
+  const GAP = 1.5;
 
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-5">Pipeline Load Distribution</Text>
+    <View className="bg-surface-card p-4 rounded-2xl border border-surface-border mb-4">
+      <Text className="text-typography_main font-bold text-base mb-4">Pipeline Load Distribution</Text>
       {groups.length === 0 ? (
-        <Text className="text-typography-muted text-sm text-center py-4">No stage activity data available.</Text>
+        <Text className="text-typography-muted text-sm text-center py-3">No stage activity data available.</Text>
       ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 6 }}>
           {groups.map((g, gi) => {
             const total = g.stages.reduce((s: number, x: any) => s + (x.task_count || 0), 0);
             let acc = 0;
@@ -323,24 +321,24 @@ const PipelineLoadChart = ({ data }: any) => {
             });
 
             return (
-              <View key={g.name + gi} style={{ width: 220 }} className="bg-surface-background rounded-2xl border border-surface-border/50 p-4">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3" numberOfLines={1}>{g.name}</Text>
-                <View style={{ width: size, height: size, alignSelf: 'center' }} className="mb-3">
+              <View key={g.name + gi} style={{ width: 200 }} className="bg-surface-background rounded-xl border border-surface-border/50 p-3">
+                <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2" numberOfLines={1}>{g.name}</Text>
+                <View style={{ width: size, height: size, alignSelf: 'center' }} className="mb-2">
                   <Svg width={size} height={size}>
                     <G rotation={-90} origin={`${cx}, ${cy}`}>{arcs}</G>
                   </Svg>
                   <View style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }} className="items-center justify-center">
-                    <Text className="text-typography-main text-base font-black">{total}</Text>
-                    <Text className="text-typography-muted text-[8px] font-bold uppercase tracking-widest">tasks</Text>
+                    <Text className="text-typography_main text-sm font-black">{total}</Text>
+                    <Text className="text-typography-muted text-[7px] font-bold uppercase tracking-widest">tasks</Text>
                   </View>
                 </View>
                 {g.stages.map((s: any, si: number) => {
                   const count = s.task_count || 0;
                   return (
-                    <View key={si} className="mb-1.5 flex-row items-center gap-2">
-                      <View style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: palette[si % palette.length] }} />
-                      <Text className="flex-1 text-typography-main text-[10px] font-bold" numberOfLines={1}>{truncateLabel(s.stage_name, 12)}</Text>
-                      <Text className="text-typography-muted text-[9px] font-black">{count} · {Math.round((count / total) * 100)}%</Text>
+                    <View key={si} className="mb-1 flex-row items-center gap-1.5">
+                      <View style={{ width: 6, height: 6, borderRadius: 2, backgroundColor: palette[si % palette.length] }} />
+                      <Text className="flex-1 text-typography_main text-[9px] font-bold" numberOfLines={1}>{truncateLabel(s.stage_name, 10)}</Text>
+                      <Text className="text-typography-muted text-[8px] font-black">{count} · {Math.round((count / total) * 100)}%</Text>
                     </View>
                   );
                 })}

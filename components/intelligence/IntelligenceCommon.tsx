@@ -93,13 +93,13 @@ export const SectionToggle = ({ active, onSelect, hasPermission }: { active: str
 export const KPIBoxWeb = ({ label, val, delta }: any) => {
   const colors = useThemeColors();
   return (
-    <View className="flex-1 min-w-[220px] p-5 rounded-[24px] border premium-shadow" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-      <Text className="text-[9px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: colors.textMuted }}>{label}</Text>
+    <View className="flex-1 min-w-[180px] p-4 rounded-xl border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+      <Text className="text-[8px] font-black uppercase tracking-[0.2em] mb-2" style={{ color: colors.textMuted }}>{label}</Text>
       <View className="flex-row items-baseline">
-        <Text className="text-2xl font-black" style={{ color: colors.textMain }}>{val}</Text>
+        <Text className="text-xl font-black" style={{ color: colors.textMain }}>{val}</Text>
         {delta !== undefined && (
-          <View className="ml-3 px-2 py-0.5 rounded-full" style={{ backgroundColor: delta >= 0 ? `${colors.success}1a` : `${colors.danger}1a` }}>
-            <Text className="text-[9px] font-black" style={{ color: delta >= 0 ? colors.success : colors.danger }}>
+          <View className="ml-2 px-1.5 py-0.5 rounded-full" style={{ backgroundColor: delta >= 0 ? `${colors.success}1a` : `${colors.danger}1a` }}>
+            <Text className="text-[8px] font-black" style={{ color: delta >= 0 ? colors.success : colors.danger }}>
               {delta >= 0 ? '+' : ''}{delta}
             </Text>
           </View>
