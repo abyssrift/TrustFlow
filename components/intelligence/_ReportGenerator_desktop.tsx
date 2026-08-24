@@ -23,15 +23,15 @@ const BRAND_DIM = 'rgba(99,102,241,0.15)';
 
 function GenerationProgress({ current, total, elapsed }: { current: number; total: number; elapsed: number }) {
   const colors = useThemeColors();
-  const size = 148;
-  const stroke = 10;
+  const size = 112;
+  const stroke = 8;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const pct = total > 0 ? current / total : 0;
   const eta = current > 1 && elapsed > 1 ? Math.round((elapsed / current) * (total - current)) : null;
 
   return (
-    <View style={{ alignItems: 'center', gap: 6 }}>
+    <View style={{ alignItems: 'center', gap: 4 }}>
       <View style={{ width: size, height: size }}>
         <Svg width={size} height={size}>
           <Circle cx={size / 2} cy={size / 2} r={r} stroke={BRAND_DIM} strokeWidth={stroke} fill="none" />
@@ -43,17 +43,17 @@ function GenerationProgress({ current, total, elapsed }: { current: number; tota
           />
         </Svg>
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: 'white', fontWeight: '900', fontSize: 24, fontVariant: ['tabular-nums'] }}>
+          <Text style={{ color: 'white', fontWeight: '900', fontSize: 18, fontVariant: ['tabular-nums'] }}>
             {current}/{total}
           </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 }}>reports</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 9, marginTop: 1 }}>reports</Text>
         </View>
       </View>
-      <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
+      <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
         {formatStopwatch(elapsed)}
       </Text>
       {eta !== null && eta > 0 ? (
-        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>~{formatStopwatch(eta)} remaining</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>~{formatStopwatch(eta)} remaining</Text>
       ) : null}
     </View>
   );
@@ -324,32 +324,32 @@ export default function ReportGeneratorDesktop() {
     <View className="flex-1 bg-surface-background">
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="p-12 max-w-[1200px] mx-auto w-full pb-40">
+        <View className="p-8 max-w-[1100px] mx-auto w-full pb-32">
           {pipelines.length === 0 ? (
-            <View className="py-20 items-center justify-center">
-              <View className="bg-surface-card p-12 rounded-[3rem] border border-surface-border items-center max-w-[600px] premium-shadow">
-                <View className="w-20 h-20 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                  <FontAwesome name="file-text-o" size={32} color={colors.primary} />
+            <View className="py-12 items-center justify-center">
+              <View className="bg-surface-card p-8 rounded-3xl border border-surface-border items-center max-w-[500px] premium-shadow">
+                <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-4">
+                  <FontAwesome name="file-text-o" size={24} color={colors.primary} />
                 </View>
                 {hasPermission('pipeline.edit') ? (
                   <>
-                    <Text className="text-typography-main text-3xl font-black mb-2 text-center">Setup Required</Text>
-                    <Text className="text-typography-muted text-center mb-8 leading-relaxed">
+                    <Text className="text-typography-main text-2xl font-black mb-2 text-center">Setup Required</Text>
+                    <Text className="text-typography-muted text-center mb-6 leading-relaxed">
                       No pipelines detected. Report generation requires at least one active workflow pipeline to analyze.
                     </Text>
                     <TouchableOpacity
                       onPress={() => router.push('/admin/pipelines')}
-                      className="bg-brand-primary px-10 py-4 rounded-2xl active:scale-95 transition-all"
+                      className="bg-brand-primary px-8 py-3 rounded-xl active:scale-95 transition-all"
                     >
                       <Text className="text-typography-main font-black uppercase tracking-widest text-xs">Configure Pipelines</Text>
                     </TouchableOpacity>
                   </>
                 ) : (
-                  <View className="bg-state-info-dim border border-state-info/20 p-8 rounded-3xl w-full">
+                  <View className="bg-state-info-dim border border-state-info/20 p-6 rounded-2xl w-full">
                     <View className="flex-row items-start">
-                      <FontAwesome name="info-circle" size={20} color={colors.info} style={{ marginTop: 4 }} />
-                      <View className="ml-5 flex-1">
-                        <Text className="text-typography-main text-lg font-black mb-1">Access Restricted</Text>
+                      <FontAwesome name="info-circle" size={16} color={colors.info} style={{ marginTop: 2 }} />
+                      <View className="ml-4 flex-1">
+                        <Text className="text-typography-main text-base font-black mb-1">Access Restricted</Text>
                         <Text className="text-typography-muted text-sm font-bold leading-relaxed">
                           No pipelines are available. Contact your company Admin.
                         </Text>
@@ -362,14 +362,14 @@ export default function ReportGeneratorDesktop() {
           ) : (
             <>
               {/* ── Page Header ── */}
-              <View className="flex-row justify-between items-end mb-16">
+              <View className="flex-row justify-between items-end mb-10">
                 <View>
-                  <View className="flex-row items-center mb-4">
-                    <View className="h-3 w-3 rounded-full bg-brand-primary mr-3 animate-pulse" />
-                    <Text className="text-brand-primary font-black uppercase tracking-[0.4em] text-xs">Mission Analytics</Text>
+                  <View className="flex-row items-center mb-3">
+                    <View className="h-2 w-2 rounded-full bg-brand-primary mr-2 animate-pulse" />
+                    <Text className="text-brand-primary font-black uppercase tracking-[0.4em] text-[10px]">Mission Analytics</Text>
                   </View>
-                  <Text className="text-typography-main text-6xl font-black tracking-tighter">Report Architect</Text>
-                  <Text className="text-typography-muted text-lg font-medium mt-2 max-w-2xl leading-8">
+                  <Text className="text-typography-main text-4xl font-black tracking-tighter">Report Architect</Text>
+                  <Text className="text-typography-muted text-base font-medium mt-1 max-w-2xl leading-7">
                     Configure and execute deep-packet analytics reports. Select one or combine multiple report types into a single document.
                   </Text>
                 </View>
@@ -379,10 +379,10 @@ export default function ReportGeneratorDesktop() {
                   <TouchableOpacity
                     onPress={handleGenerateReport}
                     disabled={loading}
-                    className="px-12 py-6 rounded-[32px] flex-row items-center bg-brand-primary premium-shadow active:scale-95"
+                    className="px-8 py-4 rounded-2xl flex-row items-center bg-brand-primary premium-shadow active:scale-95"
                   >
-                    <FontAwesome name="bolt" size={16} color="white" style={{ marginRight: 10 }} />
-                    <Text className="text-white font-black uppercase tracking-[0.2em] text-sm">
+                    <FontAwesome name="bolt" size={14} color="white" style={{ marginRight: 8 }} />
+                    <Text className="text-white font-black uppercase tracking-[0.2em] text-xs">
                       {isMulti ? `Deploy ${selectedTypes.length} Reports` : 'Deploy Generation'}
                     </Text>
                   </TouchableOpacity>
@@ -390,8 +390,8 @@ export default function ReportGeneratorDesktop() {
               </View>
 
               {loading && (
-                <View className="bg-state-warning/10 border border-state-warning/30 rounded-2xl px-8 py-4 mb-4 flex-row items-center gap-4">
-                  <FontAwesome name="exclamation-triangle" size={15} color={colors.warning} />
+                <View className="bg-state-warning/10 border border-state-warning/30 rounded-xl px-6 py-3 mb-3 flex-row items-center gap-3">
+                  <FontAwesome name="exclamation-triangle" size={13} color={colors.warning} />
                   <Text className="text-state-warning font-semibold text-sm flex-1">
                     Don't close or navigate away — reports are actively being generated. Leaving will cancel the remaining jobs.
                   </Text>
@@ -399,78 +399,64 @@ export default function ReportGeneratorDesktop() {
               )}
 
               {genError && (
-                <View className="bg-state-danger/10 border border-state-danger/30 rounded-2xl px-8 py-5 mb-8 flex-row items-center gap-4">
-                  <FontAwesome name="exclamation-circle" size={18} color={colors.danger} />
+                <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl px-6 py-4 mb-6 flex-row items-center gap-3">
+                  <FontAwesome name="exclamation-circle" size={16} color={colors.danger} />
                   <Text className="text-state-danger font-bold flex-1">{genError}</Text>
                   <Tooltip label="Dismiss" side="bottom">
                     <TouchableOpacity onPress={() => setGenError(null)}>
-                      <FontAwesome name="times" size={16} color={colors.danger} />
+                      <FontAwesome name="times" size={14} color={colors.danger} />
                     </TouchableOpacity>
                   </Tooltip>
                 </View>
               )}
 
-              <View className="flex-row gap-12">
+<View className="flex-row gap-8">
                 {/* ── Left Column ── */}
-                <View className="flex-[1.5] gap-10">
+                <View className="flex-[1.5] gap-6">
 
                   {/* Step 1 — Architecture Type */}
-                  <View className="bg-surface-card p-10 rounded-[48px] border border-surface-border">
-                    <View className="flex-row items-center justify-between mb-8">
+                  <View className="bg-surface-card p-6 rounded-3xl border border-surface-border">
+                    <View className="flex-row items-center justify-between mb-6">
                       <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] opacity-60">01. Architecture Type</Text>
                       {isMulti && (
-                        <View className="bg-brand-primary/10 border border-brand-primary/30 px-3 py-1 rounded-full flex-row items-center gap-2">
-                          <FontAwesome name="files-o" size={10} color={colors.primary} />
-                          <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">{selectedTypes.length} Combined</Text>
+                        <View className="bg-brand-primary/10 border border-brand-primary/30 px-2.5 py-0.5 rounded-full flex-row items-center gap-1.5">
+                          <FontAwesome name="files-o" size={9} color={colors.primary} />
+                          <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">{selectedTypes.length} Combined</Text>
                         </View>
                       )}
                     </View>
 
-                    <Text className="text-typography-dim text-[9px] font-semibold uppercase tracking-[0.18em] mb-4">Standard Reports</Text>
-                    <View className="gap-3 mb-8">
+                    <Text className="text-typography-dim text-[9px] font-semibold uppercase tracking-[0.18em] mb-3">Standard Reports</Text>
+                    <View className="gap-2.5 mb-6">
                       {legacyTypes.map(opt => (
                         <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
                       ))}
                     </View>
-{/*
-                    <View className="flex-row items-center gap-3 mb-4">
-                      <Text className="text-typography-dim text-[9px] font-semibold uppercase tracking-[0.18em]">Analytics Engine</Text>
-                      <View className="flex-1 h-px bg-brand-primary/20" />
-                      <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full">
-                        <Text className="text-brand-primary text-[8px] font-semibold uppercase tracking-widest">New</Text>
-                      </View>
-                    </View>
-                    <View className="gap-3">
-                      {analyticsTypes.map(opt => (
-                        <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
-                      ))}
-                    </View>
-*/}
                   </View>
                   {/* Step 2 — Temporal Scope (shown when any selected type uses a date range) */}
                   {needsDateRange && (
-                    <View className="bg-surface-card p-10 rounded-[48px] border border-surface-border">
-                      <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] mb-8 opacity-60">02. Temporal Scope</Text>
+                    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border">
+                      <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] mb-6 opacity-60">02. Temporal Scope</Text>
 
-                      <View className="flex-row gap-4 mb-6">
+                      <View className="flex-row gap-3 mb-4">
                         {(['7', '30', '90'] as const).map(d => (
                           <TouchableOpacity
                             key={d}
                             onPress={() => setTimeFrame(d)}
-                            className={`flex-1 py-5 rounded-2xl border items-center transition-all ${timeFrame === d ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
+                            className={`flex-1 py-4 rounded-xl border items-center transition-all ${timeFrame === d ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
                           >
-                            <Text className={`font-black uppercase tracking-widest ${timeFrame === d ? 'text-white' : 'text-typography-main'}`}>{d} Days</Text>
+                            <Text className={`font-black uppercase tracking-widest ${timeFrame === d ? 'text-white' : 'text-typography_main'}`}>{d} Days</Text>
                           </TouchableOpacity>
                         ))}
                         <TouchableOpacity
                           onPress={() => setTimeFrame('custom')}
-                          className={`flex-1 py-5 rounded-2xl border items-center transition-all ${timeFrame === 'custom' ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
+                          className={`flex-1 py-4 rounded-xl border items-center transition-all ${timeFrame === 'custom' ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
                         >
-                          <Text className={`font-black uppercase tracking-widest ${timeFrame === 'custom' ? 'text-white' : 'text-typography-main'}`}>Custom</Text>
+                          <Text className={`font-black uppercase tracking-widest ${timeFrame === 'custom' ? 'text-white' : 'text-typography_main'}`}>Custom</Text>
                         </TouchableOpacity>
                       </View>
                       {timeFrame === 'custom' && (
-                        <View className="flex-row items-center gap-3">
+                        <View className="flex-row items-center gap-2">
                           <DateRangePillPicker
                             from={dateStart || null}
                             to={dateEnd || null}
@@ -484,18 +470,18 @@ export default function ReportGeneratorDesktop() {
 
                 {/* ── Right Column — Tactical Parameters ── */}
                 <View className="flex-1">
-                  <View className="bg-surface-card p-10 rounded-[48px] border border-surface-border sticky top-12">
-                    <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] mb-8 opacity-60">03. Tactical Parameters</Text>
+                  <View className="bg-surface-card p-6 rounded-3xl border border-surface-border sticky top-10">
+                    <Text className="text-typography-muted text-xs font-black uppercase tracking-[0.2em] mb-6 opacity-60">03. Tactical Parameters</Text>
                     <ScrollView showsVerticalScrollIndicator={false} className="max-h-[70vh]">
 
                       {selectedTypes.map((type, idx) => {
                         const meta = REPORT_TYPES.find(r => r.value === type)!;
                         return (
-                          <View key={type} className={`${idx > 0 ? 'mt-8 pt-8 border-t border-surface-border' : ''}`}>
+                          <View key={type} className={`${idx > 0 ? 'mt-6 pt-6 border-t border-surface-border' : ''}`}>
                             {isMulti && (
-                              <View className="flex-row items-center gap-3 mb-6">
-                                <View className="w-6 h-6 bg-brand-primary rounded-lg items-center justify-center">
-                                  <FontAwesome name={meta.icon as any} size={11} color="white" />
+                              <View className="flex-row items-center gap-2 mb-4">
+                                <View className="w-5 h-5 bg-brand-primary rounded-lg items-center justify-center">
+                                  <FontAwesome name={meta.icon as any} size={10} color="white" />
                                 </View>
                                 <Text className="text-typography-main text-xs font-black uppercase tracking-wider flex-1">{meta.label}</Text>
                               </View>
@@ -534,18 +520,18 @@ function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`p-6 rounded-[32px] border flex-row items-center transition-all ${selected ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-background/40 hover:bg-surface-overlay'}`}
+      className={`p-4 rounded-2xl border flex-row items-center transition-all ${selected ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-background/40 hover:bg-surface-overlay'}`}
     >
-      <View className={`h-16 w-16 items-center justify-center rounded-2xl ${selected ? 'bg-brand-primary' : 'bg-surface-card'}`}>
-        <FontAwesome name={opt.icon as any} size={22} color={selected ? 'white' : 'rgb(var(--brand-accent) / 0.4)'} />
+      <View className={`h-12 w-12 items-center justify-center rounded-xl ${selected ? 'bg-brand-primary' : 'bg-surface_card'}`}>
+        <FontAwesome name={opt.icon as any} size={18} color={selected ? 'white' : 'rgb(var(--brand-accent) / 0.4)'} />
       </View>
-      <View className="ml-6 flex-1">
-        <Text className={`text-lg font-black ${selected ? 'text-brand-primary' : 'text-typography-main'}`}>{opt.label}</Text>
-        <Text className="text-typography-muted mt-1 font-medium text-sm">{opt.desc}</Text>
+      <View className="ml-4 flex-1">
+        <Text className={`text-base font-black ${selected ? 'text-brand-primary' : 'text-typography_main'}`}>{opt.label}</Text>
+        <Text className="text-typography-muted mt-0.5 font-medium text-sm">{opt.desc}</Text>
       </View>
       {/* Checkbox indicator — shows for all selected, not just one */}
-      <View className={`h-8 w-8 rounded-full border-2 items-center justify-center ${selected ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
-        {selected && <FontAwesome name="check" size={12} color="white" />}
+      <View className={`h-7 w-7 rounded-full border-2 items-center justify-center ${selected ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
+        {selected && <FontAwesome name="check" size={11} color="white" />}
       </View>
     </TouchableOpacity>
   );
@@ -580,66 +566,66 @@ function TypeParamPanel({
     );
   }
 
-  if (type === 'worker_comparison') {
+if (type === 'worker_comparison') {
     const selectedIds: string[] = params.user_ids || [];
     return (
-      <View className="mb-8">
-        <View className="flex-row items-center mb-4">
+      <View className="mb-6">
+        <View className="flex-row items-center mb-3">
           <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">People</Text>
-          <Text className="text-typography-muted text-[10px]">
+          <Text className="text-typography-muted text-[9px]">
             {selectedIds.length === 0 ? 'All people (leave empty)' : `${selectedIds.length} selected`}
           </Text>
         </View>
-        <View className="flex-row flex-wrap gap-2">
+        <View className="flex-row flex-wrap gap-1.5">
           {workers.map(w => {
             const active = selectedIds.includes(w.id);
             return (
               <TouchableOpacity
                 key={w.id}
                 onPress={() => toggleMultiUser(w.id)}
-                className={`px-4 py-2.5 rounded-xl border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                className={`px-3 py-2 rounded-lg border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
               >
-                <Text className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-typography-main'}`}>
+                <Text className={`text-[10px] font-semibold ${active ? 'text-white' : 'text-typography-main'}`}>
                   {w.full_name}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
-        <Text className="text-typography-muted text-[10px] mt-3 leading-4">
+        <Text className="text-typography-muted text-[9px] mt-2 leading-4">
           Select 2 people for a head-to-head comparison, 3+ for a group table, or leave empty to compare everyone.
         </Text>
       </View>
     );
   }
 
-  if (type === 'team_comparison') {
+if (type === 'team_comparison') {
     const selectedIds: string[] = params.team_ids || [];
     return (
-      <View className="mb-8">
-        <View className="flex-row items-center mb-4">
+      <View className="mb-6">
+        <View className="flex-row items-center mb-3">
           <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">Teams</Text>
-          <Text className="text-typography-muted text-[10px]">
+          <Text className="text-typography-muted text-[9px]">
             {selectedIds.length === 0 ? 'All teams (leave empty)' : `${selectedIds.length} selected`}
           </Text>
         </View>
-        <View className="flex-row flex-wrap gap-2">
+        <View className="flex-row flex-wrap gap-1.5">
           {teams.map(t => {
             const active = selectedIds.includes(t.id);
             return (
               <TouchableOpacity
                 key={t.id}
                 onPress={() => setParam('team_ids', active ? selectedIds.filter(x => x !== t.id) : [...selectedIds, t.id])}
-                className={`px-4 py-2.5 rounded-xl border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                className={`px-3 py-2 rounded-lg border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
               >
-                <Text className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-typography-main'}`}>
+                <Text className={`text-[10px] font-semibold ${active ? 'text-white' : 'text-typography_main'}`}>
                   {t.name}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
-        <Text className="text-typography-muted text-[10px] mt-3 leading-4">
+        <Text className="text-typography-muted text-[9px] mt-2 leading-4">
           Select 2 teams for a head-to-head comparison, 3+ for a group table, or leave empty to compare all teams.
         </Text>
       </View>
@@ -680,26 +666,26 @@ function TypeParamPanel({
     );
   }
 
-  if (type === 'personnel_comparison') {
+if (type === 'personnel_comparison') {
     const selectedIds: string[] = params.user_ids || [];
     const salaries: Record<string, number> = params.salaries || {};
     return (
       <>
-        <View className="mb-8">
-          <View className="flex-row items-center mb-4">
+        <View className="mb-6">
+          <View className="flex-row items-center mb-3">
             <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">People</Text>
-            <Text className="text-typography-muted text-[10px]">{selectedIds.length} selected (min 2)</Text>
+            <Text className="text-typography-muted text-[9px]">{selectedIds.length} selected (min 2)</Text>
           </View>
-          <View className="flex-row flex-wrap gap-2">
+          <View className="flex-row flex-wrap gap-1.5">
             {workers.map(w => {
               const active = selectedIds.includes(w.id);
               return (
                 <TouchableOpacity
                   key={w.id}
                   onPress={() => toggleMultiUser(w.id)}
-                  className={`px-4 py-2.5 rounded-xl border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                  className={`px-3 py-2 rounded-lg border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
                 >
-                  <Text className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-typography-main'}`}>
+                  <Text className={`text-[10px] font-semibold ${active ? 'text-white' : 'text-typography_main'}`}>
                     {w.full_name}
                   </Text>
                 </TouchableOpacity>
@@ -709,20 +695,20 @@ function TypeParamPanel({
         </View>
 
         {selectedIds.length > 0 && (
-          <View className="mb-8">
-            <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide mb-4">Daily Rate (USD) — Optional</Text>
+          <View className="mb-6">
+            <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide mb-3">Daily Rate (USD) — Optional</Text>
             {selectedIds.map(uid => {
               const w = workers.find(x => x.id === uid);
               if (!w) return null;
               return (
-                <View key={uid} className="flex-row items-center gap-3 mb-3">
+                <View key={uid} className="flex-row items-center gap-2 mb-2">
                   <Text className="text-typography-muted text-xs font-bold flex-1" numberOfLines={1}>{w.full_name}</Text>
                   <RNTextInput
                     value={salaries[uid]?.toString() ?? ''}
                     onChangeText={v => setParam('salaries', { ...salaries, [uid]: parseFloat(v) || 0 })}
                     keyboardType="numeric"
                     placeholder="0.00"
-                    className="border border-surface-border bg-surface-background rounded-xl px-4 py-3 text-typography-main font-bold w-28 text-right"
+                    className="border border-surface-border bg-surface-background rounded-lg px-3 py-2 text-typography-main font-bold w-24 text-right"
                     placeholderTextColor={colors.textMuted}
                   />
                 </View>
@@ -734,12 +720,12 @@ function TypeParamPanel({
     );
   }
 
-  if (type === 'targets_status') {
+if (type === 'targets_status') {
     return (
-      <View className="bg-brand-primary/5 border border-brand-primary/20 p-6 rounded-3xl">
-        <View className="flex-row items-center gap-3 mb-3">
-          <FontAwesome name="bullseye" size={16} color={colors.primary} />
-          <Text className="text-typography-main font-black text-sm">Company-Wide Scope</Text>
+      <View className="bg-brand-primary/5 border border-brand-primary/20 p-4 rounded-2xl">
+        <View className="flex-row items-center gap-2 mb-2">
+          <FontAwesome name="bullseye" size={14} color={colors.primary} />
+          <Text className="text-typography_main font-black text-sm">Company-Wide Scope</Text>
         </View>
         <Text className="text-typography-muted text-xs leading-5">
           Includes all active, hit, and expired performance targets across every pipeline. No filters required.
@@ -748,12 +734,12 @@ function TypeParamPanel({
     );
   }
 
-  if (type === 'personal_pulse') {
+if (type === 'personal_pulse') {
     return (
-      <View className="bg-brand-primary/5 border border-brand-primary/20 p-6 rounded-3xl">
-        <View className="flex-row items-center gap-3 mb-3">
-          <FontAwesome name="heartbeat" size={16} color={colors.primary} />
-          <Text className="text-typography-main font-black text-sm">Your Current Session</Text>
+      <View className="bg-brand-primary/5 border border-brand-primary/20 p-4 rounded-2xl">
+        <View className="flex-row items-center gap-2 mb-2">
+          <FontAwesome name="heartbeat" size={14} color={colors.primary} />
+          <Text className="text-typography_main font-black text-sm">Your Current Session</Text>
         </View>
         <Text className="text-typography-muted text-xs leading-5">
           Captures a real-time snapshot of your daily points, monthly points, active session time, and flap rate at the moment of generation.
@@ -762,30 +748,30 @@ function TypeParamPanel({
     );
   }
 
-  if (type === 'projects') {
+if (type === 'projects') {
     const selectedIds: string[] = params.project_ids || [];
     const dateScoped = !!params.date_scoped;
     return (
-      <View className="mb-8">
-        <View className="flex-row items-center mb-4">
-          <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">Projects</Text>
-          <Text className="text-typography-muted text-[10px]">
+      <View className="mb-6">
+        <View className="flex-row items-center mb-3">
+          <Text className="text-typography_main text-xs font-semibold uppercase tracking-wide flex-1">Projects</Text>
+          <Text className="text-typography-muted text-[9px]">
             {selectedIds.length === 0 ? 'All projects (leave empty)' : `${selectedIds.length} selected`}
           </Text>
         </View>
         {projects.length === 0 ? (
           <Text className="text-typography-muted text-xs italic">No projects yet for this company.</Text>
         ) : (
-          <View className="flex-row flex-wrap gap-2">
+          <View className="flex-row flex-wrap gap-1.5">
             {projects.map(p => {
               const active = selectedIds.includes(p.id);
               return (
                 <TouchableOpacity
                   key={p.id}
                   onPress={() => setParam('project_ids', active ? selectedIds.filter((x: string) => x !== p.id) : [...selectedIds, p.id])}
-                  className={`px-4 py-2.5 rounded-xl border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
+                  className={`px-3 py-2 rounded-lg border transition-all ${active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
                 >
-                  <Text className={`text-[11px] font-semibold ${active ? 'text-white' : 'text-typography-main'}`}>
+                  <Text className={`text-[10px] font-semibold ${active ? 'text-white' : 'text-typography_main'}`}>
                     {p.name}
                   </Text>
                 </TouchableOpacity>
@@ -793,20 +779,20 @@ function TypeParamPanel({
             })}
           </View>
         )}
-        <Text className="text-typography-muted text-[10px] mt-3 leading-4">
+        <Text className="text-typography-muted text-[9px] mt-2 leading-4">
           Snapshot of lifetime project stats by default. Leave empty to include every project.
         </Text>
 
-        <View className="mt-6 flex-row items-center gap-3">
+        <View className="mt-4 flex-row items-center gap-2">
           <TouchableOpacity
             onPress={() => setParam('date_scoped', !dateScoped)}
-            className={`w-10 h-6 rounded-full p-0.5 ${dateScoped ? 'bg-brand-primary' : 'bg-surface-border'}`}
+            className={`w-9 h-5 rounded-full p-0.5 ${dateScoped ? 'bg-brand-primary' : 'bg-surface-border'}`}
           >
-            <View className={`h-5 w-5 rounded-full bg-white ${dateScoped ? 'ml-auto' : ''}`} />
+            <View className={`h-4 w-4 rounded-full bg-white ${dateScoped ? 'ml-auto' : ''}`} />
           </TouchableOpacity>
           <View className="flex-1">
-            <Text className="text-typography-main text-xs font-bold">Scope task throughput to a date range</Text>
-            <Text className="text-typography-muted text-[10px] leading-4">
+            <Text className="text-typography_main text-xs font-bold">Scope task throughput to a date range</Text>
+            <Text className="text-typography-muted text-[9px] leading-4">
               When on, the projected ETA is computed using completion rate inside the shared date range above.
             </Text>
           </View>
@@ -829,25 +815,25 @@ function SeriesControls({ periodType, nPeriods, onPeriodType, onNPeriods }: {
   const colors = useThemeColors();
   return (
     <>
-      <Text className="text-typography-muted text-[10px] font-bold uppercase mb-3 ml-1">Period Granularity</Text>
-      <View className="flex-row gap-4 mb-6">
+      <Text className="text-typography-muted text-[9px] font-bold uppercase mb-2 ml-1">Period Granularity</Text>
+      <View className="flex-row gap-3 mb-4">
         {(['week', 'month', 'year'] as const).map(p => (
           <TouchableOpacity
             key={p}
             onPress={() => onPeriodType(p)}
-            className={`flex-1 py-5 rounded-2xl border items-center transition-all ${periodType === p ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
+            className={`flex-1 py-4 rounded-xl border items-center transition-all ${periodType === p ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-background/40'}`}
           >
             <Text className={`font-semibold capitalize tracking-wide ${periodType === p ? 'text-white' : 'text-typography-main'}`}>{p}</Text>
           </TouchableOpacity>
         ))}
       </View>
-      <Text className="text-typography-muted text-[10px] font-semibold uppercase mb-2 ml-1">Number of Periods</Text>
+      <Text className="text-typography-muted text-[9px] font-semibold uppercase mb-1.5 ml-1">Number of Periods</Text>
       <RNTextInput
         value={nPeriods}
         onChangeText={onNPeriods}
         keyboardType="numeric"
         placeholder="12"
-        className="border border-surface-border bg-surface-background rounded-2xl p-5 text-typography-main font-bold mb-8"
+        className="border border-surface-border bg-surface-background rounded-xl p-4 text-typography-main font-bold mb-6"
         placeholderTextColor={colors.textMuted}
       />
     </>
@@ -859,27 +845,27 @@ function SeriesControls({ periodType, nPeriods, onPeriodType, onNPeriods }: {
 function ParameterSection({ title, options, value, onSelect, placeholder, labelKey = 'name', required = false }: any) {
   const colors = useThemeColors();
   return (
-    <View className="mb-8">
-      <View className="flex-row items-center mb-4">
+    <View className="mb-6">
+      <View className="flex-row items-center mb-3">
         <Text className="text-typography-main text-xs font-semibold uppercase tracking-wide flex-1">{title}</Text>
-        {required && <Text className="text-state-danger text-[9px] font-semibold uppercase tracking-wide">Required</Text>}
+        {required && <Text className="text-state-danger text-[8px] font-semibold uppercase tracking-wide">Required</Text>}
       </View>
-      <View className="flex-row flex-wrap gap-2">
+      <View className="flex-row flex-wrap gap-1.5">
         {!required && (
           <TouchableOpacity
             onPress={() => onSelect('')}
-            className={`px-4 py-2.5 rounded-xl border transition-all ${!value ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
+            className={`px-3 py-2 rounded-lg border transition-all ${!value ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
           >
-            <Text className={`text-[11px] font-semibold ${!value ? 'text-white' : 'text-typography-muted'}`}>{placeholder}</Text>
+            <Text className={`text-[10px] font-semibold ${!value ? 'text-white' : 'text-typography-muted'}`}>{placeholder}</Text>
           </TouchableOpacity>
         )}
         {options.map((opt: any) => (
           <TouchableOpacity
             key={opt.id}
             onPress={() => onSelect(opt.id)}
-            className={`px-4 py-2.5 rounded-xl border transition-all ${value === opt.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
+            className={`px-3 py-2 rounded-lg border transition-all ${value === opt.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border hover:bg-surface-overlay'}`}
           >
-            <Text className={`text-[11px] font-semibold ${value === opt.id ? 'text-white' : 'text-typography-main'}`}>{opt[labelKey]}</Text>
+            <Text className={`text-[10px] font-semibold ${value === opt.id ? 'text-white' : 'text-typography-main'}`}>{opt[labelKey]}</Text>
           </TouchableOpacity>
         ))}
       </View>

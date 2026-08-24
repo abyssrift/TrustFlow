@@ -26,15 +26,15 @@ const BRAND_DIM = 'rgba(99,102,241,0.15)';
 
 function GenerationProgress({ current, total, elapsed }: { current: number; total: number; elapsed: number }) {
   const colors = useThemeColors();
-  const size = 110;
-  const stroke = 8;
+  const size = 88;
+  const stroke = 6;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const pct = total > 0 ? current / total : 0;
   const eta = current > 1 && elapsed > 1 ? Math.round((elapsed / current) * (total - current)) : null;
 
   return (
-    <View style={{ alignItems: 'center', gap: 4 }}>
+    <View style={{ alignItems: 'center', gap: 3 }}>
       <View style={{ width: size, height: size }}>
         <Svg width={size} height={size}>
           <Circle cx={size / 2} cy={size / 2} r={r} stroke={BRAND_DIM} strokeWidth={stroke} fill="none" />
@@ -46,17 +46,17 @@ function GenerationProgress({ current, total, elapsed }: { current: number; tota
           />
         </Svg>
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: 'white', fontWeight: '900', fontSize: 18, fontVariant: ['tabular-nums'] }}>
+          <Text style={{ color: 'white', fontWeight: '900', fontSize: 14, fontVariant: ['tabular-nums'] }}>
             {current}/{total}
           </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2 }}>reports</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 8, marginTop: 1 }}>reports</Text>
         </View>
       </View>
-      <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
+      <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 10, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
         {formatStopwatch(elapsed)}
       </Text>
       {eta !== null && eta > 0 ? (
-        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>~{formatStopwatch(eta)} remaining</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 8 }}>~{formatStopwatch(eta)} remaining</Text>
       ) : null}
     </View>
   );
@@ -317,45 +317,45 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const isMulti = selectedTypes.length > 1;
 
   const content = (
-    <View className={isPage ? 'flex-1 bg-surface-background' : 'w-full max-w-2xl h-[90%] bg-surface-background rounded-[32px] border border-surface-border overflow-hidden premium-shadow glass-card'}>
+    <View className={isPage ? 'flex-1 bg-surface-background' : 'w-full max-w-2xl h-[90%] bg-surface-background rounded-2xl border border-surface-border overflow-hidden premium-shadow glass-card'}>
 
       {/* Header */}
-      <View className={`px-6 py-5 border-b border-surface-border flex-row items-center justify-between ${isPage ? 'bg-surface-card' : 'bg-surface-card/50'}`}>
+      <View className={`px-5 py-4 border-b border-surface-border flex-row items-center justify-between ${isPage ? 'bg-surface-card' : 'bg-surface-card/50'}`}>
         <View className="flex-row items-center min-w-0 flex-1">
           {isPage && <BackButton label="" fallbackHref="/intelligence" />}
-          <View className="h-10 w-1 rounded-full bg-brand-primary mr-4" />
+          <View className="h-8 w-1 rounded-full bg-brand-primary mr-3" />
           <View className="flex-1 min-w-0">
-            <Text className="text-lg font-black uppercase tracking-widest text-typography-main">Report Architect</Text>
-            <Text className="text-[10px] font-bold text-brand-primary uppercase tracking-tighter">
+            <Text className="text-base font-black uppercase tracking-widest text-typography-main">Report Architect</Text>
+            <Text className="text-[9px] font-bold text-brand-primary uppercase tracking-tighter">
               {isMulti ? `${selectedTypes.length} Reports Combined` : 'Intelligence Engine'}
             </Text>
           </View>
         </View>
         {!isPage && (
           <Tooltip label="Close" side="bottom">
-            <Pressable onPress={onClose} className="h-10 w-10 items-center justify-center rounded-full bg-surface-background border border-surface-border active:scale-90">
-              <FontAwesome name="times" size={16} color={colors.primary} />
+            <Pressable onPress={onClose} className="h-9 w-9 items-center justify-center rounded-full bg-surface-background border border-surface-border active:scale-90">
+              <FontAwesome name="times" size={14} color={colors.primary} />
             </Pressable>
           </Tooltip>
         )}
       </View>
 
-      <ScrollView className="flex-1 p-6" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
         {pipelines.length === 0 ? (
-          <View className="py-10">
-            <View className="bg-surface-card p-8 rounded-[2rem] border border-surface-border items-center">
-              <View className="w-16 h-16 bg-brand-primary/10 rounded-full items-center justify-center mb-6">
-                <FontAwesome name="file-text-o" size={24} color={colors.primary} />
+          <View className="py-8">
+            <View className="bg-surface-card p-6 rounded-2xl border border-surface-border items-center">
+              <View className="w-12 h-12 bg-brand-primary/10 rounded-full items-center justify-center mb-4">
+                <FontAwesome name="file-text-o" size={20} color={colors.primary} />
               </View>
               {hasPermission('pipeline.edit') ? (
                 <>
-                  <Text className="text-typography-main text-2xl font-black mb-2 text-center">Setup Required</Text>
-                  <Text className="text-typography-muted text-center mb-8 leading-relaxed text-sm">No pipelines detected.</Text>
+                  <Text className="text-typography-main text-xl font-black mb-2 text-center">Setup Required</Text>
+                  <Text className="text-typography-muted text-center mb-6 leading-relaxed text-sm">No pipelines detected.</Text>
                 </>
               ) : (
-                <View className="bg-state-info-dim border border-state-info/20 p-6 rounded-2xl w-full">
-                  <Text className="text-typography-main text-base font-black mb-1">Access Restricted</Text>
-                  <Text className="text-typography-muted text-xs font-bold leading-relaxed">Contact company Admin.</Text>
+                <View className="bg-state-info-dim border border-state-info/20 p-4 rounded-xl w-full">
+                  <Text className="text-typography-main text-sm font-black mb-1">Access Restricted</Text>
+                  <Text className="text-typography-muted text-[10px] font-bold leading-relaxed">Contact company Admin.</Text>
                 </View>
               )}
             </View>
@@ -363,24 +363,24 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
         ) : (
           <>
             {genError && (
-              <View className="bg-state-danger/10 border border-state-danger/30 rounded-2xl px-5 py-4 mb-5 flex-row items-center gap-3">
-                <FontAwesome name="exclamation-circle" size={16} color={colors.danger} />
+              <View className="bg-state-danger/10 border border-state-danger/30 rounded-xl px-4 py-3 mb-4 flex-row items-center gap-2">
+                <FontAwesome name="exclamation-circle" size={14} color={colors.danger} />
                 <Text className="text-state-danger font-bold flex-1 text-sm">{genError}</Text>
                 <Tooltip label="Dismiss" side="bottom">
                   <TouchableOpacity onPress={() => setGenError(null)}>
-                    <FontAwesome name="times" size={14} color={colors.danger} />
+                    <FontAwesome name="times" size={12} color={colors.danger} />
                   </TouchableOpacity>
                 </Tooltip>
               </View>
             )}
 
             {/* ── Type Selector (multi-select) ── */}
-            <View className="mb-6">
-              <View className="flex-row items-center justify-between mb-3">
-                <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted">Standard Reports</Text>
+            <View className="mb-5">
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-[9px] font-black uppercase tracking-[0.2em] text-typography-muted">Standard Reports</Text>
                 {isMulti && (
-                  <View className="bg-brand-primary/10 border border-brand-primary/20 px-2.5 py-1 rounded-full">
-                    <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">{selectedTypes.length} selected</Text>
+                  <View className="bg-brand-primary/10 border border-brand-primary/20 px-2 py-0.5 rounded-full">
+                    <Text className="text-brand-primary text-[7px] font-black uppercase tracking-widest">{selectedTypes.length} selected</Text>
                   </View>
                 )}
               </View>
@@ -388,10 +388,10 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                 <TypeCard key={opt.value} opt={opt} selected={selectedTypes.includes(opt.value)} onPress={() => toggleType(opt.value)} />
               ))}
               
-              <View className="flex-row items-center gap-3 mt-5 mb-3">
-                <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted">Analytics Engine</Text>
-                <View className="bg-brand-primary/10 px-2 py-0.5 rounded-full">
-                  <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">New</Text>
+              <View className="flex-row items-center gap-2 mt-4 mb-2">
+                <Text className="text-[9px] font-black uppercase tracking-[0.2em] text-typography-muted">Analytics Engine</Text>
+                <View className="bg-brand-primary/10 px-1.5 py-0.5 rounded-full">
+                  <Text className="text-brand-primary text-[7px] font-black uppercase tracking-widest">New</Text>
                 </View>
               </View>
               {REPORT_TYPES.filter(t => t.group === 'analytics').map(opt => (
@@ -399,20 +399,20 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
               ))}
             </View>
 
-            <View className="h-px bg-surface-border mb-6" />
+            <View className="h-px bg-surface-border mb-5" />
 
             {/* ── Shared Temporal Scope ── */}
             {needsDateRange && (
               <>
-                <View className="mb-6">
-                  <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-3">Temporal Scope</Text>
-                  <View className="flex-row gap-2 mb-3">
+                <View className="mb-5">
+                  <Text className="text-[9px] font-black uppercase tracking-[0.2em] text-typography-muted mb-2">Temporal Scope</Text>
+                  <View className="flex-row gap-2 mb-2">
                     {(['7', '30', '90'] as const).map(d => (
-                      <Pressable key={d} onPress={() => setTimeFrame(d)} className={`flex-1 py-3 rounded-xl border items-center ${timeFrame === d ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-card'}`}>
+                      <Pressable key={d} onPress={() => setTimeFrame(d)} className={`flex-1 py-2.5 rounded-lg border items-center ${timeFrame === d ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-card'}`}>
                         <Text className={`font-bold ${timeFrame === d ? 'text-white' : 'text-typography-main'}`}>{d}D</Text>
                       </Pressable>
                     ))}
-                    <Pressable onPress={() => setTimeFrame('custom')} className={`flex-1 py-3 rounded-xl border items-center ${timeFrame === 'custom' ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-card'}`}>
+                    <Pressable onPress={() => setTimeFrame('custom')} className={`flex-1 py-2.5 rounded-lg border items-center ${timeFrame === 'custom' ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-card'}`}>
                       <Text className={`font-bold ${timeFrame === 'custom' ? 'text-white' : 'text-typography-main'}`}>Custom</Text>
                     </Pressable>
                   </View>
@@ -426,7 +426,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
                     </View>
                   )}
                 </View>
-                <View className="h-px bg-surface-border mb-6" />
+                <View className="h-px bg-surface-border mb-5" />
               </>
             )}
 
@@ -434,13 +434,13 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
             {selectedTypes.map((type, idx) => {
               const meta = REPORT_TYPES.find(r => r.value === type)!;
               return (
-                <View key={type} className={idx > 0 ? 'mt-6 pt-6 border-t border-surface-border' : ''}>
+                <View key={type} className={idx > 0 ? 'mt-5 pt-5 border-t border-surface-border' : ''}>
                   {isMulti && (
-                    <View className="flex-row items-center gap-2 mb-4">
-                      <View className="w-5 h-5 bg-brand-primary rounded-md items-center justify-center">
-                        <FontAwesome name={meta.icon as any} size={9} color="white" />
+                    <View className="flex-row items-center gap-2 mb-3">
+                      <View className="w-4 h-4 bg-brand-primary rounded-sm items-center justify-center">
+                        <FontAwesome name={meta.icon as any} size={8} color="white" />
                       </View>
-                      <Text className="text-[10px] font-black uppercase tracking-[0.15em] text-brand-primary">{meta.label}</Text>
+                      <Text className="text-[9px] font-black uppercase tracking-[0.15em] text-brand-primary">{meta.label}</Text>
                     </View>
                   )}
                   <TypeParamPanel
@@ -463,33 +463,33 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
 
       {/* Leave warning */}
       {loading && (
-        <View className="mx-6 mb-0 mt-2 bg-state-warning/10 border border-state-warning/30 rounded-2xl px-5 py-3 flex-row items-center gap-3">
-          <FontAwesome name="exclamation-triangle" size={13} color={colors.warning} />
-          <Text className="text-state-warning font-semibold text-xs flex-1">
+        <View className="mx-4 my-2 bg-state-warning/10 border border-state-warning/30 rounded-xl px-4 py-2.5 flex-row items-center gap-2">
+          <FontAwesome name="exclamation-triangle" size={11} color={colors.warning} />
+          <Text className="text-state-warning font-semibold text-[10px] flex-1">
             Don't close this — reports are being generated. Leaving will cancel the remaining jobs.
           </Text>
         </View>
       )}
 
       {/* Footer */}
-      <View className={`px-6 py-6 border-t border-surface-border ${isPage ? 'bg-surface-card pb-12' : 'bg-surface-card/50'} ${loading && genProgress ? 'items-center' : 'flex-row flex-wrap gap-4'}`}>
+      <View className={`px-4 py-4 border-t border-surface-border ${isPage ? 'bg-surface-card pb-8' : 'bg-surface-card/50'} ${loading && genProgress ? 'items-center' : 'flex-row flex-wrap gap-3'}`}>
         {loading && genProgress ? (
           <GenerationProgress current={genProgress.current} total={genProgress.total} elapsed={elapsed} />
         ) : (
           <>
             {!isPage && (
-              <Pressable onPress={onClose} disabled={loading} className="flex-1 min-w-[120px] py-4 rounded-2xl border border-surface-border bg-surface-background items-center">
-                <Text className="text-typography-muted font-bold">Discard</Text>
+              <Pressable onPress={onClose} disabled={loading} className="flex-1 min-w-[100px] py-3 rounded-xl border border-surface-border bg-surface-background items-center">
+                <Text className="text-typography-muted font-bold text-sm">Discard</Text>
               </Pressable>
             )}
             <Pressable
               onPress={handleGenerateReport}
               disabled={loading || pipelines.length === 0}
-              className={`${isPage ? 'flex-1' : 'flex-[1.5]'} min-w-[160px] py-4 rounded-2xl items-center ${pipelines.length === 0 ? 'bg-surface-border' : 'bg-brand-primary active:scale-95 shadow-lg shadow-brand-primary/20'}`}
+              className={`${isPage ? 'flex-1' : 'flex-[1.5]'} min-w-[140px] py-3 rounded-xl items-center ${pipelines.length === 0 ? 'bg-surface-border' : 'bg-brand-primary active:scale-95 shadow-lg shadow-brand-primary/20'}`}
             >
               <View className="flex-row items-center">
-                <FontAwesome name="bolt" size={14} color="white" style={{ marginRight: 8 }} />
-                <Text className="text-white font-black uppercase tracking-widest text-xs">
+                <FontAwesome name="bolt" size={12} color="white" style={{ marginRight: 6 }} />
+                <Text className="text-white font-black uppercase tracking-widest text-[10px]">
                   {isMulti ? `Execute ${selectedTypes.length} Reports` : 'Execute Generation'}
                 </Text>
               </View>
@@ -516,17 +516,17 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
 function TypeCard({ opt, selected, onPress }: { opt: typeof REPORT_TYPES[number]; selected: boolean; onPress: () => void }) {
   const colors = useThemeColors();
   return (
-    <Pressable onPress={onPress} className={`p-4 mb-3 rounded-2xl border flex-row items-center ${selected ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-card active:bg-surface-overlay'}`}>
-      <View className={`h-10 w-10 items-center justify-center rounded-xl ${selected ? 'bg-brand-primary' : 'bg-surface-background'}`}>
-        <FontAwesome name={opt.icon as any} size={16} color={selected ? 'white' : 'rgb(var(--brand-accent) / 0.5)'} />
+    <Pressable onPress={onPress} className={`p-3 mb-2.5 rounded-xl border flex-row items-center ${selected ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-card active:bg-surface-overlay'}`}>
+      <View className={`h-8 w-8 items-center justify-center rounded-lg ${selected ? 'bg-brand-primary' : 'bg-surface-background'}`}>
+        <FontAwesome name={opt.icon as any} size={14} color={selected ? 'white' : 'rgb(var(--brand-accent) / 0.5)'} />
       </View>
-      <View className="ml-4 flex-1">
-        <Text className={`font-bold ${selected ? 'text-brand-primary' : 'text-typography-main'}`}>{opt.label}</Text>
-        <Text className="text-xs text-typography-muted mt-0.5" numberOfLines={1}>{opt.desc}</Text>
+      <View className="ml-3 flex-1">
+        <Text className={`font-bold text-sm ${selected ? 'text-brand-primary' : 'text-typography-main'}`}>{opt.label}</Text>
+        <Text className="text-[10px] text-typography-muted mt-0.5" numberOfLines={1}>{opt.desc}</Text>
       </View>
       {/* Checkbox indicator */}
-      <View className={`h-7 w-7 rounded-full border-2 items-center justify-center ${selected ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
-        {selected && <FontAwesome name="check" size={10} color="white" />}
+      <View className={`h-6 w-6 rounded-full border-2 items-center justify-center ${selected ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
+        {selected && <FontAwesome name="check" size={9} color="white" />}
       </View>
     </Pressable>
   );
@@ -774,17 +774,17 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
 function ChipRow({ label, options, value, onSelect, placeholder, labelKey = 'name' }: any) {
   const colors = useThemeColors();
   return (
-    <View className="mb-4">
-      <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-2">{label}</Text>
+    <View className="mb-3">
+      <Text className="text-[9px] font-black uppercase tracking-[0.2em] text-typography-muted mb-1.5">{label}</Text>
       <HorizontalScroll>
         {placeholder && (
-          <Pressable onPress={() => onSelect('')} className={`px-4 py-2 mr-2 rounded-xl border ${!value ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-card'}`}>
-            <Text className={`text-xs font-bold ${!value ? 'text-white' : 'text-typography-main'}`}>{placeholder}</Text>
+          <Pressable onPress={() => onSelect('')} className={`px-3 py-1.5 mr-2 rounded-lg border ${!value ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-card'}`}>
+            <Text className={`text-[10px] font-bold ${!value ? 'text-white' : 'text-typography-main'}`}>{placeholder}</Text>
           </Pressable>
         )}
         {options.map((opt: any) => (
-          <Pressable key={opt.id} onPress={() => onSelect(opt.id)} className={`px-4 py-2 mr-2 rounded-xl border ${value === opt.id ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-card'}`}>
-            <Text className={`text-xs font-bold ${value === opt.id ? 'text-white' : 'text-typography-muted'}`}>{opt[labelKey]}</Text>
+          <Pressable key={opt.id} onPress={() => onSelect(opt.id)} className={`px-3 py-1.5 mr-2 rounded-lg border ${value === opt.id ? 'border-brand-primary bg-brand-primary' : 'border-surface-border bg-surface-card'}`}>
+            <Text className={`text-[10px] font-bold ${value === opt.id ? 'text-white' : 'text-typography-muted'}`}>{opt[labelKey]}</Text>
           </Pressable>
         ))}
       </HorizontalScroll>
