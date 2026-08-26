@@ -1,5 +1,5 @@
 import HorizontalScroll from '@/components/common/HorizontalScroll';
-import AutomationEditor from '@/components/pipeline-editor/AutomationEditor';
+import AutomationsSection from '@/components/pipeline-editor/AutomationsSection';
 import HandshakeEditor from '@/components/pipeline-editor/HandshakeEditor';
 import PipelineList from '@/components/pipeline-editor/PipelineList';
 import StageBuilder from '@/components/pipeline-editor/StageBuilder';
@@ -135,7 +135,7 @@ function PipelineEditorInner() {
         <View className="flex-1" style={Platform.OS === 'web' ? ({ overflow: 'auto', display: 'flex', flexDirection: 'column' } as any) : {}}>
           {activeSection === 'stages' && <StageBuilder />}
           {activeSection === 'transitions' && <TransitionEditor />}
-          {activeSection === 'automations' && <AutomationEditor />}
+          {activeSection === 'automations' && <AutomationsSection />}
           {activeSection === 'handshakes' && <HandshakeEditor />}
           {activeSection === 'subpipelines' && <SubpipelineEditor />}
         </View>

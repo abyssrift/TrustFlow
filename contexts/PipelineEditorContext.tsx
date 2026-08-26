@@ -136,6 +136,31 @@ export type Automation = {
   params?: Record<string, string>;
 };
 
+/** Issue #284 -- a rule promoting a finished task's output into a FileHub folder. */
+export type HarvestRule = {
+  id: string;
+  pipeline_id: string;
+  /** NULL means "any stage" -- only meaningful for stage_terminal_success. */
+  source_stage_id: string | null;
+  condition_type: 'stage_entry' | 'stage_terminal_success';
+  /** NULL means "resolve dynamically to the harvesting task's own project deliverable folder" -- an explicit override, not the default path. */
+  destination_folder_id: string | null;
+  is_active: boolean;
+  priority: number;
+  check_interval_minutes: number;
+  last_run_at: string | null;
+  created_at: string;
+};
+
+/** A folder available as an explicit harvest destination -- any company folder, not scoped to direct/broadcast/group like FileHubContext's `folders`. */
+export type HarvestDestinationFolder = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  scope: string;
+  group_id: string | null;
+};
+
 /** A workspace role (dynamic cluster of permissions) */
 export type Role = {
   id: string;
@@ -155,7 +180,7 @@ export type PermissionItem = {
 /** @deprecated Use Role instead */
 export type Permission = Role;
 
-type EditorSection = 'list' | 'stages' | 'transitions' | 'automations' | 'handshakes' | 'settings' | 'subpipelines';
+type EditorSection = 'list' | 'stages' | 'transitions' | 'automations' | 'harvest' | 'handshakes' | 'settings' | 'subpipelines';
 
 type PipelineEditorState = {
   // Data
@@ -164,6 +189,9 @@ type PipelineEditorState = {
   stages: Stage[];
   transitions: Transition[];
   automations: Automation[];
+  harvestRules: HarvestRule[];
+  /** Company-wide folder list for the harvest destination picker (any scope, not just direct/broadcast/group). */
+  harvestFolders: HarvestDestinationFolder[];
   linkedOutcomes: LinkedOutcome[];
   stageActions: StageAction[];
   /** All workspace roles available for pipeline visibility assignment */
@@ -226,6 +254,23 @@ type PipelineEditorState = {
   createAutomation: (args: any) => Promise<string | null>;
   updateAutomation: (id: string, args: any) => Promise<boolean>;
   deleteAutomation: (id: string) => Promise<boolean>;
+  // Harvest Rule CRUD (#284)
+  createHarvestRule: (args: {
+    condition_type: 'stage_entry' | 'stage_terminal_success';
+    source_stage_id?: string | null;
+    destination_folder_id?: string | null;
+    check_interval_minutes?: number;
+  }) => Promise<string | null>;
+  updateHarvestRule: (id: string, args: {
+    condition_type?: 'stage_entry' | 'stage_terminal_success';
+    source_stage_id?: string | null;
+    destination_folder_id?: string | null;
+    check_interval_minutes?: number;
+    is_active?: boolean;
+  }) => Promise<boolean>;
+  deleteHarvestRule: (id: string) => Promise<boolean>;
+  /** Returns the number of tasks the backfill pass touched, or null on failure. */
+  backfillHarvestRule: (id: string) => Promise<number | null>;
   // Handshake CRUD
   upsertLinkedOutcome: (parent: string, child: string, target: string) => Promise<string | null>;
   deleteLinkedOutcome: (id: string) => Promise<boolean>;
@@ -256,6 +301,8 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
   const [stages, setStages] = useState<Stage[]>([]);
   const [transitions, setTransitions] = useState<Transition[]>([]);
   const [automations, setAutomations] = useState<Automation[]>([]);
+  const [harvestRules, setHarvestRules] = useState<HarvestRule[]>([]);
+  const [harvestFolders, setHarvestFolders] = useState<HarvestDestinationFolder[]>([]);
   const [linkedOutcomes, setLinkedOutcomes] = useState<LinkedOutcome[]>([]);
   const [stageActions, setStageActions] = useState<StageAction[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -375,6 +422,14 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         setAutomations([]);
       }
 
+      // Harvest rules (#284)
+      const { data: harvests } = await supabase
+        .from('harvest_rules')
+        .select('*')
+        .eq('pipeline_id', selectedPipeline.id)
+        .order('created_at');
+      setHarvestRules(harvests || []);
+
       // Assignment pool
       const { data: pool } = await supabase
         .from('pipeline_assignment_pool')
@@ -438,6 +493,19 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     fetchCompanyTeams();
   }, []);
 
+  // ── Fetch company folders (for the harvest destination folder picker, #284) ──
+  useEffect(() => {
+    const fetchHarvestFolders = async () => {
+      const { data } = await supabase
+        .from('filehub_folders')
+        .select('id, name, parent_id, scope, group_id')
+        .is('deleted_at', null)
+        .order('name');
+      setHarvestFolders((data as HarvestDestinationFolder[]) || []);
+    };
+    fetchHarvestFolders();
+  }, []);
+
   // ── Restore selected pipeline from storage ──
   useEffect(() => {
     if (pipelines.length > 0 && !selectedPipeline) {
@@ -499,6 +567,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     setStages([]);
     setTransitions([]);
     setAutomations([]);
+    setHarvestRules([]);
     setLinkedOutcomes([]);
     setStageActions([]);
     setAssignmentPoolState([]);
@@ -1135,6 +1204,108 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshPipelineData, infoToast, errorToast]);
 
+  // ═══ Harvest Rule CRUD (#284) ═══
+  const createHarvestRule = useCallback(async (args: {
+    condition_type: 'stage_entry' | 'stage_terminal_success';
+    source_stage_id?: string | null;
+    destination_folder_id?: string | null;
+    check_interval_minutes?: number;
+  }): Promise<string | null> => {
+    if (!selectedPipeline) return null;
+    setLoading(true);
+    try {
+      const { data, error: e } = await supabase.rpc('rpc_create_harvest_rule', {
+        p_pipeline_id: selectedPipeline.id,
+        p_condition_type: args.condition_type,
+        p_source_stage_id: args.source_stage_id ?? null,
+        p_destination_folder_id: args.destination_folder_id ?? null,
+        p_check_interval_minutes: args.check_interval_minutes ?? 60,
+      });
+      if (e) throw e;
+      await refreshPipelineData();
+      successToast('Harvest rule created.');
+      return data;
+    } catch (e: any) {
+      setError(e.message);
+      errorToast(e.message || 'Unable to create harvest rule.');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedPipeline, refreshPipelineData, successToast, errorToast]);
+
+  const updateHarvestRule = useCallback(async (id: string, args: {
+    condition_type?: 'stage_entry' | 'stage_terminal_success';
+    source_stage_id?: string | null;
+    destination_folder_id?: string | null;
+    check_interval_minutes?: number;
+    is_active?: boolean;
+  }): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const { error: e } = await supabase.rpc('rpc_update_harvest_rule', {
+        p_rule_id: id,
+        p_condition_type: args.condition_type ?? null,
+        p_source_stage_id: args.source_stage_id ?? null,
+        p_destination_folder_id: args.destination_folder_id ?? null,
+        p_check_interval_minutes: args.check_interval_minutes ?? null,
+        p_is_active: args.is_active ?? null,
+      });
+      if (e) throw e;
+      await refreshPipelineData();
+      successToast('Harvest rule updated.');
+      return true;
+    } catch (e: any) {
+      setError(e.message);
+      errorToast(e.message || 'Unable to update harvest rule.');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshPipelineData, successToast, errorToast]);
+
+  const deleteHarvestRule = useCallback(async (id: string): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const { error: e } = await supabase.rpc('rpc_delete_harvest_rule', {
+        p_rule_id: id,
+      });
+      if (e) throw e;
+      await refreshPipelineData();
+      infoToast('Harvest rule deleted.');
+      return true;
+    } catch (e: any) {
+      setError(e.message);
+      errorToast(e.message || 'Unable to delete harvest rule.');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshPipelineData, infoToast, errorToast]);
+
+  const backfillHarvestRule = useCallback(async (id: string): Promise<number | null> => {
+    setLoading(true);
+    try {
+      const { data, error: e } = await supabase.rpc('rpc_backfill_harvest_rule', {
+        p_rule_id: id,
+      });
+      if (e) throw e;
+      const count = (data as number) ?? 0;
+      successToast(
+        count > 0
+          ? `Backfill complete: ${count} task${count === 1 ? '' : 's'} processed.`
+          : 'Backfill complete: nothing new to harvest.'
+      );
+      return count;
+    } catch (e: any) {
+      setError(e.message);
+      errorToast(e.message || 'Unable to run backfill.');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [successToast, errorToast]);
+
   // ═══ Action CRUD ═══
   const addStageAction = useCallback(async (args: Partial<StageAction>): Promise<string | null> => {
     setLoading(true);
@@ -1241,6 +1412,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
     <PipelineEditorContext.Provider
       value={{
         pipelines, selectedPipeline, stages, transitions, automations, roles,
+        harvestRules, harvestFolders,
         error, loading, activeSection, isOperationInFlight,
         setActiveSection, selectPipeline, deselectPipeline, refreshPipelines, refreshPipelineData,
         clearError,
@@ -1268,6 +1440,7 @@ export function PipelineEditorProvider({ children }: { children: ReactNode }) {
         addStage, updateStage, updateStagePosition, deleteStage, reorderStages,
         addTransition, updateTransition, deleteTransition,
         createAutomation, updateAutomation, deleteAutomation,
+        createHarvestRule, updateHarvestRule, deleteHarvestRule, backfillHarvestRule,
         addStageAction, updateStageAction, deleteStageAction, reorderStageActions,
         upsertLinkedOutcome: async (p, c, t) => {
           setLoading(true);

@@ -23,7 +23,7 @@ const TRANSITION_PRESETS = [
 // Core components
 import StageBuilder from '@/components/pipeline-editor/StageBuilder.web';
 import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
-import AutomationEditor from '@/components/pipeline-editor/AutomationEditor';
+import AutomationsSection from '@/components/pipeline-editor/AutomationsSection';
 import HandshakeEditor from '@/components/pipeline-editor/HandshakeEditor';
 import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
 import PipelineSettingsForm from '@/components/pipeline-editor/PipelineSettingsForm';
@@ -101,7 +101,7 @@ function PipelinesWebInner() {
     switch (activeSection) {
       case 'stages': return <StageBuilder />;
       case 'transitions': return <TransitionEditor />;
-      case 'automations': return <AutomationEditor />;
+      case 'automations': return <AutomationsSection />;
       case 'handshakes': return <HandshakeEditor />;
       case 'subpipelines':
         return (
