@@ -25,7 +25,6 @@ const NAV: NavItem[] = [
   { href: '/intelligence/targets',           label: 'Targets',          icon: 'bullseye',    permission: 'target.view' },
   { href: '/intelligence/reports',           label: 'Reports',          icon: 'file-pdf-o',  permission: 'report.view',    planFeature: 'reports' },
   { href: '/intelligence/analytics',         label: 'Analytics',        icon: 'bar-chart',   permission: 'analytics.view' },
-  { href: '/intelligence/ReportGenerator',   label: 'Report Architect', icon: 'magic',       permission: 'report.view',    planFeature: 'reports' },
   { href: '/intelligence/archives',          label: 'Cold Storage',     icon: 'archive',     permission: 'archive.view' },
 ];
 

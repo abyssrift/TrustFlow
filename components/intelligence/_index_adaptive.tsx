@@ -1,5 +1,6 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import Popup from '@/components/common/Popup';
+import ReportGeneratorAdaptive from '@/components/intelligence/_ReportGenerator_adaptive';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import ProjectLens from '@/components/intelligence/ProjectLens';
@@ -682,6 +683,7 @@ export default function IntelligenceScreen() {
   const [activeSection, setActiveSection] = useState((section as string) || 'radar');
   const [loading, setLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showArchitect, setShowArchitect] = useState(false);
   // Core Data State
   const [data, setData] = useState<any>(null);
   const [reports, setReports] = useState<any[]>([]);
@@ -920,7 +922,7 @@ export default function IntelligenceScreen() {
             <ArchivesSection
               reports={reports}
               onDownload={handleDownloadReport}
-              onNew={() => router.push('/intelligence/ReportGenerator')}
+              onNew={() => setShowArchitect(true)}
               coldArchives={coldArchives}
               activeSchema={activeSchema}
               currentSubSection={archiveSection}
@@ -941,6 +943,12 @@ export default function IntelligenceScreen() {
         teams={teams}
         users={users}
         initialDays={days}
+      />
+
+      <ReportGeneratorAdaptive
+        visible={showArchitect}
+        onClose={() => setShowArchitect(false)}
+        onReportGenerated={fetchReports}
       />
 
       <WidgetConfigModal
