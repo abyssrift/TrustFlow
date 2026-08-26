@@ -23,11 +23,14 @@ export function useProjectFolderForm({
   project,
   onSuccess,
   onClose,
+  portfolioId,
 }: {
   visible: boolean;
   project?: ProjectFolderProject;
   onSuccess: () => void;
   onClose: () => void;
+  /** Attach a newly created project to this portfolio (ignored on edit). */
+  portfolioId?: string;
 }) {
   const { showAlert } = useAlert();
   const { successToast, errorToast, warningToast } = useToast();
@@ -83,6 +86,7 @@ export function useProjectFolderForm({
           p_description: projectData.description,
           p_expiry_date: projectData.expiry_date,
           p_status: projectData.status,
+          p_portfolio_id: portfolioId ?? null,
         });
         error = rpcError;
       }

@@ -93,7 +93,8 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
     );
   }
 
-  // See _projects_desktop.tsx for why a scoped screen hides the create doors.
+  // See _projects_desktop.tsx — create actions all take portfolioId now, so
+  // a scoped screen gets the same three doors as the unscoped header.
   const scoped = !!portfolioId;
 
   const headerInset = isWeb
@@ -107,6 +108,47 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
           <PortfolioScopeHeader
             portfolioId={portfolioId!}
             onAllProjects={() => router.push('/(tabs)/projects' as any)}
+            actions={
+              <>
+                <Tooltip label="Templates">
+                  <TouchableOpacity
+                    onPress={() => router.push('/projects/templates' as any)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Templates"
+                    className="bg-surface-card border border-surface-border rounded-xl items-center justify-center"
+                    style={{ width: 40, height: 40 }}
+                  >
+                    <FontAwesome name="list-alt" size={14} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
+
+                {(canCreate || canManageFields) && (
+                  <Tooltip label="Add several, or manage custom fields">
+                    <TouchableOpacity
+                      onPress={() => setAddMenuVisible(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="More project tools"
+                      className="bg-surface-card border border-surface-border rounded-xl items-center justify-center"
+                      style={{ width: 40, height: 40 }}
+                    >
+                      <FontAwesome name="th-list" size={14} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </Tooltip>
+                )}
+
+                <Tooltip label={canCreate ? 'Create a project in this portfolio' : 'You need the “create projects” permission'}>
+                  <TouchableOpacity
+                    onPress={() => canCreate ? setModalVisible(true) : showAlert('Not allowed', 'You need the “create projects” permission. An owner can grant it from Settings → Roles.')}
+                    accessibilityRole="button"
+                    accessibilityLabel="New project"
+                    className="bg-brand-primary rounded-xl items-center justify-center"
+                    style={{ width: 40, height: 40, opacity: canCreate ? 1 : 0.45 }}
+                  >
+                    <FontAwesome name="plus" size={14} color="white" />
+                  </TouchableOpacity>
+                </Tooltip>
+              </>
+            }
           />
         </View>
       ) : (
@@ -191,8 +233,8 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
             refreshKey={tableRefreshKey}
             portfolioId={portfolioId ?? null}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-            onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
-            onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
+            onBrowseStarters={canCreate ? () => setBulkCreateVisible(true) : undefined}
+            onCreateProject={canCreate ? () => setModalVisible(true) : undefined}
           />
         </ScrollView>
       ) : view === 'timeline' ? (
@@ -204,8 +246,8 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
             refreshKey={tableRefreshKey}
             portfolioId={portfolioId ?? null}
             onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-            onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
-            onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
+            onBrowseStarters={canCreate ? () => setBulkCreateVisible(true) : undefined}
+            onCreateProject={canCreate ? () => setModalVisible(true) : undefined}
           />
         </ScrollView>
       ) : (
@@ -285,6 +327,7 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSuccess={bumpTable}
+        portfolioId={portfolioId}
       />
 
       <BulkCreateProjectsSheet
@@ -294,6 +337,7 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
           showAlert('Projects created', `${res.projects_created} projects and ${res.tasks_created} tasks are ready.`);
           bumpTable();
         }}
+        portfolioId={portfolioId}
       />
 
       <SpreadsheetImportSheet
@@ -303,6 +347,7 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
           showAlert('Import finished', `${res.projects_created} projects and ${res.tasks_created} tasks are ready.`);
           bumpTable();
         }}
+        portfolioId={portfolioId}
       />
 
       <ManageProjectFieldsPopup

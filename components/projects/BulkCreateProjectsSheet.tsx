@@ -305,6 +305,7 @@ function PastDatesNotice({
 export default function BulkCreateProjectsSheet({
   visible, onClose, onCreated,
   initialRows, initialPortfolioName, initialSource, initialIdempotencyKey, initialSourceFile,
+  portfolioId,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -322,6 +323,11 @@ export default function BulkCreateProjectsSheet({
   // 'broadcast', a get-or-create folder) AFTER a successful create — evidence
   // trail per plan §15.3, never blocking the data write if it fails.
   initialSourceFile?: { file: File; contentHash: string } | null;
+  // Append this batch's projects to an EXISTING portfolio instead of
+  // creating a new one — set when opened from the portfolio-scoped Projects
+  // screen. The batch-name field below makes no sense here (the portfolio
+  // already has a name), so it's hidden rather than ignored.
+  portfolioId?: string;
 }) {
   const c = useThemeColors();
   const isDesktop = useIsDesktop();
@@ -629,7 +635,11 @@ export default function BulkCreateProjectsSheet({
     setCreating(true);
     setError(null);
 
-    const standingFolderId = initialSourceFile ? await getOrCreateStandingFolder() : null;
+    // No standing folder when appending to an existing portfolio — the RPC
+    // leaves that portfolio's own standing_folder_id untouched on append, so
+    // creating one here would just orphan it (nothing would ever point back
+    // at it).
+    const standingFolderId = initialSourceFile && !portfolioId ? await getOrCreateStandingFolder() : null;
 
     const { data, error: err } = await supabase.rpc('rpc_instantiate_template', {
       p_template_id: templateId,
@@ -644,6 +654,7 @@ export default function BulkCreateProjectsSheet({
       p_projects: buildProjectsPayload(),
       p_category_mapping: buildCategoryMapping(),
       p_idempotency_key: idempotencyKey,
+      p_existing_portfolio_id: portfolioId ?? null,
     });
     setCreating(false);
 
@@ -1151,24 +1162,28 @@ export default function BulkCreateProjectsSheet({
           )}
         </View>
 
-        {/* Portfolio name (optional) */}
-        <View>
-          <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">Batch Name (optional)</Text>
-          <View className="mb-2">
-            <Hint>
-              The <Text className="font-black">batch</Text> is everything created by this one import, kept together so
-              it can be undone in a single click later.
-            </Hint>
+        {/* Portfolio name (optional) — hidden when appending to an existing
+            portfolio, since that portfolio already has a name and this
+            batch isn't the one that gets to rename it. */}
+        {!portfolioId && (
+          <View>
+            <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">Batch Name (optional)</Text>
+            <View className="mb-2">
+              <Hint>
+                The <Text className="font-black">batch</Text> is everything created by this one import, kept together so
+                it can be undone in a single click later.
+              </Hint>
+            </View>
+            <TextInput
+              value={portfolioName}
+              onChangeText={setPortfolioName}
+              placeholder="e.g. Office X — 2026 Intake"
+              placeholderTextColor={c.textDim}
+              className="bg-surface-background border border-surface-border rounded-lg px-4 py-3"
+              style={{ color: c.textMain }}
+            />
           </View>
-          <TextInput
-            value={portfolioName}
-            onChangeText={setPortfolioName}
-            placeholder="e.g. Office X — 2026 Intake"
-            placeholderTextColor={c.textDim}
-            className="bg-surface-background border border-surface-border rounded-lg px-4 py-3"
-            style={{ color: c.textMain }}
-          />
-        </View>
+        )}
 
         {/* Textarea — one project per line. Replaced by a read-only review
             list when rows arrived pre-filled from spreadsheet intake (issue
