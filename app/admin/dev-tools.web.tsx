@@ -1,3 +1,4 @@
+import FileHubDebugPanel from '@/components/admin/FileHubDebugPanel';
 import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneData';
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -368,6 +369,8 @@ export default function DevToolsScreenWeb() {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            <FileHubDebugPanel />
 
             {/* Info Sections */}
             <Text className="text-typography-main font-black text-base mb-4">ℹ️ About Seeding</Text>

@@ -28,7 +28,7 @@ import type { FileHubFolder } from '@/contexts/FileHubContext';
 import { relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import { randomId } from '@/lib/randomId';
 import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
-import { computeSHA256, formatEta, formatFileSize, uploadFileToStorage } from '@/lib/uploadHelpers';
+import { computeSHA256, formatEta, formatFileSize, isNetworkError, uploadFileToStorage, waitForReconnect } from '@/lib/uploadHelpers';
 import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -81,6 +81,7 @@ type UploadManagerValue = {
   jobsStore: {
     subscribe: (cb: () => void) => () => void;
     getJob: (jobId: string) => UploadJobState | undefined;
+    getAllJobs: () => UploadJobState[];
   };
 };
 
@@ -126,10 +127,25 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
     jobsRef.current = { ...jobsRef.current, [jobId]: { ...(prev as UploadJobState), ...patch } };
     emitJobs();
   }, [emitJobs]);
-  const jobsStore = useMemo(() => ({
-    subscribe: (cb: () => void) => { jobListeners.current.add(cb); return () => { jobListeners.current.delete(cb); }; },
-    getJob: (jobId: string) => jobsRef.current[jobId],
-  }), []);
+  const jobsStore = useMemo(() => {
+    // getAllJobs must return a stable reference when nothing changed —
+    // useSyncExternalStore compares snapshots by identity, and jobsRef.current
+    // is only reassigned (see setJob) when a job actually updates, so caching
+    // against that identity avoids a new-array-every-render infinite loop.
+    let cachedFor: Record<string, UploadJobState> | null = null;
+    let cachedJobs: UploadJobState[] = [];
+    return {
+      subscribe: (cb: () => void) => { jobListeners.current.add(cb); return () => { jobListeners.current.delete(cb); }; },
+      getJob: (jobId: string) => jobsRef.current[jobId],
+      getAllJobs: () => {
+        if (cachedFor !== jobsRef.current) {
+          cachedFor = jobsRef.current;
+          cachedJobs = Object.values(jobsRef.current);
+        }
+        return cachedJobs;
+      },
+    };
+  }, []);
 
   const cancelUpload = useCallback((jobId: string) => {
     const id = `upload:${jobId}`;
@@ -291,7 +307,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         });
       };
 
-      const uploadOne = async (file: File, idx: number) => {
+      const uploadOne = async (file: File, idx: number, isRetry = false): Promise<void> => {
         if (ctrl.aborted) return;
         const relDirPath = relDir((file as any).webkitRelativePath);
         const existingLeaf = relDirPath
@@ -405,7 +421,13 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         } catch (e: any) {
           // A cancel aborts the in-flight XHR, which rejects with 'aborted' —
           // that's expected teardown, not a per-file failure to report.
-          if (!ctrl.aborted) errors.push(`${file.name}: ${e?.message || 'Unknown error'}`);
+          if (ctrl.aborted) return;
+          if (!isRetry && isNetworkError(e)) {
+            setJob(jobId, { subtitle: `Connection lost — retrying "${file.name}" when back online…` });
+            await waitForReconnect(() => ctrl.aborted);
+            if (!ctrl.aborted) return uploadOne(file, idx, true);
+          }
+          errors.push(`${file.name}: ${e?.message || 'Unknown error'}`);
         }
       };
 
