@@ -427,7 +427,7 @@ function TasksScreen() {
     let cancelled = false;
     (async () => {
       const results = await Promise.all(missing.map(async (id) => {
-        const { count } = await supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('pipeline_id', id);
+        const { count } = await supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('pipeline_id', id).is('deleted_at', null);
         return [id, count ?? 0] as const;
       }));
       if (!cancelled) setPeekCounts(prev => ({ ...prev, ...Object.fromEntries(results) }));
@@ -457,7 +457,7 @@ function TasksScreen() {
 
   const stagePage = (pipelineId: string, stageId: string, offset: number) =>
     stagePageQuery(
-      supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', pipelineId).eq('current_stage_id', stageId),
+      supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', pipelineId).eq('current_stage_id', stageId).is('deleted_at', null),
       offset,
       filtersRef.current,
     );
@@ -493,7 +493,7 @@ function TasksScreen() {
     ));
     const missing = pinned.filter(id => !rows.some(r => r.id === id));
     if (missing.length > 0) {
-      const { data } = await supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', targetPipelineId).in('id', missing);
+      const { data } = await supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', targetPipelineId).in('id', missing).is('deleted_at', null);
       rows = rows.concat((data as any[]) || []);
     }
 
@@ -714,7 +714,7 @@ function TasksScreen() {
       supabase.from('pipeline_stage_actions').select('*').in('stage_id', stageIds),
       supabase.from('pipeline_stage_transitions').select('id, to_stage_id').in('from_stage_id', stageIds),
       ...stages.map((s: any) => stagePageQuery(
-        supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', boardId).eq('current_stage_id', s.id),
+        supabase.from('tasks').select(TASK_SELECT).eq('pipeline_id', boardId).eq('current_stage_id', s.id).is('deleted_at', null),
         0,
       )),
     ]);

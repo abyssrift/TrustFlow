@@ -379,7 +379,8 @@ export default function IntelligenceTargets() {
           const { count } = await supabase
             .from('tasks')
             .select('*', { count: 'exact', head: true })
-            .eq('current_stage_id', t.stage_id);
+            .eq('current_stage_id', t.stage_id)
+            .is('deleted_at', null);
           return { ...t, current_count: count || 0 };
         }
         return { ...t, current_count: t.target_quantity };

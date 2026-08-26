@@ -232,7 +232,7 @@ export default function FileHubOverview({
     <ScrollView className="flex-1 no-scrollbar" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Unread strip */}
       {(stats.inbox_unread ?? 0) > 0 && (
-        <View className={`${px} pt-5`}>
+        <View className={`${px} pt-3`}>
           <TouchableOpacity onPress={() => onGoTab('inbox')} className="flex-row items-center justify-between gap-4 rounded-2xl border border-brand-primary/20 bg-brand-primary/5 px-5 py-3.5">
             <View className="flex-row items-center gap-3 min-w-0 flex-1">
               <FontAwesome name="inbox" size={15} color={colors.primary} />
@@ -246,7 +246,7 @@ export default function FileHubOverview({
       )}
 
       {/* Quick actions + stats strip */}
-      <View className={`${px} pt-5 flex-row flex-wrap items-center gap-3`}>
+      <View className={`${px} pt-3 flex-row flex-wrap items-center gap-3`}>
         <QuickAction icon="upload" label="Upload" onPress={onUpload} colors={colors} primary />
         <QuickAction icon="plus" label="New Channel" onPress={onNewChannel} colors={colors} />
         <QuickAction icon="folder-open-o" label="Browse All" onPress={() => onGoTab('browse')} colors={colors} />
@@ -257,7 +257,7 @@ export default function FileHubOverview({
       </View>
 
       {/* Bento */}
-      <View className={`${px} pt-6 ${compact ? 'flex-col' : 'flex-row'} gap-5`} style={{ alignItems: 'flex-start' }}>
+      <View className={`${px} pt-4 ${compact ? 'flex-col' : 'flex-row'} gap-5`} style={{ alignItems: 'flex-start' }}>
         <View style={{ flexGrow: 1.6, flexBasis: 0, minWidth: 0 }} className="w-full gap-5">
           {RecentlyOpened}
           {RecentlyAssigned}

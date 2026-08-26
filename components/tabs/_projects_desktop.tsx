@@ -98,22 +98,64 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
 
   const bumpTable = () => setTableRefreshKey(k => k + 1);
 
-  // Scoped to one batch: the identity on screen is the PORTFOLIO's, and the
-  // create actions are hidden. ProjectFolderModal has no portfolio field, so a
-  // "New project" button here would silently create a project outside the
-  // batch you are looking at — a create door that lies about where it puts
-  // things is worse than no door. Bulk create / import make their OWN
-  // portfolio, so they make no sense from inside one either.
+  // Scoped to one batch: the identity on screen is the PORTFOLIO's. Create
+  // actions all take portfolioId now (20260818_append_projects_to_existing_
+  // portfolio.sql gave rpc_create_project/rpc_instantiate_template an
+  // optional target-portfolio param) so New project / Add many / Templates
+  // attach into THIS portfolio instead of creating an unbatched project or a
+  // second portfolio — the header's action row (PortfolioScopeHeader's
+  // `actions` slot) is the same three doors as the unscoped header, just
+  // scoped.
   const scoped = !!portfolioId;
 
   return (
-    <View className="flex-1 bg-surface-background px-8 py-7">
+    <View className="flex-1 bg-surface-background px-8 py-4">
       <View className="max-w-[1600px] mx-auto w-full flex-1">
         {scoped ? (
-          <View className="mb-5">
+          <View className="mb-3">
             <PortfolioScopeHeader
               portfolioId={portfolioId!}
               onAllProjects={() => router.push('/(tabs)/projects' as any)}
+              actions={
+                <>
+                  <Tooltip label="Open, edit and reuse your saved templates">
+                    <TouchableOpacity
+                      onPress={() => router.push('/projects/templates' as any)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Templates"
+                      className="h-11 w-11 items-center justify-center bg-surface-card border border-surface-border rounded-xl hover:bg-surface-overlay"
+                    >
+                      <FontAwesome name="list-alt" size={13} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </Tooltip>
+
+                  {(canCreate || canManageFields) && (
+                    <Tooltip label="Bulk create, import a spreadsheet, or manage custom fields">
+                      <TouchableOpacity
+                        onPress={() => setAddMenuVisible(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="More project tools"
+                        className="h-11 w-11 items-center justify-center bg-surface-card border border-surface-border rounded-xl hover:bg-surface-overlay"
+                      >
+                        <FontAwesome name="th-list" size={13} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </Tooltip>
+                  )}
+
+                  <Tooltip label={canCreate ? 'Create a single project in this portfolio' : 'You need the “create projects” permission'}>
+                    <TouchableOpacity
+                      onPress={() => canCreate && setModalVisible(true)}
+                      disabled={!canCreate}
+                      accessibilityRole="button"
+                      className="bg-brand-primary hover:bg-brand-primary-hover px-4 rounded-xl flex-row items-center gap-2 justify-center"
+                      style={{ minHeight: 44, opacity: canCreate ? 1 : 0.45 }}
+                    >
+                      <FontAwesome name="plus" size={13} color="white" />
+                      <Text className="text-white text-sm font-bold">New project</Text>
+                    </TouchableOpacity>
+                  </Tooltip>
+                </>
+              }
             />
           </View>
         ) : (
@@ -181,7 +223,7 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
         )}
 
         {/* View toggle — Board shipped #176 (Phase 6), Timeline #191 (Phase 10). */}
-        <View className="mb-4">
+        <View className="mb-2">
           <SegmentedControl<ProjectsView>
             value={view}
             onChange={setView}
@@ -199,8 +241,8 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
               refreshKey={tableRefreshKey}
               portfolioId={portfolioId ?? null}
               onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-              onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
-              onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
+              onBrowseStarters={canCreate ? () => setBulkCreateVisible(true) : undefined}
+              onCreateProject={canCreate ? () => setModalVisible(true) : undefined}
             />
             <View className="h-16" />
           </ScrollView>
@@ -210,8 +252,8 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
               refreshKey={tableRefreshKey}
               portfolioId={portfolioId ?? null}
               onOpenProject={(id) => router.push(`/projects/${id}` as any)}
-              onBrowseStarters={canCreate && !scoped ? () => setBulkCreateVisible(true) : undefined}
-              onCreateProject={canCreate && !scoped ? () => setModalVisible(true) : undefined}
+              onBrowseStarters={canCreate ? () => setBulkCreateVisible(true) : undefined}
+              onCreateProject={canCreate ? () => setModalVisible(true) : undefined}
             />
             <View className="h-16" />
           </ScrollView>
@@ -274,6 +316,7 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSuccess={bumpTable}
+        portfolioId={portfolioId}
       />
 
       <BulkCreateProjectsSheet
@@ -283,6 +326,7 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
           showAlert('Projects created', `${res.projects_created} projects and ${res.tasks_created} tasks are ready.`);
           bumpTable();
         }}
+        portfolioId={portfolioId}
       />
 
       <SpreadsheetImportSheet
@@ -292,6 +336,7 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
           showAlert('Import finished', `${res.projects_created} projects and ${res.tasks_created} tasks are ready.`);
           bumpTable();
         }}
+        portfolioId={portfolioId}
       />
 
       <ManageProjectFieldsPopup

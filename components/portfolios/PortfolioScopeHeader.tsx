@@ -34,6 +34,7 @@ export default function PortfolioScopeHeader({
   portfolioId,
   onAllProjects,
   onClose,
+  actions,
 }: {
   portfolioId: string;
   /** The one obvious way back to every project. */
@@ -45,6 +46,8 @@ export default function PortfolioScopeHeader({
    * must show exactly the numbers the grid card showed.
    */
   onClose?: () => void;
+  /** Rendered flush right on the identity row — same row, no extra height. */
+  actions?: React.ReactNode;
 }) {
   const c = useThemeColors();
   const { width } = useWindowDimensions();
@@ -64,8 +67,13 @@ export default function PortfolioScopeHeader({
   const pct = p && p.projects_total > 0 ? (p.projects_done / p.projects_total) * 100 : 0;
 
   return (
-    <View style={{ gap: wide ? 14 : 10 }}>
-      <View className="flex-row items-center" style={{ gap: 12 }}>
+    <View style={{ gap: 8 }}>
+      {/* flex-wrap: on a narrow phone, back button + glyph + title + the
+          action buttons (all fixed-width except the title) don't fit one
+          row — wrapping drops actions to their own line instead of crushing
+          the title to unreadable width (title's flex:1/minWidth:0 would
+          otherwise shrink to make room rather than wrap). */}
+      <View className="flex-row flex-wrap items-center" style={{ gap: 12 }}>
         <TouchableOpacity
           onPress={onClose ?? onAllProjects}
           accessibilityRole="button"
@@ -110,23 +118,21 @@ export default function PortfolioScopeHeader({
             )}
           </View>
         </View>
+
+        {actions && (
+          <View className="flex-row items-center flex-shrink-0" style={{ gap: 8 }}>
+            {actions}
+          </View>
+        )}
       </View>
 
       {loading && !p ? (
-        <View className="items-center py-6">
+        <View className="items-center py-3">
           <ActivityIndicator color={c.primary} />
         </View>
       ) : p ? (
-        <View className="bg-surface-card border border-surface-border rounded-2xl p-4" style={{ gap: 12 }}>
-          <ProgressMeter
-            done={p.projects_done}
-            total={p.projects_total}
-            percent={pct}
-            tone={p.projects_blocked > 0 ? c.warning : undefined}
-            showCaption={false}
-            height={8}
-          />
-          <View className="flex-row flex-wrap" style={{ gap: wide ? 20 : 16 }}>
+        <View style={{ gap: 6 }}>
+          <View className="flex-row flex-wrap items-center" style={{ gap: wide ? 20 : 14 }}>
             <MetaStat label="Finished" value={`${p.projects_done}/${p.projects_total}`} />
             <MetaStat label="Tasks" value={`${p.tasks_done}/${p.tasks_total}`} />
             <MetaStat label="Blocked" value={String(p.projects_blocked)} />
@@ -136,6 +142,16 @@ export default function PortfolioScopeHeader({
               value={p.confidence === 'none' || !p.projected_end ? 'Not enough history' : fmtDate(p.projected_end)}
             />
             {!!p.template_name && <MetaStat label="Template" value={p.template_name} />}
+            <View style={{ flex: 1, minWidth: 120 }}>
+              <ProgressMeter
+                done={p.projects_done}
+                total={p.projects_total}
+                percent={pct}
+                tone={p.projects_blocked > 0 ? c.warning : undefined}
+                showCaption={false}
+                height={6}
+              />
+            </View>
           </View>
           {p.confidence === 'low' && !!p.projected_end && (
             <View className="flex-row items-start" style={{ gap: 6 }}>

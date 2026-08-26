@@ -401,11 +401,13 @@ type NameConflict = {
 };
 
 export default function SpreadsheetImportSheet({
-  visible, onClose, onCreated,
+  visible, onClose, onCreated, portfolioId,
 }: {
   visible: boolean;
   onClose: () => void;
   onCreated?: (result: { portfolio_id: string; projects_created: number; tasks_created: number }) => void;
+  /** Append the imported batch to an existing portfolio instead of creating a new one. */
+  portfolioId?: string;
 }) {
   const c = useThemeColors();
   const isDesktop = useIsDesktop();
@@ -1033,6 +1035,7 @@ export default function SpreadsheetImportSheet({
         initialSource={file ? `spreadsheet:${file.name}` : undefined}
         initialIdempotencyKey={contentHash ? `spreadsheet:${contentHash}` : undefined}
         initialSourceFile={file && contentHash ? { file, contentHash } : null}
+        portfolioId={portfolioId}
       />
     );
   }

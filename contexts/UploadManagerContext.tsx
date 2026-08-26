@@ -91,7 +91,7 @@ const SAFE_NAME = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
 
 export function UploadManagerProvider({ children }: { children: React.ReactNode }) {
   const { publish, update, remove } = useIsland();
-  const { successToast, errorToast } = useToast();
+  const { successToast, errorToast, infoToast } = useToast();
   const router = useRouter();
 
   const [activeCount, setActiveCount] = useState(0);
@@ -423,7 +423,10 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
           // that's expected teardown, not a per-file failure to report.
           if (ctrl.aborted) return;
           if (!isRetry && isNetworkError(e)) {
-            setJob(jobId, { subtitle: `Connection lost — retrying "${file.name}" when back online…` });
+            const subtitle = `Connection lost — retrying "${file.name}" when back online…`;
+            setJob(jobId, { subtitle });
+            update(islandId, { subtitle }, { bump: false });
+            infoToast(`Connection dropped mid-upload — retrying "${file.name}"…`, 'Retrying');
             await waitForReconnect(() => ctrl.aborted);
             if (!ctrl.aborted) return uploadOne(file, idx, true);
           }
@@ -512,7 +515,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         setTimeout(() => remove(islandId), 4000);
       }
     }
-  }, [publish, update, remove, router, cancelUpload, successToast, errorToast, emitJobs, setJob]);
+  }, [publish, update, remove, router, cancelUpload, successToast, errorToast, infoToast, emitJobs, setJob]);
 
   const value = useMemo(
     () => ({ startUpload, cancelUpload, activeCount, lastCompletedAt, jobsStore }),

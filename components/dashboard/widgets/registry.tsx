@@ -163,19 +163,19 @@ function FactsWidget() {
   const failedRate = stats.totalTasks > 0 ? Math.round((stats.failed / stats.totalTasks) * 100) : 0;
 
   const facts: Fact[] = [
-    { value: stats.totalTasks > 0 ? String(stats.totalTasks) : null, label: 'in pipeline', onPress: () => router.push('/tasks' as any) },
-    { value: stats.activeNow > 0 ? String(stats.activeNow) : null, label: 'in progress', onPress: () => router.push('/tasks' as any) },
-    { value: stats.completed > 0 ? String(stats.completed) : null, label: `done · ${completionRate}%`, tone: c.success, onPress: () => router.push('/intelligence/archives' as any) },
-    { value: stats.failed > 0 ? String(stats.failed) : null, label: `failed · ${failedRate}%`, tone: c.danger, onPress: () => router.push('/intelligence/archives' as any) },
+    { value: stats.totalTasks > 0 ? String(stats.totalTasks) : null, label: 'in pipeline', icon: 'tasks', onPress: () => router.push('/tasks' as any) },
+    { value: stats.activeNow > 0 ? String(stats.activeNow) : null, label: 'in progress', icon: 'spinner', onPress: () => router.push('/tasks' as any) },
+    { value: stats.completed > 0 ? String(stats.completed) : null, label: `done · ${completionRate}%`, icon: 'check-circle', tone: c.success, onPress: () => router.push('/intelligence/archives' as any), meter: { percent: completionRate, tone: c.success } },
+    { value: stats.failed > 0 ? String(stats.failed) : null, label: `failed · ${failedRate}%`, icon: 'exclamation-circle', tone: c.danger, onPress: () => router.push('/intelligence/archives' as any), meter: { percent: failedRate, tone: c.danger } },
     // Presence, not a tally — so it does NOT follow the hide-when-zero rule the
     // other facts do. "0 working now" answers the question you asked; a missing
     // row leaves you wondering whether nobody is working or the dot is broken.
-    { value: String(stats.activeSessions), label: 'working now', live: true, onPress: openLiveSessions },
-    { value: pulse && pulse.daily_points > 0 ? String(pulse.daily_points) : null, label: 'pts today' },
-    { value: pulse && pulse.active_seconds_today > 0 ? formatCompact(pulse.active_seconds_today) : null, label: 'active' },
+    { value: String(stats.activeSessions), label: 'working now', icon: 'users', live: true, onPress: openLiveSessions },
+    { value: pulse && pulse.daily_points > 0 ? String(pulse.daily_points) : null, label: 'pts today', icon: 'star' },
+    { value: pulse && pulse.active_seconds_today > 0 ? formatCompact(pulse.active_seconds_today) : null, label: 'active', icon: 'clock-o' },
     // A good flap score is not news. It appears only when it is a problem —
     // the same threshold the old band coloured it red at.
-    { value: pulse && pulse.flap_rate_score > 1.5 ? `${pulse.flap_rate_score}x` : null, label: 'task switching', tone: c.danger },
+    { value: pulse && pulse.flap_rate_score > 1.5 ? `${pulse.flap_rate_score}x` : null, label: 'task switching', icon: 'exchange', tone: c.danger },
   ];
 
   // DashboardFacts renders null when every value is null (:36). In practice
@@ -201,6 +201,7 @@ function FactsWidget() {
 function PendingTimeApprovalsAdapter() {
   const { refreshKey } = useDashboardData();
   const { width } = useWindowDimensions();
+  const c = useThemeColors();
 
   // Desktop web (>=768) surfaces this via the topbar island instead
   // (IslandTimeApprovalsBridge). The gate lives here and NOT in the registry's
@@ -212,9 +213,31 @@ function PendingTimeApprovalsAdapter() {
   // only knowable inside the widget, which owns the fetch and the realtime
   // channel. Hence its one optional callback prop; nothing else could tell us.
   const [queueEmpty, setQueueEmpty] = useState(true);
-  useReportWidgetEmpty(shownElsewhere || queueEmpty);
+  // `shownElsewhere` is deliberately excluded here (#301): it used to be
+  // folded into "empty", which made WidgetGrid hide the whole cell
+  // (`display: none` outside edit mode) with nothing left behind — a manager
+  // who added this to their dashboard on a desktop-web session saw it vanish
+  // with no trace of where it went. The redirect note below is real content,
+  // not an empty state, and `queueEmpty` never updates while it's showing
+  // (the widget that would call `onEmptyChange` never mounts), so it must not
+  // be allowed to report "empty" through its own stale initial value.
+  useReportWidgetEmpty(!shownElsewhere && queueEmpty);
 
-  if (shownElsewhere) return null;
+  if (shownElsewhere) {
+    return (
+      <View className="bg-surface-overlay/30 rounded-2xl border border-surface-border p-4 mb-4 flex-row items-center gap-3">
+        <View className="w-11 h-11 rounded-2xl bg-state-warning/20 items-center justify-center">
+          <FontAwesome name="hourglass-end" size={16} color={c.warning} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-typography-main text-xs font-black uppercase tracking-wider">Shown in the topbar</Text>
+          <Text className="text-typography-dim text-[10px] mt-0.5">
+            Pending declarations appear in the island up top on desktop, not on this card.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return <PendingTimeApprovalsWidget refreshKey={refreshKey} onEmptyChange={setQueueEmpty} />;
 }

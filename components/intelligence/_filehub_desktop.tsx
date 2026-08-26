@@ -3613,10 +3613,10 @@ function FileHubDesktopInner() {
         </View>
       )}
       {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-center justify-between gap-4 border-b border-surface-border flex-shrink-0">
+      <View className="px-10 pt-5 pb-3 flex-row flex-wrap items-center justify-between gap-4 border-b border-surface-border flex-shrink-0">
         <View className="min-w-0">
           <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
-          <Text className="text-typography-main text-4xl font-black tracking-tighter">File Hub</Text>
+          <Text className="text-typography-main text-3xl font-black tracking-tighter">File Hub</Text>
         </View>
         <View className="flex-row items-center gap-3 flex-wrap justify-end">
           <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[280px] min-w-[200px]">
@@ -3712,7 +3712,7 @@ function FileHubDesktopInner() {
       </View>
 
       {/* ── Tabs ── */}
-      <View className="px-10 pt-3 pb-2.5 flex-row items-center gap-2 flex-shrink-0 border-b border-surface-border">
+      <View className="px-10 pt-2 pb-2 flex-row items-center gap-2 flex-shrink-0 border-b border-surface-border">
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}

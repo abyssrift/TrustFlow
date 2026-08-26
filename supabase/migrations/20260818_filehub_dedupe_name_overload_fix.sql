@@ -1,0 +1,16 @@
+-- Corrects a mistake in 20260818_filehub_task_project_dedupe_lock.sql (fc4832a):
+-- that migration's CREATE OR REPLACE FUNCTION filehub_dedupe_name(..., p_task_id
+-- UUID DEFAULT NULL) was assumed to replace the original 4-parameter
+-- filehub_dedupe_name(text, text, uuid, uuid) -- it does not. Postgres identifies
+-- a function by name + parameter list, and a different parameter list is a
+-- different function, not a replacement. Both overloads ended up coexisting.
+--
+-- CONFIRMED LIVE: every 4-argument call (rpc_filehub_upload_commit's -- the main
+-- FileHub uploader) became ambiguous between the two candidates and started
+-- failing with "function public.filehub_dedupe_name(text, text, uuid, uuid) is
+-- not unique", breaking the main upload path entirely.
+--
+-- Fix: drop the old exact-4-arg overload so only the 5-parameter version (with
+-- its trailing default) remains. Every existing 4-arg call site still resolves
+-- fine against it -- there's just no longer a second candidate to compete with.
+DROP FUNCTION IF EXISTS public.filehub_dedupe_name(TEXT, TEXT, UUID, UUID);
