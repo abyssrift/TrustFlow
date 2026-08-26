@@ -1,4 +1,5 @@
 import { ReportConfigModal } from '@/components/intelligence/IntelligenceModals';
+import ReportGeneratorAdaptive from '@/components/intelligence/_ReportGenerator_adaptive';
 import SlideDownPanel from '@/components/common/SlideDownPanel';
 import ReportFiltersPanelBody, {
     applyReportFilters,
@@ -17,7 +18,6 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
@@ -117,12 +117,12 @@ const POLL_INTERVAL_MS = 4000;
 
 export default function IntelligenceReports() {
   const colors = useThemeColors();
-  const router = useRouter();
   const { limits: planLimits } = useBillingPlan();
   const limits = getAnalyticsLimits(planLimits);
   const [reports, setReports]         = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
+  const [showArchitect, setShowArchitect] = useState(false);
   const [pipelines, setPipelines]     = useState<any[]>([]);
   const [teams, setTeams]             = useState<any[]>([]);
   const [users, setUsers]             = useState<any[]>([]);
@@ -250,7 +250,7 @@ export default function IntelligenceReports() {
             </TouchableOpacity>
           </Tooltip>
           {limits.reports ? (
-            <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
+            <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
               <FontAwesome name="file-pdf-o" size={12} color="white" />
               <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
             </TouchableOpacity>
@@ -332,7 +332,7 @@ export default function IntelligenceReports() {
             <Text className="text-typography-muted text-center mb-6 text-sm leading-relaxed">
               Generate a PDF audit report to track performance, compliance, and team health metrics.
             </Text>
-            <TouchableOpacity onPress={() => router.push('/intelligence/ReportGenerator')} className="bg-brand-primary px-8 py-3 rounded-2xl">
+            <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-8 py-3 rounded-2xl">
               <Text className="text-white font-black uppercase tracking-widest text-xs">Generate First Report</Text>
             </TouchableOpacity>
           </View>
@@ -441,6 +441,12 @@ export default function IntelligenceReports() {
         onClose={() => setShowModal(false)}
         onConfirm={handleGenerate}
         pipelines={pipelines} teams={teams} users={users} initialDays={30}
+      />
+
+      <ReportGeneratorAdaptive
+        visible={showArchitect}
+        onClose={() => setShowArchitect(false)}
+        onReportGenerated={fetchReports}
       />
     </View>
   );
