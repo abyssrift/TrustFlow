@@ -1,4 +1,5 @@
 import FileHubDebugPanel from '@/components/admin/FileHubDebugPanel';
+import HarvestDebugPanel from '@/components/admin/HarvestDebugPanel';
 import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneData';
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -375,6 +376,8 @@ export default function DevToolsScreenWeb() {
             </View>
 
             <FileHubDebugPanel />
+
+            <HarvestDebugPanel />
 
             {/* Info Sections */}
             <Text className="text-typography-main font-black text-base mb-4">ℹ️ About Seeding</Text>

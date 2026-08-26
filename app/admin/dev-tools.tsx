@@ -1,4 +1,5 @@
 import FileHubDebugPanel from '@/components/admin/FileHubDebugPanel';
+import HarvestDebugPanel from '@/components/admin/HarvestDebugPanel';
 import { BackButton } from '@/components/common/BackButton';
 import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneData';
 import { useAlert } from '@/contexts/AlertContext';
@@ -406,6 +407,8 @@ export default function DevToolsScreen() {
           </View>
 
           <FileHubDebugPanel />
+
+          <HarvestDebugPanel />
 
           {/* Info Sections */}
           <View className="mb-6">
