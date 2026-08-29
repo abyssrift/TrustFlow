@@ -1,8 +1,9 @@
 import { usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { folderPath } from '@/contexts/FileHubContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
@@ -33,6 +34,26 @@ export default function HarvestRuleEditor() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [backfillingId, setBackfillingId] = useState<string | null>(null);
+  // Issue #284 Phase 5 -- per-rule "N tasks already qualify" backlog hint.
+  // Called directly via supabase.rpc rather than a PipelineEditorContext
+  // wrapper: it's a display-only value fetched per-card, and routing it
+  // through the context's shared `loading` flag (like backfillHarvestRule
+  // does) would disable the whole editor's Save button while these fetch.
+  const [backlogCounts, setBacklogCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(harvestRules.map(async (r) => {
+      const { data, error: e } = await supabase.rpc('rpc_count_harvest_rule_backlog', { p_rule_id: r.id });
+      return [r.id, e ? null : (data as number)] as const;
+    })).then((results) => {
+      if (cancelled) return;
+      const next: Record<string, number> = {};
+      for (const [id, n] of results) if (n !== null) next[id] = n;
+      setBacklogCounts(next);
+    });
+    return () => { cancelled = true; };
+  }, [harvestRules]);
 
   // Form state
   const [formCondition, setFormCondition] = useState<'stage_entry' | 'stage_terminal_success'>('stage_entry');
@@ -370,6 +391,15 @@ export default function HarvestRuleEditor() {
                           {folderLabel(r.destination_folder_id)}
                         </Text>
                       </View>
+                      {!!backlogCounts[r.id] && (
+                        <View className="flex-row items-center mt-1">
+                          <View className="bg-brand-primary-dim px-1.5 py-0.5 rounded border border-brand-primary/20">
+                            <Text className="text-brand-primary text-[9px] font-black uppercase">
+                              {backlogCounts[r.id]} task{backlogCounts[r.id] === 1 ? '' : 's'} already {backlogCounts[r.id] === 1 ? 'qualifies' : 'qualify'}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
                     </View>
 
                     {/* Actions */}

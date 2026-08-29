@@ -1,5 +1,7 @@
 -- Runnable check for issue #284, Phase 3: harvest rule CRUD RPCs,
 -- stage_terminal_success, backfill, and the cascade-fix regression guard.
+-- Phase 5 (sections 6-7 below): rpc_delete_stage's automation/harvest-rule
+-- reference guard, and the read-only rpc_count_harvest_rule_backlog RPC.
 --
 -- Not a migration -- lives outside supabase/migrations so it never gets
 -- auto-applied. Run by hand against a DEV/STAGING database only:
@@ -499,8 +501,224 @@ BEGIN
   RAISE NOTICE 'OK (5): stage_terminal_success fires correctly for both the pinned-to-one-stage form and the source_stage_id IS NULL any-terminal-stage form, and a pinned rule correctly ignores a different terminal-success stage.';
 END $$;
 
+-- ── 6. rpc_delete_stage: automation/harvest-rule reference guard (Phase 5) ─
+DO $$
+DECLARE
+  c                RECORD;
+  v_stage_both     UUID;  -- referenced by 1 automation + 1 harvest rule
+  v_stage_auto2    UUID;  -- referenced by 2 automations, 0 harvest rules
+  v_stage_harvest1 UUID;  -- referenced by 0 automations, 1 harvest rule
+  v_stage_unrelated UUID; -- referenced by nothing (tests 6e)
+  v_auto_both      UUID;
+  v_auto_a         UUID;
+  v_auto_b         UUID;
+  v_rule_both      UUID;
+  v_rule_harvest1  UUID;
+  v_raised         BOOLEAN;
+  v_msg            TEXT;
+BEGIN
+  SELECT * INTO c FROM hrpc_check_ctx;
+
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position)
+  VALUES (c.pipeline, 'HRPC Selfcheck Guard Both ' || c.tag, 910) RETURNING id INTO v_stage_both;
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position)
+  VALUES (c.pipeline, 'HRPC Selfcheck Guard Auto2 ' || c.tag, 911) RETURNING id INTO v_stage_auto2;
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position)
+  VALUES (c.pipeline, 'HRPC Selfcheck Guard Harvest1 ' || c.tag, 912) RETURNING id INTO v_stage_harvest1;
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position)
+  VALUES (c.pipeline, 'HRPC Selfcheck Guard Unrelated ' || c.tag, 913) RETURNING id INTO v_stage_unrelated;
+
+  PERFORM set_config('request.jwt.claim.sub', c.u_editor::text, true);
+
+  -- 6a. One automation + one harvest rule reference v_stage_both -- blocked,
+  -- message names both, correctly pluralized (1 each), pronoun "them" since
+  -- the combined total is 2.
+  INSERT INTO public.pipeline_automations (pipeline_id, source_stage_id, target_stage_id, condition_type, company_id)
+  VALUES (c.pipeline, v_stage_both, c.stage_source, 'overdue', c.company)
+  RETURNING id INTO v_auto_both;
+  v_rule_both := public.rpc_create_harvest_rule(c.pipeline, 'stage_entry', v_stage_both, NULL, 60);
+
+  v_raised := false;
+  BEGIN
+    PERFORM public.rpc_delete_stage(v_stage_both);
+    v_raised := true;
+  EXCEPTION WHEN OTHERS THEN v_msg := SQLERRM;
+  END;
+  IF v_raised THEN
+    RAISE EXCEPTION 'CHECK FAILED (6a): rpc_delete_stage deleted a stage still referenced by an automation and a harvest rule';
+  END IF;
+  IF v_msg <> 'Cannot delete stage: referenced by 1 automation and 1 harvest rule. Remove or repoint them first.' THEN
+    RAISE EXCEPTION 'CHECK FAILED (6a): unexpected message: %', v_msg;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.pipeline_stages WHERE id = v_stage_both) THEN
+    RAISE EXCEPTION 'CHECK FAILED (6a): stage was deleted despite the guard raising';
+  END IF;
+
+  -- 6b. Two automations only (0 harvest rules) -- "2 automations", pronoun
+  -- "them" (total 2). v_stage_auto2 is source on one, target on the other --
+  -- proves the guard counts EITHER column, not just source_stage_id.
+  INSERT INTO public.pipeline_automations (pipeline_id, source_stage_id, target_stage_id, condition_type, company_id)
+  VALUES (c.pipeline, v_stage_auto2, c.stage_source, 'overdue', c.company) RETURNING id INTO v_auto_a;
+  INSERT INTO public.pipeline_automations (pipeline_id, source_stage_id, target_stage_id, condition_type, company_id)
+  VALUES (c.pipeline, c.stage_source, v_stage_auto2, 'overdue', c.company) RETURNING id INTO v_auto_b;
+
+  v_raised := false;
+  BEGIN
+    PERFORM public.rpc_delete_stage(v_stage_auto2);
+    v_raised := true;
+  EXCEPTION WHEN OTHERS THEN v_msg := SQLERRM;
+  END;
+  IF v_raised THEN
+    RAISE EXCEPTION 'CHECK FAILED (6b): rpc_delete_stage deleted a stage referenced (as source AND as target) by 2 automations';
+  END IF;
+  IF v_msg <> 'Cannot delete stage: referenced by 2 automations. Remove or repoint them first.' THEN
+    RAISE EXCEPTION 'CHECK FAILED (6b): unexpected message: %', v_msg;
+  END IF;
+
+  -- 6c. One harvest rule only (0 automations) -- "1 harvest rule", pronoun
+  -- "it" (total 1).
+  v_rule_harvest1 := public.rpc_create_harvest_rule(c.pipeline, 'stage_entry', v_stage_harvest1, NULL, 60);
+
+  v_raised := false;
+  BEGIN
+    PERFORM public.rpc_delete_stage(v_stage_harvest1);
+    v_raised := true;
+  EXCEPTION WHEN OTHERS THEN v_msg := SQLERRM;
+  END;
+  IF v_raised THEN
+    RAISE EXCEPTION 'CHECK FAILED (6c): rpc_delete_stage deleted a stage still referenced by a harvest rule';
+  END IF;
+  IF v_msg <> 'Cannot delete stage: referenced by 1 harvest rule. Remove or repoint it first.' THEN
+    RAISE EXCEPTION 'CHECK FAILED (6c): unexpected message: %', v_msg;
+  END IF;
+
+  -- 6d. Once the references are removed, deletion succeeds.
+  DELETE FROM public.pipeline_automations WHERE id = v_auto_both;
+  PERFORM public.rpc_delete_harvest_rule(v_rule_both);
+  PERFORM public.rpc_delete_stage(v_stage_both);
+  IF EXISTS (SELECT 1 FROM public.pipeline_stages WHERE id = v_stage_both) THEN
+    RAISE EXCEPTION 'CHECK FAILED (6d): rpc_delete_stage did not delete the stage once its references were removed';
+  END IF;
+
+  -- 6e. A harvest rule with source_stage_id IS NULL ("any stage", created in
+  -- section 5 as v_rule_any) does NOT block deletion of an unrelated stage
+  -- that nothing directly references -- NULL never equals p_stage_id.
+  IF NOT EXISTS (SELECT 1 FROM public.harvest_rules WHERE pipeline_id = c.pipeline AND source_stage_id IS NULL) THEN
+    RAISE EXCEPTION 'CHECK FAILED (6e setup): expected an "any stage" (source_stage_id IS NULL) harvest rule from section 5 to still exist';
+  END IF;
+  v_raised := false;
+  BEGIN
+    PERFORM public.rpc_delete_stage(v_stage_unrelated);
+    v_raised := true;
+  EXCEPTION WHEN OTHERS THEN v_msg := SQLERRM;
+  END;
+  IF NOT v_raised THEN
+    RAISE EXCEPTION 'CHECK FAILED (6e): rpc_delete_stage blocked an unrelated stage''s deletion (got: %) -- an "any stage" harvest rule must not count as referencing every stage', v_msg;
+  END IF;
+
+  RAISE NOTICE 'OK (6): rpc_delete_stage blocks with correctly pluralized messages when an automation and/or harvest rule reference the stage (both/automations-only/harvest-only), succeeds once references are removed, and a source_stage_id IS NULL harvest rule does not block an unrelated stage.';
+END $$;
+
+-- ── 7. rpc_count_harvest_rule_backlog: matches backfill, mutates nothing ───
+DO $$
+DECLARE
+  c              RECORD;
+  v_stage        UUID;
+  v_rule         UUID;
+  v_task_qual1   UUID;
+  v_task_qual2   UUID;
+  v_task_other   UUID;
+  v_count        INT;
+  v_hf_before    INT;
+  v_hf_after     INT;
+  v_touched      INT;
+  v_raised       BOOLEAN;
+  v_msg          TEXT;
+BEGIN
+  SELECT * INTO c FROM hrpc_check_ctx;
+
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position)
+  VALUES (c.pipeline, 'HRPC Selfcheck Backlog Count Stage ' || c.tag, 914) RETURNING id INTO v_stage;
+
+  INSERT INTO public.tasks (company_id, title, created_by, pipeline_id, project_id, current_stage_id)
+  VALUES (c.company, 'HRPC Selfcheck Count Qual1 ' || c.tag, c.creator, c.pipeline, c.project, v_stage)
+  RETURNING id INTO v_task_qual1;
+  INSERT INTO public.tasks (company_id, title, created_by, pipeline_id, project_id, current_stage_id)
+  VALUES (c.company, 'HRPC Selfcheck Count Qual2 ' || c.tag, c.creator, c.pipeline, c.project, v_stage)
+  RETURNING id INTO v_task_qual2;
+  INSERT INTO public.tasks (company_id, title, created_by, pipeline_id, project_id, current_stage_id)
+  VALUES (c.company, 'HRPC Selfcheck Count NotQualifying ' || c.tag, c.creator, c.pipeline, c.project, c.stage_source)
+  RETURNING id INTO v_task_other;
+
+  PERFORM public.hrpc_selfcheck_seed_submission(v_task_qual1, c.company, c.creator, c.tag, 'cnt1');
+  PERFORM public.hrpc_selfcheck_seed_submission(v_task_qual2, c.company, c.creator, c.tag, 'cnt2');
+  PERFORM public.hrpc_selfcheck_seed_submission(v_task_other, c.company, c.creator, c.tag, 'cnt3');
+
+  -- 7a. u_plain (no permission) is denied -- same gate as the other 4 RPCs.
+  PERFORM set_config('request.jwt.claim.sub', c.u_editor::text, true);
+  v_rule := public.rpc_create_harvest_rule(c.pipeline, 'stage_entry', v_stage, NULL, 60);
+
+  PERFORM set_config('request.jwt.claim.sub', c.u_plain::text, true);
+  v_raised := false;
+  BEGIN
+    PERFORM public.rpc_count_harvest_rule_backlog(v_rule);
+    v_raised := true;
+  EXCEPTION WHEN OTHERS THEN v_msg := SQLERRM;
+  END;
+  IF v_raised THEN
+    RAISE EXCEPTION 'CHECK FAILED (7a): u_plain (no permission) was able to call rpc_count_harvest_rule_backlog';
+  END IF;
+  IF v_msg NOT ILIKE '%Insufficient permissions%' THEN
+    RAISE EXCEPTION 'CHECK FAILED (7a): expected an Insufficient permissions error, got: %', v_msg;
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', c.u_editor::text, true);
+
+  -- 7b. Count says exactly 2 (the qualifying pair, not the non-qualifying task).
+  SELECT public.rpc_count_harvest_rule_backlog(v_rule) INTO v_count;
+  IF v_count <> 2 THEN
+    RAISE EXCEPTION 'CHECK FAILED (7b): expected backlog count 2, got %', v_count;
+  END IF;
+
+  -- 7c. Calling the count RPC mutates nothing -- harvested_files count for
+  -- this rule is identical before and after (unlike backfill, which would
+  -- create rows).
+  SELECT COUNT(*) INTO v_hf_before FROM public.harvested_files WHERE harvest_rule_id = v_rule;
+  PERFORM public.rpc_count_harvest_rule_backlog(v_rule);
+  PERFORM public.rpc_count_harvest_rule_backlog(v_rule);
+  SELECT COUNT(*) INTO v_hf_after FROM public.harvested_files WHERE harvest_rule_id = v_rule;
+  IF v_hf_before <> 0 OR v_hf_after <> 0 OR v_hf_before <> v_hf_after THEN
+    RAISE EXCEPTION 'CHECK FAILED (7c): rpc_count_harvest_rule_backlog mutated harvested_files (before=%, after=%)', v_hf_before, v_hf_after;
+  END IF;
+
+  -- 7d. Calling backfill now touches exactly the same 2 tasks the count
+  -- predicted -- not more, not fewer.
+  v_touched := public.rpc_backfill_harvest_rule(v_rule);
+  IF v_touched <> 2 THEN
+    RAISE EXCEPTION 'CHECK FAILED (7d): expected backfill to touch exactly the 2 tasks the count RPC predicted, touched %', v_touched;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.harvested_files WHERE harvest_rule_id = v_rule AND source_task_id = v_task_other) THEN
+    RAISE EXCEPTION 'CHECK FAILED (7d): backfill touched the non-qualifying task the count RPC correctly excluded';
+  END IF;
+  IF NOT (
+    EXISTS (SELECT 1 FROM public.harvested_files WHERE harvest_rule_id = v_rule AND source_task_id = v_task_qual1)
+    AND EXISTS (SELECT 1 FROM public.harvested_files WHERE harvest_rule_id = v_rule AND source_task_id = v_task_qual2)
+  ) THEN
+    RAISE EXCEPTION 'CHECK FAILED (7d): backfill did not touch both tasks the count RPC predicted';
+  END IF;
+
+  -- 7e. After backfill, the count drops to 0 -- same idempotency the NOT
+  -- EXISTS clause gives backfill itself.
+  SELECT public.rpc_count_harvest_rule_backlog(v_rule) INTO v_count;
+  IF v_count <> 0 THEN
+    RAISE EXCEPTION 'CHECK FAILED (7e): expected backlog count 0 after backfill drained it, got %', v_count;
+  END IF;
+
+  RAISE NOTICE 'OK (7): rpc_count_harvest_rule_backlog denies u_plain, returns exactly the qualifying count (2), mutates nothing (harvested_files unchanged across repeated calls), matches exactly what backfill then touches, and drops to 0 once backfill drains the backlog.';
+END $$;
+
 DO $$ BEGIN
-  RAISE NOTICE 'ALL CHECKS PASSED: harvest_rules CRUD RPCs, the cascade-fix regression guard, backfill, and stage_terminal_success (issue #284 Phase 3).';
+  RAISE NOTICE 'ALL CHECKS PASSED: harvest_rules CRUD RPCs, the cascade-fix regression guard, backfill, stage_terminal_success, the rpc_delete_stage reference guard, and rpc_count_harvest_rule_backlog (issue #284 Phases 3 + 5).';
 END $$;
 
 ROLLBACK;
