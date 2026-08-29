@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { companyInitials } from '@/lib/companyBranding';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as ImagePicker from 'expo-image-picker';
@@ -189,74 +190,92 @@ export default function CompanyEditSettings() {
   }
 
   return (
-    <View className="bg-surface-card rounded-2xl p-6 border border-surface-border">
-      <View className="flex-row items-center mb-6">
-        <FontAwesome name="building" size={18} className="text-brand-primary mr-3" />
-        <Text className="text-typography-main font-black text-lg">Company Profile</Text>
+    <View className="bg-surface-card rounded-2xl border border-surface-border overflow-hidden">
+      <View className="p-5 border-b border-surface-border bg-surface-background">
+        <View className={isDesktop ? 'flex-row items-center justify-between gap-6' : 'gap-4'}>
+          <View className="flex-row items-center flex-1 gap-4">
+            <View className="w-16 h-16 rounded-2xl overflow-hidden bg-brand-primary/10 border border-brand-primary/20 items-center justify-center">
+              {formData.logo_url ? (
+                <Image source={{ uri: formData.logo_url }} className="w-full h-full" resizeMode="cover" />
+              ) : (
+                <Text className="text-brand-primary font-black text-xl">{companyInitials(formData.name)}</Text>
+              )}
+            </View>
+            <View className="flex-1">
+              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-1">Workspace profile</Text>
+              <Text className="text-typography-main font-black text-xl" numberOfLines={1}>{formData.name || 'Your company'}</Text>
+              <Text className="text-typography-muted text-xs mt-1" numberOfLines={2}>
+                {formData.description || 'Add a short description to introduce your workspace.'}
+              </Text>
+            </View>
+          </View>
+          <View className={`self-start rounded-xl px-3 py-2 ${hasChanges ? 'bg-state-warning/10 border border-state-warning/30' : 'bg-state-success/10 border border-state-success/30'}`}>
+            <Text className={`text-[10px] font-black uppercase tracking-wide ${hasChanges ? 'text-state-warning' : 'text-state-success'}`}>
+              {hasChanges ? 'Unsaved changes' : 'Profile up to date'}
+            </Text>
+          </View>
+        </View>
       </View>
 
-      {/* Two-column layout on desktop, stacked on mobile */}
-      <View className={isDesktop ? 'flex-row gap-6' : 'flex-col gap-4'}>
-        {/* Left column: Name and Website */}
-        <View className={isDesktop ? 'flex-1' : 'w-full'}>
-          {/* Company Name */}
+      <View className="p-5">
+        <View className="mb-5">
+          <Text className="text-typography-main font-black text-base">Company details</Text>
+          <Text className="text-typography-muted text-xs mt-1">These details appear wherever your workspace is identified.</Text>
+        </View>
+
+        {/* Two-column layout on desktop, stacked on mobile */}
+        <View className={isDesktop ? 'flex-row gap-6' : 'gap-5'}>
+          <View className={isDesktop ? 'flex-1' : 'w-full'}>
           <View className="mb-5">
-            <Text className="text-typography-muted text-xs font-bold uppercase mb-2">Company Name</Text>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Company name</Text>
             <TextInput
               value={formData.name}
               onChangeText={(text) => setFormData({ ...formData, name: text })}
               placeholder="Your company name"
               placeholderTextColor={colors.textMuted}
-              className="border border-surface-border rounded-xl px-4 py-3 bg-surface-background text-typography-main"
-              style={{ color: colors.textMain }}
+              className="min-h-11 border border-surface-border rounded-xl px-4 py-3 bg-surface-background text-typography-main"
               editable={!saving}
             />
           </View>
 
-          {/* Website */}
           <View className="mb-5">
-            <Text className="text-typography-muted text-xs font-bold uppercase mb-2">Website</Text>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Website</Text>
             <TextInput
               value={formData.website || ''}
               onChangeText={(text) => setFormData({ ...formData, website: text || null })}
               placeholder="https://example.com"
               placeholderTextColor={colors.textMuted}
-              className="border border-surface-border rounded-xl px-4 py-3 bg-surface-background text-typography-main"
-              style={{ color: colors.textMain }}
+              className="min-h-11 border border-surface-border rounded-xl px-4 py-3 bg-surface-background text-typography-main"
               keyboardType="url"
               editable={!saving}
             />
           </View>
         </View>
 
-        {/* Right column: Description and Logo */}
         <View className={isDesktop ? 'flex-1' : 'w-full'}>
-          {/* Description */}
           <View className="mb-5">
-            <Text className="text-typography-muted text-xs font-bold uppercase mb-2">Description</Text>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Description</Text>
             <TextInput
               value={formData.description || ''}
               onChangeText={(text) => setFormData({ ...formData, description: text || null })}
               placeholder="Brief description of your company"
               placeholderTextColor={colors.textMuted}
-              className="border border-surface-border rounded-xl px-4 py-3 bg-surface-background text-typography-main"
-              style={{ color: colors.textMain }}
+              className="min-h-28 border border-surface-border rounded-xl px-4 py-3 bg-surface-background text-typography-main"
               numberOfLines={4}
               multiline
               editable={!saving}
             />
           </View>
 
-          {/* Logo Upload */}
-          <View className="mb-5">
-            <Text className="text-typography-muted text-xs font-bold uppercase mb-2">Company Logo</Text>
+          <View>
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Brand mark</Text>
 
             {/* Logo Preview */}
             {formData.logo_url && (
-              <View className="mb-3 bg-surface-background rounded-xl p-3 border border-surface-border items-center justify-center h-32">
+              <View className="mb-3 bg-surface-background rounded-xl p-3 border border-surface-border items-center justify-center h-24">
                 <Image
                   source={{ uri: formData.logo_url }}
-                  style={{ width: 100, height: 100, borderRadius: 8 }}
+                  className="w-16 h-16 rounded-xl"
                   resizeMode="contain"
                 />
               </View>
@@ -266,10 +285,9 @@ export default function CompanyEditSettings() {
             <TouchableOpacity
               onPress={pickAndUploadLogo}
               disabled={uploadingLogo || saving}
-              className={`border-2 border-dashed rounded-lg p-4 items-center justify-center ${
-                uploadingLogo ? 'opacity-60' : 'border-surface-border'
+              className={`min-h-20 border border-dashed rounded-xl p-4 items-center justify-center ${
+                uploadingLogo ? 'border-brand-primary bg-brand-primary/5' : 'border-surface-border hover:border-brand-primary active:bg-brand-primary/5'
               }`}
-              style={{ borderColor: colors.textMuted }}
             >
               {uploadingLogo ? (
                 <>
@@ -280,7 +298,7 @@ export default function CompanyEditSettings() {
                 <>
                   <FontAwesome name="image" size={16} className="text-typography-muted mb-2" />
                   <Text className="text-typography-main font-bold text-sm text-center">
-                    Tap to select logo
+                    Choose company logo
                   </Text>
                   <Text className="text-typography-muted text-xs text-center mt-1">
                     JPG, PNG, or GIF
@@ -290,14 +308,13 @@ export default function CompanyEditSettings() {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+        </View>
 
-      {/* Save button */}
       <TouchableOpacity
         onPress={handleSave}
         disabled={!hasChanges || saving}
-        className={`rounded-lg py-3 flex-row items-center justify-center mt-6 ${
-          hasChanges && !saving ? 'bg-brand-primary' : 'bg-surface-overlay opacity-50'
+        className={`min-h-11 rounded-xl px-4 py-3 flex-row items-center justify-center mt-6 ${
+          hasChanges && !saving ? 'bg-brand-primary hover:bg-brand-primary-hover active:bg-brand-primary-active' : 'bg-surface-overlay'
         }`}
       >
         {saving ? (
@@ -312,9 +329,10 @@ export default function CompanyEditSettings() {
         )}
       </TouchableOpacity>
 
-      <Text className="text-typography-dim text-xs mt-4 text-center">
-        Update your company's public profile information.
+      <Text className="text-typography-dim text-xs mt-3 text-center">
+        Changes are saved only when you select Save changes.
       </Text>
+      </View>
     </View>
   );
 }
