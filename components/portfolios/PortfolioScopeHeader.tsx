@@ -33,19 +33,11 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 export default function PortfolioScopeHeader({
   portfolioId,
   onAllProjects,
-  onClose,
   actions,
 }: {
   portfolioId: string;
   /** The one obvious way back to every project. */
   onAllProjects: () => void;
-  /**
-   * Modal variant (issue #260): when set, the leading button becomes a Close
-   * affordance instead of "All projects". The identity + rollup band below is
-   * the same either way — a portfolio presented in the open-portfolio modal
-   * must show exactly the numbers the grid card showed.
-   */
-  onClose?: () => void;
   /** Rendered flush right on the identity row — same row, no extra height. */
   actions?: React.ReactNode;
 }) {
@@ -75,14 +67,14 @@ export default function PortfolioScopeHeader({
           otherwise shrink to make room rather than wrap). */}
       <View className="flex-row flex-wrap items-center" style={{ gap: 12 }}>
         <TouchableOpacity
-          onPress={onClose ?? onAllProjects}
+          onPress={onAllProjects}
           accessibilityRole="button"
-          accessibilityLabel={onClose ? 'Close portfolio' : 'All projects'}
+          accessibilityLabel="All projects"
           className="bg-surface-card border border-surface-border rounded-xl flex-row items-center justify-center px-3.5 hover:bg-surface-overlay"
           style={{ minHeight: 44, gap: 8 }}
         >
-          <FontAwesome name={onClose ? 'times' : 'arrow-left'} size={12} color={c.textMuted} />
-          <Text className="text-typography-main text-sm font-semibold">{onClose ? 'Close' : 'All projects'}</Text>
+          <FontAwesome name="arrow-left" size={12} color={c.textMuted} />
+          <Text className="text-typography-main text-sm font-semibold">All projects</Text>
         </TouchableOpacity>
 
         {p?.cover_url && !coverBroken ? (

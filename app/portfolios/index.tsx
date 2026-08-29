@@ -1,13 +1,12 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React from 'react';
 import { Platform, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 import { BackButton } from '@/components/common/BackButton';
 import Tooltip from '@/components/common/Tooltip';
 import { EntityGlyph, EntityTag } from '@/components/entities/EntityUI';
 import PortfolioGrid from '@/components/portfolios/PortfolioGrid';
-import PortfolioViewModal from '@/components/portfolios/PortfolioViewModal';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
 
@@ -27,16 +26,15 @@ import { TAB_BAR_HEIGHT } from '@/lib/layout';
 // bounded-height parent — so this is a fixed header + a flex-1 list, the
 // same shape as Role Registry / File Hub Channels / Alert Rules.
 //
-// Since #260, OPENING a portfolio from the list presents it in the Multi-View
-// Modal (PortfolioViewModal) instead of navigating to /portfolios/[id]. The
-// route stays for deep links; the list's "open" presentation is now a modal.
+// A route, not a sheet, for the same reason /projects/templates is one (#184):
+// this is a place you go and stay, link someone to, and come back to. A modal
+// is none of those.
 export default function PortfoliosScreen() {
   const c = useThemeColors();
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 768;
-  const [openPortfolioId, setOpenPortfolioId] = useState<string | null>(null);
 
   return (
     <>
@@ -87,16 +85,12 @@ export default function PortfoliosScreen() {
 
           <View className="flex-1">
             <PortfolioGrid
-              onOpenPortfolio={setOpenPortfolioId}
+              onOpenPortfolio={id => router.push(`/portfolios/${id}` as any)}
               onCreate={() => router.push('/(tabs)/projects' as any)}
             />
           </View>
         </View>
       </View>
-      <PortfolioViewModal
-        portfolioId={openPortfolioId}
-        onClose={() => setOpenPortfolioId(null)}
-      />
     </>
   );
 }
