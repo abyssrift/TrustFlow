@@ -1,5 +1,6 @@
 import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
 import Tooltip from '@/components/common/Tooltip';
+import { EmptyState } from '@/components/common/EmptyState';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getNotificationRoute } from '@/lib/notificationRouting';
 import { FontAwesome } from '@expo/vector-icons';
@@ -92,25 +93,6 @@ function NotificationItem({
         <View className="w-2 h-2 rounded-full bg-brand-primary mt-2 ml-2 flex-shrink-0" />
       )}
     </TouchableOpacity>
-  );
-}
-
-// ── Empty state ──────────────────────────────────────────────────────────────
-function EmptyState() {
-
-  const colors = useThemeColors();
-  return (
-    <View className="flex-1 items-center justify-center px-8 py-24">
-      <View className="bg-brand-primary/10 p-6 rounded-full mb-6 border border-brand-primary/20">
-        <FontAwesome name="bell-o" size={40} color={colors.primary} />
-      </View>
-      <Text className="text-typography-main font-black text-2xl tracking-tight text-center mb-2">
-        All Clear
-      </Text>
-      <Text className="text-typography-muted text-sm text-center leading-6">
-        No notifications yet. When something important happens, you'll hear about it here.
-      </Text>
-    </View>
   );
 }
 
@@ -235,7 +217,12 @@ export default function NotificationsScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : notifications.length === 0 ? (
-        <EmptyState />
+        <EmptyState
+          icon="bell-o"
+          title="All Clear"
+          body="No notifications yet. When something important happens, you'll hear about it here."
+          className="flex-1 justify-center"
+        />
       ) : (
         <FlatList
           data={listData}

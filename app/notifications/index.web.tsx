@@ -1,4 +1,5 @@
 import { AppNotification, useNotifications } from '@/contexts/NotificationsContext';
+import { EmptyState } from '@/components/common/EmptyState';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getNotificationIcon } from '@/lib/notificationIcons';
 import { getNotificationRoute } from '@/lib/notificationRouting';
@@ -108,19 +109,6 @@ function RailItem({
   );
 }
 
-function EmptyState({ message }: { message: string }) {
-  const colors = useThemeColors();
-  return (
-    <View className="flex-1 items-center justify-center px-10 py-20">
-      <View className="bg-brand-primary/10 p-8 rounded-[32px] mb-8 border border-brand-primary/20">
-        <FontAwesome name="bell-o" size={48} color={colors.primary} />
-      </View>
-      <Text className="text-typography-main font-black text-2xl tracking-tight text-center mb-3">All Clear</Text>
-      <Text className="text-typography-muted text-base text-center leading-7 max-w-sm">{message}</Text>
-    </View>
-  );
-}
-
 export default function NotificationsScreenWeb() {
   const colors = useThemeColors();
   const router = useRouter();
@@ -181,11 +169,14 @@ export default function NotificationsScreenWeb() {
       </View>
     ) : visible.length === 0 ? (
       <EmptyState
-        message={
+        icon="bell-o"
+        title="All Clear"
+        body={
           notifications.length === 0
             ? "No notifications yet. When something important happens, you'll hear about it here."
             : `Nothing in ${activeLabel.toLowerCase()} right now.`
         }
+        className="flex-1 justify-center"
       />
     ) : (
       <FlatList

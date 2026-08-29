@@ -3,7 +3,9 @@ import React from 'react';
 import { Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
 import Tooltip from '@/components/common/Tooltip';
+import { EmptyState } from '@/components/common/EmptyState';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { EMPTY_STATE_DEFAULTS } from '@/lib/emptyState';
 import {
   ENTITY_META,
   ageColor,
@@ -609,70 +611,29 @@ export function EntityEmptyState({
   onSecondary?: () => void;
   compact?: boolean;
 }) {
-  const c = useThemeColors();
   const meta = kind ? ENTITY_META[kind] : null;
   const VARIANT_COPY = {
     empty: { icon: meta?.icon || 'inbox', title: meta ? `No ${meta.plural.toLowerCase()} here yet` : 'Nothing here yet', body: meta?.blurb ?? '' },
-    denied: { icon: 'lock', title: "You don't have permission to view this", body: 'Ask an admin to grant you access if you think this is wrong.' },
-    unavailable: { icon: 'lock', title: 'Not available here', body: "This isn't available on your current plan or in this context." },
+    denied: EMPTY_STATE_DEFAULTS.denied,
+    unavailable: EMPTY_STATE_DEFAULTS.unavailable,
   } as const;
   const d = VARIANT_COPY[variant];
   const glyphSize = compact ? 40 : 54;
   const useEntityGlyph = variant === 'empty' && !!kind;
 
   return (
-    <View className={`items-center ${compact ? 'py-8 px-4' : 'py-14 px-6'}`}>
-      {useEntityGlyph ? (
-        <EntityGlyph kind={kind!} size={glyphSize} />
-      ) : (
-        <View
-          style={{
-            width: glyphSize,
-            height: glyphSize,
-            borderRadius: glyphSize * 0.3,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: c.textMuted + '14',
-            borderWidth: 1,
-            borderColor: c.textMuted + '30',
-          }}
-        >
-          <FontAwesome name={(icon ?? d.icon) as any} size={Math.round(glyphSize * 0.42)} color={c.textMuted} />
-        </View>
-      )}
-      <View className="mt-4 items-center">
-        {!!kind && <EntityTag kind={kind} />}
-        <Text className="text-typography-main text-base font-bold mt-1 text-center">
-          {title ?? d.title}
-        </Text>
-      </View>
-      <Text className="text-typography-muted text-xs text-center mt-2 leading-5" style={{ maxWidth: 420 }}>
-        {body ?? d.body}
-      </Text>
-      {(!!onAction || !!onSecondary) && (
-        <View className="flex-row items-center flex-wrap justify-center gap-2 mt-5">
-          {!!onAction && !!actionLabel && (
-            <TouchableOpacity
-              onPress={onAction}
-              className="px-5 rounded-xl bg-brand-primary hover:bg-brand-primary-hover flex-row items-center justify-center gap-2"
-              style={{ minHeight: 44 }}
-            >
-              <FontAwesome name={actionIcon as any} size={12} color="white" />
-              <Text className="text-white text-xs font-bold">{actionLabel}</Text>
-            </TouchableOpacity>
-          )}
-          {!!onSecondary && !!secondaryLabel && (
-            <TouchableOpacity
-              onPress={onSecondary}
-              className="px-5 rounded-xl border border-surface-border hover:bg-surface-overlay flex-row items-center justify-center"
-              style={{ minHeight: 44 }}
-            >
-              <Text className="text-typography-main text-xs font-bold">{secondaryLabel}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-    </View>
+    <EmptyState
+      icon={(icon ?? d.icon) as any}
+      visual={useEntityGlyph ? <EntityGlyph kind={kind!} size={glyphSize} /> : undefined}
+      title={title ?? d.title}
+      body={body ?? d.body}
+      actionLabel={actionLabel}
+      onAction={onAction}
+      actionIcon={actionIcon as any}
+      secondaryLabel={secondaryLabel}
+      onSecondary={onSecondary}
+      compact={compact}
+    />
   );
 }
 

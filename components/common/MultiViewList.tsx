@@ -15,6 +15,7 @@ import {
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { FilterChip, SegmentedControl } from '@/components/entities/EntityUI';
+import { EmptyState } from '@/components/common/EmptyState';
 import { SkeletonList } from '@/components/Skeleton';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -374,49 +375,6 @@ function StatusBanner({ tone, icon, title, body }: MultiViewStatusBanner) {
         <Text className={`text-xs font-bold ${tone === 'danger' ? 'text-state-danger' : 'text-state-warning'}`}>{title}</Text>
         {!!body && <Text className="text-typography-muted text-[11px] mt-1 leading-4">{body}</Text>}
       </View>
-    </View>
-  );
-}
-
-function EmptyState({ icon = 'inbox', title, body, actionLabel, onAction, secondaryLabel, onSecondary }: MultiViewEmptyState) {
-  const c = useThemeColors();
-  return (
-    <View className="items-center py-14 px-6">
-      <View
-        className="items-center justify-center rounded-full"
-        style={{ width: 54, height: 54, backgroundColor: c.textDim + '14', borderWidth: 1, borderColor: c.textDim + '30' }}
-      >
-        <FontAwesome name={icon as any} size={20} color={c.textMuted} />
-      </View>
-      <Text className="text-typography-main text-base font-bold mt-4 text-center">{title}</Text>
-      {!!body && (
-        <Text className="text-typography-muted text-xs text-center mt-2 leading-5" style={{ maxWidth: 420 }}>
-          {body}
-        </Text>
-      )}
-      {(!!onAction || !!onSecondary) && (
-        <View className="flex-row items-center flex-wrap justify-center gap-2 mt-5">
-          {!!onAction && !!actionLabel && (
-            <TouchableOpacity
-              onPress={onAction}
-              className="px-5 rounded-xl bg-brand-primary hover:bg-brand-primary-hover flex-row items-center justify-center gap-2"
-              style={{ minHeight: 44 }}
-            >
-              <FontAwesome name="plus" size={12} color="white" />
-              <Text className="text-white text-xs font-bold">{actionLabel}</Text>
-            </TouchableOpacity>
-          )}
-          {!!onSecondary && !!secondaryLabel && (
-            <TouchableOpacity
-              onPress={onSecondary}
-              className="px-5 rounded-xl border border-surface-border hover:bg-surface-overlay flex-row items-center justify-center"
-              style={{ minHeight: 44 }}
-            >
-              <Text className="text-typography-main text-xs font-bold">{secondaryLabel}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
     </View>
   );
 }
