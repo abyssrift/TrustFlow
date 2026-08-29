@@ -2,7 +2,7 @@ import Popup from '@/components/common/Popup';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { IntelligencePicker } from './IntelligenceCommon';
 import Tooltip from '@/components/common/Tooltip';
 
@@ -10,6 +10,8 @@ import Calendar from '@/components/common/Calendar';
 
 export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, stages }: any) => {
   const colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [type, setType] = useState('performance');
   const [p, setP] = useState<string | null>(null);
   const [s, setS] = useState<string | null>(null);
@@ -24,57 +26,66 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
       onClose={onClose}
       presentation="auto"
       dismissible={false}
-      maxWidth={896}
-      containerClassName="rounded-[40px] overflow-hidden premium-shadow"
+      maxWidth={1040}
+      containerClassName="rounded-3xl overflow-hidden premium-shadow"
     >
-      <View className="p-10 border-b" style={{ borderColor: colors.border }}>
-        <Text className="text-3xl font-black tracking-tight mb-2" style={{ color: colors.textMain }}>Define Objective</Text>
-        <Text className="font-medium" style={{ color: colors.textMuted }}>Establish benchmarks for team performance tracking</Text>
+      <View className="px-6 py-5 border-b" style={{ borderColor: colors.border }}>
+        <Text className="text-2xl font-black tracking-tight mb-1" style={{ color: colors.textMain }}>Create target</Text>
+        <Text className="text-sm" style={{ color: colors.textMuted }}>Choose a stage, then set the measure that matters.</Text>
       </View>
-      <ScrollView className="p-10 max-h-[600px]">
-        <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Objective Classification</Text>
-        <View className="flex-row p-2 rounded-2xl mb-8 border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+      <ScrollView className="px-6 py-5 max-h-[620px]" contentContainerClassName="gap-5">
+        <View>
+          <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: colors.textMuted }}>Target type</Text>
+          <View className="flex-row p-1 rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
           {['performance', 'volume'].map(t => (
             <TouchableOpacity
               key={t}
               onPress={() => setType(t)}
-              className={`flex-1 py-4 rounded-xl items-center ${type === t ? 'premium-shadow' : ''}`}
+              className={`flex-1 min-h-11 justify-center rounded-lg items-center ${type === t ? 'premium-shadow' : ''}`}
               style={{ backgroundColor: type === t ? colors.primary : 'transparent' }}
             >
               <Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: type === t ? 'white' : colors.textMuted }}>{t}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        <View className="flex-row gap-8 mb-8">
+        </View>
+        <View className={isDesktop ? 'flex-row gap-6' : 'gap-5'}>
           <View className="flex-1">
-            <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Strategic Pipeline</Text>
+            <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: colors.textMuted }}>Pipeline</Text>
             <IntelligencePicker items={pipelines} selectedId={p} onSelect={(id: string) => { setP(id); setS(null); }} />
           </View>
           <View className="flex-1">
-            <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Target Node</Text>
+            <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-3" style={{ color: colors.textMuted }}>Stage</Text>
             <IntelligencePicker items={filteredStages} selectedId={s} onSelect={setS} disabled={!p} />
           </View>
         </View>
-        <Text className="text-[10px] font-black uppercase tracking-[0.2em] mb-4" style={{ color: colors.textMuted }}>Boundary Parameters</Text>
-        {type === 'performance' ? (
-          <View className="flex-row gap-8">
+        <View className="border-t border-surface-border pt-5">
+          <View className="flex-row items-center gap-2 mb-4">
+            <FontAwesome name={type === 'volume' ? 'bar-chart' : 'clock-o'} size={13} color={colors.primary} />
+            <Text className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: colors.textMuted }}>{type === 'volume' ? 'Volume goal' : 'Performance goal'}</Text>
+          </View>
+          {type === 'performance' ? (
+          <View className={isDesktop ? 'flex-row gap-6' : 'gap-5'}>
             <View className="flex-1">
-              <Text className="text-[10px] font-bold mb-3" style={{ color: colors.textMuted }}>Target Active Latency (Seconds)</Text>
-              <TextInput value={activeGoal} onChangeText={setActiveGoal} keyboardType="numeric" className="border p-5 rounded-2xl font-black text-lg" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
+              <Text className="text-xs font-bold mb-2" style={{ color: colors.textMuted }}>Active latency (seconds)</Text>
+              <TextInput value={activeGoal} onChangeText={setActiveGoal} keyboardType="numeric" className="border px-4 py-3 rounded-xl font-black text-base" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
             </View>
             <View className="flex-1">
-              <Text className="text-[10px] font-bold mb-3" style={{ color: colors.textMuted }}>Max Life-Cycle (Seconds)</Text>
-              <TextInput value={lifeGoal} onChangeText={setLifeGoal} keyboardType="numeric" className="border p-5 rounded-2xl font-black text-lg" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
+              <Text className="text-xs font-bold mb-2" style={{ color: colors.textMuted }}>Maximum life cycle (seconds)</Text>
+              <TextInput value={lifeGoal} onChangeText={setLifeGoal} keyboardType="numeric" className="border px-4 py-3 rounded-xl font-black text-base" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
             </View>
           </View>
         ) : (
-          <View className="gap-8">
-            <View>
-              <Text className="text-[10px] font-bold mb-3" style={{ color: colors.textMuted }}>Tasks (Quota)</Text>
-              <TextInput value={quantity} onChangeText={setQuantity} keyboardType="numeric" className="border p-5 rounded-2xl font-black text-lg" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
+          <View className={isDesktop ? 'flex-row gap-6' : 'gap-5'}>
+            <View className={isDesktop ? 'w-[220px]' : ''}>
+              <Text className="text-xs font-bold mb-2" style={{ color: colors.textMuted }}>Task quota</Text>
+              <TextInput value={quantity} onChangeText={setQuantity} keyboardType="numeric" className="border px-4 py-3 rounded-xl font-black text-base" style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }} />
             </View>
-            <View>
-              <Text className="text-[10px] font-bold mb-3" style={{ color: colors.textMuted }}>Expiration Deadline</Text>
+            <View className="flex-1 rounded-2xl border border-surface-border bg-surface-background p-3">
+              <View className="flex-row items-center justify-between mb-2 px-1">
+                <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>Deadline</Text>
+                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.primary }}>{deadline?.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+              </View>
               <Calendar
                 selectedDate={deadline?.toISOString() || null}
                 onSelect={(date) => setDeadline(new Date(date))}
@@ -83,9 +94,10 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
             </View>
           </View>
         )}
+        </View>
       </ScrollView>
-      <View className="p-10 border-t flex-row gap-6" style={{ borderColor: colors.border, backgroundColor: `${colors.card}80` }}>
-        <TouchableOpacity onPress={onClose} className="flex-1 py-5 rounded-2xl border items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+      <View className="px-6 py-4 border-t flex-row gap-3" style={{ borderColor: colors.border, backgroundColor: `${colors.card}80` }}>
+        <TouchableOpacity onPress={onClose} className="flex-1 min-h-11 justify-center rounded-xl border items-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
           <Text className="font-black uppercase tracking-widest text-xs" style={{ color: colors.textMuted }}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -101,7 +113,7 @@ export const TargetCreationModal = ({ visible, onClose, onConfirm, pipelines, st
             });
             onClose();
           }}
-          className="flex-[2] py-5 rounded-2xl items-center shadow-lg transition-all active:scale-[0.98]"
+          className="flex-[2] min-h-11 justify-center rounded-xl items-center shadow-lg active:scale-[0.98]"
           style={{ backgroundColor: s ? colors.primary : colors.border, opacity: s ? 1 : 0.5 }}
         >
           <Text className="font-black uppercase tracking-widest text-xs" style={{ color: 'white' }}>Create Objective</Text>
