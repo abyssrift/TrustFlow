@@ -114,7 +114,7 @@ function PipelinesWebInner() {
       case 'settings':
         return (
           <ScrollView className="flex-1 bg-surface-background/30" contentContainerStyle={{ padding: 40 }}>
-            <View className="max-w-2xl mx-auto w-full">
+            <View className="max-w-5xl mx-auto w-full">
               <PipelineSettingsForm
                 initialData={{
                   id: selectedPipeline.id,

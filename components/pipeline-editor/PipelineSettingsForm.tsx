@@ -233,16 +233,16 @@ export default function PipelineSettingsForm({
   };
 
   return (
-    <View className="gap-5">
+    <View className="gap-6">
       {/* Basic Info */}
       <View>
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2 ml-1">Identity</Text>
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-3 ml-1">Identity</Text>
         <TextInput
           value={name}
           onChangeText={setName}
           placeholder="Pipeline Name"
           placeholderTextColor={colors.textDim}
-          className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main font-bold"
+          className="bg-surface-background border border-surface-border rounded-xl px-4 py-4 text-base text-typography-main font-bold"
         />
       </View>
 
@@ -252,40 +252,40 @@ export default function PipelineSettingsForm({
           onChangeText={setDesc}
           placeholder="Description (optional)"
           placeholderTextColor={colors.textDim}
-          className="bg-surface-background border border-surface-border rounded-xl px-4 py-3 text-typography-main text-sm"
+          className="bg-surface-background border border-surface-border rounded-xl px-4 py-4 text-base text-typography-main"
           multiline
           numberOfLines={2}
         />
       </View>
 
       {/* Pipeline Type (#172 P2) */}
-      <View className="bg-surface-overlay/50 p-4 rounded-2xl border border-surface-border">
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-3">This Pipeline Governs</Text>
+      <View className="bg-surface-card p-6 rounded-2xl border border-surface-border">
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-4">This Pipeline Governs</Text>
         <View className="flex-row gap-2">
           <TouchableOpacity
             onPress={() => setSubjectKind('task')}
-            className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+            className={`flex-1 min-h-12 py-3 rounded-xl border items-center flex-row justify-center gap-2 ${
               subjectKind === 'task' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
             }`}
           >
             <FontAwesome name="check-square-o" size={10} color={subjectKind === 'task' ? colors.textMain : colors.textMuted} />
-            <Text className={`text-[10px] font-black uppercase tracking-tighter ${subjectKind === 'task' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+            <Text className={`text-[11px] font-black uppercase tracking-tighter ${subjectKind === 'task' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
               Tasks
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setSubjectKind('project')}
-            className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+            className={`flex-1 min-h-12 py-3 rounded-xl border items-center flex-row justify-center gap-2 ${
               subjectKind === 'project' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
             }`}
           >
             <FontAwesome name="folder-o" size={10} color={subjectKind === 'project' ? colors.textMain : colors.textMuted} />
-            <Text className={`text-[10px] font-black uppercase tracking-tighter ${subjectKind === 'project' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+            <Text className={`text-[11px] font-black uppercase tracking-tighter ${subjectKind === 'project' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
               Projects
             </Text>
           </TouchableOpacity>
         </View>
-        <Text className="text-typography-muted text-[9px] mt-2 ml-1 leading-4 italic">
+        <Text className="text-typography-muted text-xs mt-3 ml-1 leading-5">
           {subjectKind === 'task'
             ? 'Stages describe how an individual task moves through work — the default for every pipeline.'
             : 'Stages describe a project’s lifecycle instead, and are set from the project detail view, not by moving a task. Tasks cannot be created on a project pipeline.'}
@@ -293,14 +293,14 @@ export default function PipelineSettingsForm({
       </View>
 
       {/* Visibility Section */}
-      <View className="bg-surface-overlay/50 p-4 rounded-2xl border border-surface-border">
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-4">Security & Visibility</Text>
+      <View className="bg-surface-card p-6 rounded-2xl border border-surface-border">
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-5">Security & Visibility</Text>
         
         {/* Role Picker */}
         <View className="mb-4">
           <View className="flex-row items-center justify-between mb-2 px-1">
-            <Text className="text-typography-main font-bold text-xs">Access Roles</Text>
-            <Text className="text-typography-muted text-[10px]">
+            <Text className="text-typography-main font-bold text-sm">Access Roles</Text>
+            <Text className="text-typography-muted text-xs">
               {selectedRoleIds.length === 0 ? 'All roles (public)' : `${selectedRoleIds.length} selected`}
             </Text>
           </View>
@@ -315,13 +315,13 @@ export default function PipelineSettingsForm({
               onChangeText={setSearchTerm}
               placeholder="Search roles..."
               placeholderTextColor={colors.textDim}
-              className="bg-surface-background border border-surface-border rounded-lg pl-8 pr-3 py-2 text-[11px] text-typography-main"
+              className="bg-surface-background border border-surface-border rounded-lg pl-9 pr-4 py-3 text-sm text-typography-main"
             />
           </View>
 
           {/* Role Pills */}
-          <View className="max-h-40 bg-surface-background rounded-xl border border-surface-border overflow-hidden">
-            <ScrollView nestedScrollEnabled className="p-2">
+          <View className="max-h-48 bg-surface-background rounded-xl border border-surface-border overflow-hidden">
+            <ScrollView nestedScrollEnabled className="p-3">
               <View className="flex-row flex-wrap gap-2">
                 {filteredRoles.length === 0 ? (
                   <Text className="text-typography-muted text-[10px] italic p-2">No matching roles</Text>
@@ -332,7 +332,7 @@ export default function PipelineSettingsForm({
                       <TouchableOpacity
                         key={role.id}
                         onPress={() => toggleRole(role.id)}
-                        className={`px-3 py-1.5 rounded-lg border flex-row items-center ${
+                        className={`px-3 py-2 rounded-lg border flex-row items-center ${
                           isSelected ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'
                         }`}
                       >
@@ -343,7 +343,7 @@ export default function PipelineSettingsForm({
                             style={{ backgroundColor: role.color, width: 6, height: 6, borderRadius: 3, marginRight: 5 }}
                           />
                         )}
-                        <Text className={`text-[10px] font-bold ${isSelected ? 'text-brand-on-primary' : 'text-typography-main'}`}>
+                        <Text className={`text-xs font-bold ${isSelected ? 'text-brand-on-primary' : 'text-typography-main'}`}>
                           {role.name}
                         </Text>
                         {role.is_system && (
@@ -381,29 +381,29 @@ export default function PipelineSettingsForm({
           <View className="flex-row gap-2">
             <TouchableOpacity
               onPress={() => setTaskVisibilityMode('all')}
-              className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+              className={`flex-1 min-h-12 py-3 rounded-xl border items-center flex-row justify-center gap-2 ${
                 taskVisibilityMode === 'all' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
               }`}
             >
               <FontAwesome name="globe" size={10} color={taskVisibilityMode === 'all' ? colors.textMain : colors.textMuted} />
-              <Text className={`text-[10px] font-black uppercase tracking-tighter ${taskVisibilityMode === 'all' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+              <Text className={`text-[11px] font-black uppercase tracking-tighter ${taskVisibilityMode === 'all' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                 All Tasks
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setTaskVisibilityMode('assigned_only')}
-              className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+              className={`flex-1 min-h-12 py-3 rounded-xl border items-center flex-row justify-center gap-2 ${
                 taskVisibilityMode === 'assigned_only' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
               }`}
             >
               <FontAwesome name="user-secret" size={10} color={taskVisibilityMode === 'assigned_only' ? colors.textMain : colors.textMuted} />
-              <Text className={`text-[10px] font-black uppercase tracking-tighter ${taskVisibilityMode === 'assigned_only' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+              <Text className={`text-[11px] font-black uppercase tracking-tighter ${taskVisibilityMode === 'assigned_only' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                 Assigned Only
               </Text>
             </TouchableOpacity>
           </View>
-          <Text className="text-typography-muted text-[9px] mt-2 ml-1 leading-3 italic">
+          <Text className="text-typography-muted text-xs mt-3 ml-1 leading-5">
             {taskVisibilityMode === 'all'
               ? 'Members can see all tasks in this pipeline.'
               : 'Members only see tasks assigned to them or their team.'}
@@ -430,9 +430,9 @@ export default function PipelineSettingsForm({
       </View>
 
       {/* File Visibility Section */}
-      <View className="bg-surface-overlay/50 p-4 rounded-2xl border border-surface-border">
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-1">File Visibility</Text>
-        <Text className="text-typography-muted text-[9px] mb-4 leading-3 italic">
+      <View className="bg-surface-card p-6 rounded-2xl border border-surface-border">
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-2">File Visibility</Text>
+        <Text className="text-typography-muted text-xs mb-5 leading-5">
           Who can open files attached to tasks in this pipeline (briefs & submissions). The task owner and managers can always see them.
         </Text>
 
@@ -447,19 +447,19 @@ export default function PipelineSettingsForm({
               key={opt.key}
               onPress={() => setFvPreset(opt.key)}
               style={{ flexBasis: '48%', flexGrow: 1 }}
-              className={`py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+              className={`min-h-12 py-3 rounded-xl border items-center flex-row justify-center gap-2 ${
                 fvPreset === opt.key ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
               }`}
             >
               <FontAwesome name={opt.icon as any} size={10} color={fvPreset === opt.key ? colors.textMain : colors.textMuted} />
-              <Text className={`text-[10px] font-black uppercase tracking-tighter ${fvPreset === opt.key ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+              <Text className={`text-[11px] font-black uppercase tracking-tighter ${fvPreset === opt.key ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                 {opt.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text className="text-typography-muted text-[9px] mt-2 ml-1 leading-3 italic">
+        <Text className="text-typography-muted text-xs mt-3 ml-1 leading-5">
           {fvPreset === 'task_members'
             ? 'Anyone assigned to the task, plus submission reviewers.'
             : fvPreset === 'submitters_reviewers'
@@ -510,7 +510,7 @@ export default function PipelineSettingsForm({
                   className="bg-surface-background border border-surface-border rounded-lg pl-8 pr-3 py-2 text-[11px] text-typography-main"
                 />
               </View>
-              <View className="max-h-40 bg-surface-background rounded-xl border border-surface-border overflow-hidden">
+              <View className="max-h-48 bg-surface-background rounded-xl border border-surface-border overflow-hidden">
                 <ScrollView nestedScrollEnabled className="p-2">
                   <View className="flex-row flex-wrap gap-2">
                     {fvFilteredRoles.length === 0 ? (
@@ -576,8 +576,8 @@ export default function PipelineSettingsForm({
       </View>
 
       {/* Assignment Section */}
-      <View className="bg-surface-overlay/50 p-4 rounded-2xl border border-surface-border">
-        <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-4">Task Assignment</Text>
+      <View className="bg-surface-card p-6 rounded-2xl border border-surface-border">
+        <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest mb-5">Task Assignment</Text>
 
         {/* Mode Selector */}
         <View className="mb-4">
@@ -591,18 +591,18 @@ export default function PipelineSettingsForm({
               <TouchableOpacity
                 key={opt.key}
                 onPress={() => setAssignmentMode(opt.key)}
-                className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+                className={`flex-1 min-h-12 py-3 rounded-xl border items-center flex-row justify-center gap-2 ${
                   assignmentMode === opt.key ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
                 }`}
               >
                 <FontAwesome name={opt.icon as any} size={10} color={assignmentMode === opt.key ? colors.textMain : colors.textMuted} />
-                <Text className={`text-[10px] font-black uppercase tracking-tighter ${assignmentMode === opt.key ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+                <Text className={`text-[11px] font-black uppercase tracking-tighter ${assignmentMode === opt.key ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                   {opt.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text className="text-typography-muted text-[9px] mt-2 ml-1 leading-3 italic">
+          <Text className="text-typography-muted text-xs mt-3 ml-1 leading-5">
             {assignmentMode === 'manual'
               ? 'Tasks are assigned by hand. No automatic rotation.'
               : assignmentMode === 'round_robin'
@@ -619,28 +619,28 @@ export default function PipelineSettingsForm({
               <View className="flex-row gap-2">
                 <TouchableOpacity
                   onPress={() => setAssignmentPoolType('users')}
-                  className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+                  className={`flex-1 min-h-12 py-3 rounded-xl border items-center flex-row justify-center gap-2 ${
                     assignmentPoolType === 'users' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
                   }`}
                 >
                   <FontAwesome name="user" size={10} color={assignmentPoolType === 'users' ? colors.textMain : colors.textMuted} />
-                  <Text className={`text-[10px] font-black uppercase tracking-tighter ${assignmentPoolType === 'users' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+                  <Text className={`text-[11px] font-black uppercase tracking-tighter ${assignmentPoolType === 'users' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                     Users
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setAssignmentPoolType('teams')}
-                  className={`flex-1 py-2.5 rounded-xl border items-center flex-row justify-center gap-2 ${
+                  className={`flex-1 min-h-12 py-3 rounded-xl border items-center flex-row justify-center gap-2 ${
                     assignmentPoolType === 'teams' ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'
                   }`}
                 >
                   <FontAwesome name="users" size={10} color={assignmentPoolType === 'teams' ? colors.textMain : colors.textMuted} />
-                  <Text className={`text-[10px] font-black uppercase tracking-tighter ${assignmentPoolType === 'teams' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
+                  <Text className={`text-[11px] font-black uppercase tracking-tighter ${assignmentPoolType === 'teams' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                     Teams
                   </Text>
                 </TouchableOpacity>
               </View>
-              <Text className="text-typography-muted text-[9px] mt-2 ml-1 leading-3 italic">
+              <Text className="text-typography-muted text-xs mt-3 ml-1 leading-5">
                 {assignmentPoolType === 'teams'
                   ? 'Each turn hands the whole task to one team — the team self-organizes who picks it up.'
                   : 'Each turn hands the task to one individual.'}
@@ -669,7 +669,7 @@ export default function PipelineSettingsForm({
                 />
               </View>
 
-              <View className="max-h-40 bg-surface-background rounded-xl border border-surface-border overflow-hidden">
+              <View className="max-h-48 bg-surface-background rounded-xl border border-surface-border overflow-hidden">
                 <ScrollView nestedScrollEnabled className="p-2">
                   <View className="flex-row flex-wrap gap-2">
                     {filteredPoolOptions.length === 0 ? (
