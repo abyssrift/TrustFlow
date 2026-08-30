@@ -717,8 +717,163 @@ BEGIN
   RAISE NOTICE 'OK (7): rpc_count_harvest_rule_backlog denies u_plain, returns exactly the qualifying count (2), mutates nothing (harvested_files unchanged across repeated calls), matches exactly what backfill then touches, and drops to 0 once backfill drains the backlog.';
 END $$;
 
+-- ── 8. Qualification accuracy (20260830 fix): backfill/backlog-count and
+--      fn_harvest_task_output's override path must agree with each other,
+--      not just with condition_type/stage -- a task only "qualifies" if
+--      harvesting it will ACTUALLY produce a harvested_files row. Found live
+--      during manual testing: pre-fix, a project-less task with no override
+--      counted as "qualifying" and backfill reported it as "processed" while
+--      producing nothing. ─────────────────────────────────────────────────
+DO $$
+DECLARE
+  c                RECORD;
+  v_stage_dyn      UUID;  -- only v_rule_dynamic's tasks live here
+  v_stage_ovr      UUID;  -- only v_rule_override's tasks live here -- kept
+                          -- SEPARATE from v_stage_dyn: an override rule
+                          -- qualifies EVERY matching-stage task with a
+                          -- submission regardless of project_id (that's the
+                          -- whole point of an override -- it doesn't gate
+                          -- per-task on project at all), so sharing one
+                          -- stage between both rules would make the
+                          -- override rule's count include the dynamic
+                          -- rule's fixture tasks too and the assertions
+                          -- below ambiguous about which gate was proven.
+  v_override_folder UUID;
+  v_rule_dynamic   UUID;  -- no override -- needs project_id
+  v_rule_override  UUID;  -- explicit destination -- must NOT need project_id
+  v_task_positive  UUID;  -- has project + submission -- the control
+  v_task_noproject UUID;  -- no project, dynamic rule -- must NOT qualify
+  v_task_override  UUID;  -- no project, override rule -- MUST qualify
+  v_task_nosub     UUID;  -- has project, no submission yet -- must NOT qualify
+  v_task_override_withproject UUID;  -- override stage, but DOES have a project
+  v_count          INT;
+  v_touched        INT;
+BEGIN
+  SELECT * INTO c FROM hrpc_check_ctx;
+  PERFORM set_config('request.jwt.claim.sub', c.u_editor::text, true);
+
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position)
+  VALUES (c.pipeline, 'HRPC Selfcheck Qual Accuracy Dyn Stage ' || c.tag, 920) RETURNING id INTO v_stage_dyn;
+  INSERT INTO public.pipeline_stages (pipeline_id, name, position)
+  VALUES (c.pipeline, 'HRPC Selfcheck Qual Accuracy Ovr Stage ' || c.tag, 921) RETURNING id INTO v_stage_ovr;
+  INSERT INTO public.filehub_folders (company_id, name, created_by, scope)
+  VALUES (c.company, 'HRPC Selfcheck Qual Accuracy Override Folder ' || c.tag, c.creator, 'broadcast')
+  RETURNING id INTO v_override_folder;
+
+  v_rule_dynamic  := public.rpc_create_harvest_rule(c.pipeline, 'stage_entry', v_stage_dyn, NULL, 60);
+  v_rule_override := public.rpc_create_harvest_rule(c.pipeline, 'stage_entry', v_stage_ovr, v_override_folder, 60);
+
+  -- 8a. Positive control: project set, submission seeded, dynamic (no
+  -- override) rule -- must qualify and actually harvest.
+  INSERT INTO public.tasks (company_id, title, created_by, pipeline_id, project_id, current_stage_id)
+  VALUES (c.company, 'HRPC Selfcheck Qual Positive ' || c.tag, c.creator, c.pipeline, c.project, v_stage_dyn)
+  RETURNING id INTO v_task_positive;
+  PERFORM public.hrpc_selfcheck_seed_submission(v_task_positive, c.company, c.creator, c.tag, 'q-pos');
+
+  -- 8b. project_id NULL, dynamic rule (no override) -- must NOT qualify.
+  -- This is the exact scenario that silently no-op'd pre-fix.
+  INSERT INTO public.tasks (company_id, title, created_by, pipeline_id, project_id, current_stage_id)
+  VALUES (c.company, 'HRPC Selfcheck Qual NoProject ' || c.tag, c.creator, c.pipeline, NULL, v_stage_dyn)
+  RETURNING id INTO v_task_noproject;
+  PERFORM public.hrpc_selfcheck_seed_submission(v_task_noproject, c.company, c.creator, c.tag, 'q-noproj');
+
+  -- 8d. project set, dynamic rule, but NO submission yet -- must NOT
+  -- qualify (fn_harvest_task_output's v_submission IS NULL -> RETURN gate).
+  INSERT INTO public.tasks (company_id, title, created_by, pipeline_id, project_id, current_stage_id)
+  VALUES (c.company, 'HRPC Selfcheck Qual NoSubmission ' || c.tag, c.creator, c.pipeline, c.project, v_stage_dyn)
+  RETURNING id INTO v_task_nosub;
+  -- deliberately no hrpc_selfcheck_seed_submission call here.
+
+  -- 8c. project_id NULL, on the SEPARATE stage the override rule watches --
+  -- MUST qualify. Proves the override path no longer requires a project.
+  INSERT INTO public.tasks (company_id, title, created_by, pipeline_id, project_id, current_stage_id)
+  VALUES (c.company, 'HRPC Selfcheck Qual Override ' || c.tag, c.creator, c.pipeline, NULL, v_stage_ovr)
+  RETURNING id INTO v_task_override;
+  PERFORM public.hrpc_selfcheck_seed_submission(v_task_override, c.company, c.creator, c.tag, 'q-ovr');
+
+  -- Backlog counts: dynamic rule sees exactly 1 (task_positive) --
+  -- task_noproject and task_nosub correctly excluded.
+  SELECT public.rpc_count_harvest_rule_backlog(v_rule_dynamic) INTO v_count;
+  IF v_count <> 1 THEN
+    RAISE EXCEPTION 'CHECK FAILED (8a/8b/8d): dynamic (no-override) rule backlog should be exactly 1 (only task_positive), got %. project-less and submission-less tasks must not be counted.', v_count;
+  END IF;
+
+  -- Override rule sees exactly 1 (task_override, the only task on its
+  -- watched stage) -- proves the override rule qualifies a project-less
+  -- task instead of proving it ignores project_id across the board (that
+  -- second, stronger claim is proven separately below in the mixed-stage
+  -- assertion).
+  SELECT public.rpc_count_harvest_rule_backlog(v_rule_override) INTO v_count;
+  IF v_count <> 1 THEN
+    RAISE EXCEPTION 'CHECK FAILED (8c): override rule backlog should be exactly 1 (task_override, which has NO project), got %. The override path must not require project_id.', v_count;
+  END IF;
+
+  -- The stronger claim promised above: an override rule doesn't discriminate
+  -- by project_id at all -- add a SECOND task on the same override-watched
+  -- stage that DOES have a project, and confirm the backlog now counts BOTH
+  -- (2), proving the override path treats project-having and project-less
+  -- tasks identically rather than merely tolerating the project-less case.
+  INSERT INTO public.tasks (company_id, title, created_by, pipeline_id, project_id, current_stage_id)
+  VALUES (c.company, 'HRPC Selfcheck Qual Override WithProject ' || c.tag, c.creator, c.pipeline, c.project, v_stage_ovr)
+  RETURNING id INTO v_task_override_withproject;
+  PERFORM public.hrpc_selfcheck_seed_submission(v_task_override_withproject, c.company, c.creator, c.tag, 'q-ovr-proj');
+
+  SELECT public.rpc_count_harvest_rule_backlog(v_rule_override) INTO v_count;
+  IF v_count <> 2 THEN
+    RAISE EXCEPTION 'CHECK FAILED (8c-strong): override rule backlog should now be 2 (task_override + task_override_withproject) -- the override path must count a project-HAVING task exactly the same as a project-less one, got %', v_count;
+  END IF;
+
+  -- Run both backfills and verify the ACTUAL harvested_files rows match --
+  -- not just the returned count, the real end-to-end effect.
+  v_touched := public.rpc_backfill_harvest_rule(v_rule_dynamic);
+  IF v_touched <> 1 THEN
+    RAISE EXCEPTION 'CHECK FAILED (8 backfill-dynamic): expected exactly 1 task touched, got %', v_touched;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.harvested_files WHERE harvest_rule_id = v_rule_dynamic AND source_task_id = v_task_positive) THEN
+    RAISE EXCEPTION 'CHECK FAILED (8a): task_positive should have been actually harvested by the dynamic rule';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.harvested_files WHERE harvest_rule_id = v_rule_dynamic AND source_task_id = v_task_noproject) THEN
+    RAISE EXCEPTION 'CHECK FAILED (8b): task_noproject must never appear in harvested_files under the dynamic rule -- it has no project and the rule has no override';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.harvested_files WHERE harvest_rule_id = v_rule_dynamic AND source_task_id = v_task_nosub) THEN
+    RAISE EXCEPTION 'CHECK FAILED (8d): task_nosub must never appear in harvested_files -- it has no submission yet';
+  END IF;
+
+  v_touched := public.rpc_backfill_harvest_rule(v_rule_override);
+  IF v_touched <> 2 THEN
+    RAISE EXCEPTION 'CHECK FAILED (8 backfill-override): expected exactly 2 tasks touched (task_override + task_override_withproject), got %', v_touched;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.harvested_files
+    WHERE harvest_rule_id = v_rule_override AND source_task_id = v_task_override AND destination_folder_id = v_override_folder
+  ) THEN
+    RAISE EXCEPTION 'CHECK FAILED (8c): task_override (no project) should have been actually harvested into the rule''s explicit override folder -- this is the real end-to-end proof, not just the count';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.harvested_files
+    WHERE harvest_rule_id = v_rule_override AND source_task_id = v_task_override_withproject AND destination_folder_id = v_override_folder
+  ) THEN
+    RAISE EXCEPTION 'CHECK FAILED (8c-strong): task_override_withproject (has a project) should ALSO land in the same override folder -- the override path must not silently prefer the dynamic per-project folder over its own explicit destination';
+  END IF;
+
+  -- 8e. The submission gate is dynamic, not a permanent exclusion: seed a
+  -- submission for task_nosub now and confirm it becomes qualifying and
+  -- backfillable.
+  PERFORM public.hrpc_selfcheck_seed_submission(v_task_nosub, c.company, c.creator, c.tag, 'q-nosub-fixed');
+  SELECT public.rpc_count_harvest_rule_backlog(v_rule_dynamic) INTO v_count;
+  IF v_count <> 1 THEN
+    RAISE EXCEPTION 'CHECK FAILED (8e): after giving task_nosub a submission, dynamic rule backlog should be exactly 1 (task_nosub -- task_positive already harvested), got %', v_count;
+  END IF;
+  v_touched := public.rpc_backfill_harvest_rule(v_rule_dynamic);
+  IF v_touched <> 1 OR NOT EXISTS (SELECT 1 FROM public.harvested_files WHERE harvest_rule_id = v_rule_dynamic AND source_task_id = v_task_nosub) THEN
+    RAISE EXCEPTION 'CHECK FAILED (8e): task_nosub should now be harvestable once it has a submission, touched=%', v_touched;
+  END IF;
+
+  RAISE NOTICE 'OK (8): backfill/backlog-count now agree with fn_harvest_task_output''s real gates -- a project-less task with no override correctly never qualifies, the SAME project-less task correctly DOES qualify (and actually gets harvested) once the rule has an explicit override, a task with no submission yet is correctly excluded until it gets one, and every count is verified against the real harvested_files rows produced, not just the returned integers.';
+END $$;
+
 DO $$ BEGIN
-  RAISE NOTICE 'ALL CHECKS PASSED: harvest_rules CRUD RPCs, the cascade-fix regression guard, backfill, stage_terminal_success, the rpc_delete_stage reference guard, and rpc_count_harvest_rule_backlog (issue #284 Phases 3 + 5).';
+  RAISE NOTICE 'ALL CHECKS PASSED: harvest_rules CRUD RPCs, the cascade-fix regression guard, backfill, stage_terminal_success, the rpc_delete_stage reference guard, rpc_count_harvest_rule_backlog, and the 20260830 qualification-accuracy fix (issue #284 Phases 3 + 5).';
 END $$;
 
 ROLLBACK;
