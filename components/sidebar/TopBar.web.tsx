@@ -69,7 +69,7 @@ export default function TopBar({
   const blurTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // Open the dropdown on hover too (matching the + / theme buttons), not just focus.
   const searchOpen = focused || hovered;
-  const { grouped, results, archives, loading, parsed } = useGlobalSearch(topSearch, {
+  const { grouped, results, archives, loading, parsed, searchError } = useGlobalSearch(topSearch, {
     enabled: searchOpen,
     includeArchived: includeArchived && canViewArchives,
   });
@@ -206,6 +206,7 @@ export default function TopBar({
             results={results}
             archives={archives}
             loading={loading}
+            searchError={searchError}
             recent={recent}
             saved={saved}
             querySaved={isSaved(topSearch)}
