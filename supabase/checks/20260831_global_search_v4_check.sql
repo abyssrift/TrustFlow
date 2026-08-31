@@ -23,7 +23,7 @@
 --     one visible fuzzy row — it still comes back.
 -- (2) The same holds for a type-scoped query (parser emits p_types).
 -- (3) For one entity type, an exact hit ranks ABOVE a fuzzy hit, and the two
---     land in their score bands (exact >= 1.0, fuzzy in [0.45, 1.0)).
+--     land in their score bands (exact >= 1.0, fuzzy in [0.35, 1.0)).
 -- (4) A report comes back on a typo'd term (fuzzy, not just ILIKE substring).
 -- (5) A comment comes back on a typo'd term (fuzzy, not just ILIKE substring).
 --
@@ -49,7 +49,8 @@ CREATE TEMP TABLE gs318_ctx (
   fuzzy_task UUID,   -- member-owned, title trigram-matches but does NOT tsmatch
   exact_one  UUID,   -- one of the owner-owned exact tasks (invisible to member)
   report_id  UUID,
-  comment_id UUID
+  comment_id UUID,
+  upwork_task UUID   -- owner-owned; title carries the short word `upwork`, reached only by the 1-letter typo `upwark`
 );
 GRANT SELECT ON gs318_ctx TO authenticated;
 
@@ -57,7 +58,7 @@ DO $$
 DECLARE
   v_company UUID; v_owner UUID; v_member UUID;
   v_mark TEXT := 'zzmark' || replace(gen_random_uuid()::text, '-', '');
-  v_fuzzy UUID; v_exact UUID; v_report UUID; v_comment UUID;
+  v_fuzzy UUID; v_exact UUID; v_report UUID; v_comment UUID; v_upwork UUID;
 BEGIN
   -- A seeded company with an owner and at least one active non-owner member
   -- that does NOT hold any *.view_all — the member must be blind to tasks it
@@ -116,7 +117,15 @@ BEGIN
   VALUES (v_fuzzy, v_company, v_owner, v_mark || ' reconcilliation ledger notes for the quarter')
   RETURNING id INTO v_comment;
 
-  INSERT INTO gs318_ctx VALUES (v_company, v_owner, v_member, v_mark, v_fuzzy, v_exact, v_report, v_comment);
+  -- #318 threshold tune: a task whose title carries the short real word
+  -- `upwork`. Check (8) queries the bare 1-letter typo `upwark`
+  -- (word_similarity ~0.43) — below the original 0.45 GUC floor, above 0.35.
+  -- Owned by the OWNER (creator => visible without a pipeline).
+  INSERT INTO public.tasks (company_id, title, created_by)
+  VALUES (v_company, 'upwork ' || v_mark, v_owner)
+  RETURNING id INTO v_upwork;
+
+  INSERT INTO gs318_ctx VALUES (v_company, v_owner, v_member, v_mark, v_fuzzy, v_exact, v_report, v_comment, v_upwork);
 END $$;
 
 
@@ -137,10 +146,10 @@ BEGIN
   IF v_fuzzy_ts THEN
     RAISE EXCEPTION 'FIXTURE BROKEN: the fuzzy row tsmatches — it is not testing the fuzzy path';
   END IF;
-  SELECT word_similarity('reconciliation ' || c.mark, t.title) >= 0.45
+  SELECT word_similarity('reconciliation ' || c.mark, t.title) >= 0.35
     INTO v_fuzzy_trgm FROM public.tasks t WHERE t.id = c.fuzzy_task;
   IF NOT v_fuzzy_trgm THEN
-    RAISE EXCEPTION 'FIXTURE BROKEN: the fuzzy row does not trigram-match at 0.45';
+    RAISE EXCEPTION 'FIXTURE BROKEN: the fuzzy row does not trigram-match at 0.35';
   END IF;
   RAISE NOTICE 'OK (0): 15 exact + 1 trigram-only fuzzy row seeded';
 END $$;
@@ -208,8 +217,8 @@ BEGIN
   IF v_ix_exact >= v_ix_fuzzy THEN
     RAISE EXCEPTION 'CHECK FAILED (3): exact hit at position % did not rank above the fuzzy hit at position %', v_ix_exact, v_ix_fuzzy;
   END IF;
-  IF NOT (v_sc_exact >= 1.0 AND v_sc_fuzzy >= 0.45 AND v_sc_fuzzy < 1.0) THEN
-    RAISE EXCEPTION 'CHECK FAILED (3): score bands off — exact=% (want >= 1.0), fuzzy=% (want 0.45..1.0)', v_sc_exact, v_sc_fuzzy;
+  IF NOT (v_sc_exact >= 1.0 AND v_sc_fuzzy >= 0.35 AND v_sc_fuzzy < 1.0) THEN
+    RAISE EXCEPTION 'CHECK FAILED (3): score bands off — exact=% (want >= 1.0), fuzzy=% (want 0.35..1.0)', v_sc_exact, v_sc_fuzzy;
   END IF;
   RAISE NOTICE 'OK (3): exact (score %) ranks above fuzzy (score %)', v_sc_exact, v_sc_fuzzy;
 
@@ -226,6 +235,16 @@ BEGIN
     RAISE EXCEPTION 'CHECK FAILED (5): a comment whose content only fuzzy-matches the term did not come back';
   END IF;
   RAISE NOTICE 'OK (5): a comment is found on a typo''d term';
+
+  -- (8) #318 threshold tune (belongs with 3-5): a short real word (`upwork`)
+  -- reached only by its 1-letter typo (`upwark`, word_similarity ~0.43).
+  -- That score cleared the old 0.45 GUC floor; it must return now that the
+  -- fuzzy threshold is 0.35.
+  v_hits := public.rpc_global_search(p_terms := 'upwark', p_limit := 40);
+  IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(v_hits) e WHERE (e->>'id')::uuid = c.upwork_task) THEN
+    RAISE EXCEPTION 'CHECK FAILED (8): task ''upwork …'' not returned for the 1-letter typo ''upwark'' — the 0.35 fuzzy threshold is not in effect';
+  END IF;
+  RAISE NOTICE 'OK (8): a short word reached by a 1-letter typo (upwark -> upwork) matches at the 0.35 threshold';
 END $$;
 
 RESET ROLE;

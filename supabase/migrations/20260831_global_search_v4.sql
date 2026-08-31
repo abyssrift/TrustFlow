@@ -8,7 +8,7 @@
 --      A fuzzy row could never out-rank an exact row — fine — but it also sat
 --      *below every 0.04 flat-scored ILIKE hit*, and the numbers meant nothing
 --      relative to each other. Now: exact => 1.0 + ts_rank (always >= 1.0),
---      fuzzy => raw word_similarity (0.45..1.0). One monotonic 0..1.8 scale.
+--      fuzzy => raw word_similarity (0.35..1.0). One monotonic 0..1.8 scale.
 --
 --   B. FUZZY ROWS CUT BEFORE ACL. `filtered` took a single
 --      `ORDER BY score DESC LIMIT v_limit*3` over the whole candidate pool
@@ -30,7 +30,7 @@
 --      `word_similarity(a,b) >= 0.45` (function form) in every WHERE, which no
 --      index can answer, and pg_trgm.word_similarity_threshold (0.6 default)
 --      was likewise unused. Fuzzy WHERE predicates now use the `<%` operator,
---      and the threshold is pinned to 0.45 in the function's SET clause, so the
+--      and the threshold is pinned to 0.35 in the function's SET clause, so the
 --      indexes participate and the cutoff matches what the scoring expressions
 --      expect. `word_similarity` calls remain only in SELECT-list score
 --      expressions, never in WHERE.
@@ -61,13 +61,17 @@ STABLE SECURITY DEFINER
 SET search_path TO 'public'
 -- #318 (D): the fuzzy WHERE predicates below use the `<%` operator so the
 -- trigram GIN indexes are usable; `<%` reads its cutoff from this GUC, which
--- was left at the 0.6 default and dead. Pin it to the 0.45 the old
--- function-form (`word_similarity(a,b) >= 0.45`) predicates used.
+-- was left at the 0.6 default and dead.
+-- Threshold choice — tuned 0.45 -> 0.35 (#318): a short word with a single
+-- mid-word typo (e.g. `upwark` -> `upwork`) scores word_similarity ~0.43, so
+-- the first-pass 0.45 cutoff was excluding exactly the real typo matches this
+-- "did you mean" path exists to surface. 0.35 lets those through and still
+-- adds no noise on current data — unrelated short words score ~0.1.
 -- NOTE: this lives in the function's SET clause, not as a `SET LOCAL` in the
 -- body — Postgres rejects `SET` inside a STABLE (non-volatile) function
 -- ("SET is not allowed in a non-volatile function"). The SET clause is the
 -- supported form and auto-restores the GUC on function exit.
-SET pg_trgm.word_similarity_threshold TO '0.45'
+SET pg_trgm.word_similarity_threshold TO '0.35'
 AS $function$
 DECLARE
   v_company uuid := public.my_company_id();
