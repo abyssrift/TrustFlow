@@ -181,7 +181,7 @@ export default function TopBar({
 
   return (
       <View className="h-16 flex-row items-center gap-3 border-b border-surface-border bg-surface-background px-5">
-        <View ref={searchWrapRef} className="h-9 flex-1 max-w-md flex-row items-center gap-2 rounded-xl border border-surface-border bg-surface-card px-3" style={{ position: 'relative' }}>
+        <View ref={searchWrapRef} className="h-9 flex-1 max-w-md flex-row items-center gap-2 rounded-xl bg-surface-card px-3" style={{ position: 'relative' }}>
           {/* Transparent bridge over the 8px gap to the dropdown (top: 44) so a
               hover trip between input and dropdown never fires mouseleave. */}
           {searchOpen && <View style={{ position: 'absolute', top: 36, left: 0, right: 0, height: 10 }} />}
