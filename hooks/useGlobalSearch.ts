@@ -67,6 +67,7 @@ export function useGlobalSearch(raw: string, opts: Options = {}) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [archives, setArchives] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const reqId = useRef(0);
 
   // effective type filter: explicit override wins, else parsed hints.
@@ -77,7 +78,7 @@ export function useGlobalSearch(raw: string, opts: Options = {}) {
     const p = parseQuery(debounced);
     const hasQuery = p.terms !== '' || p.from !== null || p.to !== null;
     if (!enabled || !hasQuery) {
-      setResults([]); setLoading(false);
+      setResults([]); setLoading(false); setSearchError(false);
       return;
     }
     const id = ++reqId.current;
@@ -93,7 +94,14 @@ export function useGlobalSearch(raw: string, opts: Options = {}) {
       })
       .then(({ data, error }) => {
         if (id !== reqId.current) return; // stale response — a newer query won
-        setResults(error || !Array.isArray(data) ? [] : (data as SearchResult[]));
+        if (error) {
+          console.warn('rpc_global_search failed:', error);
+          setResults([]);
+          setSearchError(true);
+        } else {
+          setResults(Array.isArray(data) ? (data as SearchResult[]) : []);
+          setSearchError(false);
+        }
         setLoading(false);
       });
   }, [debounced, enabled, limit, parsed.field, JSON.stringify(effectiveTypes)]);
@@ -116,5 +124,5 @@ export function useGlobalSearch(raw: string, opts: Options = {}) {
     return g;
   }, [results]);
 
-  return { results, grouped, archives, loading, parsed };
+  return { results, grouped, archives, loading, parsed, searchError };
 }

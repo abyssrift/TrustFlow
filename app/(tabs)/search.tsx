@@ -31,7 +31,7 @@ export default function SearchScreen() {
     if (typeof params.q === 'string') setQuery(params.q);
   }, [params.q]);
 
-  const { results, loading, parsed } = useGlobalSearch(query, {
+  const { results, loading, parsed, searchError } = useGlobalSearch(query, {
     types: tab === 'all' ? null : [tab],
     limit: 100,
   });
@@ -100,7 +100,9 @@ export default function SearchScreen() {
           </View>
         ) : results.length === 0 ? (
           <View className="items-center py-12">
-            <Text className="text-typography-muted text-sm">No results for “{query.trim()}”.</Text>
+            <Text className="text-typography-muted text-sm">
+              {searchError ? 'Search failed — try again.' : `No results for “${query.trim()}”.`}
+            </Text>
           </View>
         ) : (
           <View>
