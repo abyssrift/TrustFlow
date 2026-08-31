@@ -5,7 +5,9 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
+import { useCollapseProgress } from '@/hooks/useCollapsibleHeader';
 import ProjectFolderModal from './ProjectFolderModal';
 import ProjectStagePicker from './ProjectStagePicker';
 import Tooltip from '@/components/common/Tooltip';
@@ -52,6 +54,42 @@ export default function ProjectHeader() {
   const [editVisible, setEditVisible] = useState(false);
   const [noteDraft, setNoteDraft] = useState(lifecycle?.flagNote || '');
   const [savingFlags, setSavingFlags] = useState(false);
+  const [descH, setDescH] = useState(0);
+  const [railH, setRailH] = useState(0);
+  const { width } = useWindowDimensions();
+
+  // Scroll-linked collapse (#collapsible-header): as the tab body scrolls past
+  // ~64px the header settles from a full identity block into a slim strip — the
+  // project name shrinks hard, the description and the whole stage/flags rail
+  // tuck away to zero height, vertical padding collapses — handing the tab
+  // content near-full-screen. Restores near the top. `collapse` is 0 (full) → 1
+  // (condensed); tween + Reduce-Motion live in the hook.
+  //
+  // fontSize/height are animated (not `transform: scale`) so the rows actually
+  // give back their vertical space instead of just painting smaller inside it.
+  const collapse = useCollapseProgress();
+  const containerPadStyle = useAnimatedStyle(() => ({
+    paddingTop: interpolate(collapse.value, [0, 1], [16, 4]),
+    paddingBottom: interpolate(collapse.value, [0, 1], [16, 4]),
+  }));
+  // Motion on the wrapper, NOT the Text — NativeWind's className colour doesn't
+  // resolve on Animated.Text on this web build (renders black), so the title
+  // stays a plain <Text class="text-typography-main"> like every other header
+  // in the app (see TaskHeader) and the Animated.View around it scales.
+  const titleTextStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(collapse.value, [0, 1], [1, width >= 768 ? 0.78 : 0.82]) }],
+    transformOrigin: 'left center',
+  }));
+  const descStyle = useAnimatedStyle(() => ({
+    height: descH ? descH * (1 - collapse.value) : undefined,
+    opacity: interpolate(collapse.value, [0, 1], [1, 0]),
+    marginTop: interpolate(collapse.value, [0, 1], [2, 0]),
+  }));
+  const railStyle = useAnimatedStyle(() => ({
+    height: railH ? railH * (1 - collapse.value) : undefined,
+    opacity: interpolate(collapse.value, [0, 1], [1, 0]),
+    marginTop: interpolate(collapse.value, [0, 1], [6, 0]),
+  }));
 
   useEffect(() => { setNoteDraft(lifecycle?.flagNote || ''); }, [lifecycle?.flagNote]);
 
@@ -82,7 +120,7 @@ export default function ProjectHeader() {
   };
 
   return (
-    <View className="px-4 md:px-8 py-4 md:py-5 border-b" style={{ borderColor: c.border, backgroundColor: c.background }}>
+    <Animated.View className="px-4 md:px-8 border-b" style={[{ borderColor: c.border, backgroundColor: c.background }, containerPadStyle]}>
       <View className="flex-row items-start gap-3">
         <Tooltip label="Back to Projects">
           <TouchableOpacity
@@ -106,17 +144,8 @@ export default function ProjectHeader() {
         <EntityGlyph kind="project" size={40} style={{ marginTop: 1 }} />
 
         <View className="flex-1 min-w-0">
-          <View className="flex-row items-center gap-2">
-            <EntityTag kind="project" />
-            {project?.is_featured && (
-              <Tooltip label="Featured project">
-                <FontAwesome name="star" size={11} color={c.warning} />
-              </Tooltip>
-            )}
-          </View>
-
           {actions.renamingId === projectId && project ? (
-            <View style={{ maxWidth: 420 }} className="mt-1">
+            <View style={{ maxWidth: 420 }}>
               <InlineRename
                 initialValue={project.name}
                 onCommit={(next) => actions.commitRename({ id: project.id, name: project.name }, next)}
@@ -125,17 +154,52 @@ export default function ProjectHeader() {
               />
             </View>
           ) : (
-            <Text numberOfLines={2} className="text-xl md:text-2xl font-black tracking-tight" style={{ color: c.textMain }}>
-              {project?.name || 'Project'}
-            </Text>
+            <View className="flex-row items-center gap-2 min-w-0">
+              <EntityTag kind="project" />
+              {project?.is_featured && (
+                <Tooltip label="Featured project">
+                  <FontAwesome name="star" size={11} color={c.warning} />
+                </Tooltip>
+              )}
+              <Animated.View className="flex-1" style={titleTextStyle}>
+                <Text
+                  numberOfLines={1}
+                  className="font-black text-typography-main text-xl md:text-2xl tracking-tight"
+                >
+                  {project?.name || 'Project'}
+                </Text>
+              </Animated.View>
+            </View>
           )}
 
           {!!project?.description && (
-            <Text className="text-sm mt-1" style={{ color: c.textMuted }} numberOfLines={2}>{project.description}</Text>
+            <Animated.View style={[descStyle, { overflow: 'hidden' }]}>
+              <Text
+                className="text-sm"
+                style={{ color: c.textMuted }}
+                numberOfLines={1}
+                onLayout={(e) => { if (!descH) setDescH(e.nativeEvent.layout.height); }}
+              >
+                {project.description}
+              </Text>
+            </Animated.View>
           )}
 
-          {/* State: the same stage chip and health badge as everywhere else. */}
-          <View className="flex-row flex-wrap items-center gap-2 mt-2.5">
+          {/* State + flags on one horizontally-scrolling rail (was two stacked
+              rows plus a "FLAGS" caption — the header was eating a third of the
+              viewport). Horizontal scroll, not wrap: at ~250px the content
+              column wrapped every chip onto its own line. flexGrow:0 — RNW
+              stretches a ScrollView inside a column otherwise.
+              Flags are the fixed set from plan §13.12: blocked / awaiting
+              client / at risk. */}
+          <Animated.View style={[railStyle, { overflow: 'hidden' }]}>
+          <View onLayout={(e) => { if (!railH) setRailH(e.nativeEvent.layout.height); }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={{ gap: 8, alignItems: 'center' }}
+          >
             <StageChip
               name={lifecycle?.stageName}
               color={lifecycle?.stageColor}
@@ -150,24 +214,6 @@ export default function ProjectHeader() {
               flags={lifecycle?.flags}
               daysRemaining={lifecycle?.daysRemaining}
             />
-          </View>
-
-          {/* Flags -- fixed set, plan §13.12: blocked / awaiting client / at risk.
-              One horizontally-scrolling rail, not a wrapping row: at 390px the
-              content column is ~250px wide, so wrapping put each chip on its own
-              line and the header ate a third of the viewport before the tabs
-              appeared. flexGrow:0 for the same reason every other chip rail in
-              this app carries it — RNW stretches a ScrollView inside a column
-              and balloons the pills. */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ flexGrow: 0, marginTop: 8 }}
-            contentContainerStyle={{ gap: 8, alignItems: 'center' }}
-          >
-            {canEdit && (
-              <Text className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: c.textDim }}>Flags</Text>
-            )}
             {PROJECT_FLAGS.map(({ key, label }) => {
               const active = activeFlags.includes(key);
               const color = c[FLAG_COLOR[key]];
@@ -210,6 +256,8 @@ export default function ProjectHeader() {
           {activeFlags.length > 0 && !canEdit && !!lifecycle?.flagNote && (
             <Text className="text-xs mt-2" style={{ color: c.textMuted }}>{lifecycle.flagNote}</Text>
           )}
+          </View>
+          </Animated.View>
         </View>
 
         <View className="flex-row items-center gap-2">
@@ -256,6 +304,6 @@ export default function ProjectHeader() {
         />
       )}
       {actions.overlay}
-    </View>
+    </Animated.View>
   );
 }

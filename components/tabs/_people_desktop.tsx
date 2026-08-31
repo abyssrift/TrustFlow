@@ -13,7 +13,9 @@ import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
 import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
 import CompanyEditSettings from '@/components/profile/CompanyEditSettings';
 import WorkspaceSettings from '@/components/profile/WorkspaceSettings';
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import Tooltip from '@/components/common/Tooltip';
+import { CollapsibleHeaderProvider, useCollapseProgress, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { useMemberLimit } from '@/hooks/useMemberLimit';
@@ -114,12 +116,42 @@ function SidebarItem({
 }
 
 export default function PeopleScreenWeb() {
+  return (
+    <CollapsibleHeaderProvider>
+      <PeopleScreenWebInner />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function PeopleScreenWebInner() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ section?: string | string[] }>();
   const sectionParam = Array.isArray(params.section) ? params.section[0] : params.section;
 
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<PeopleSection>('members');
+
+  // Scroll-linked collapse (#310): the fixed left sidebar keeps its "Corporate"
+  // title untouched (collapsing it on right-pane scroll would read wrong). What
+  // settles is the in-pane section label + description as the content pane
+  // scrolls past ~64px. The grids inside also self-wire the same provider.
+  const headerScroll = useCollapsibleHeaderScroll();
+  const collapse = useCollapseProgress();
+  const [descH, setDescH] = useState(0);
+  // Motion on the wrapper, NOT the Text — className colour doesn't resolve on
+  // Animated.Text on web (renders black). Matches TaskHeader's title pattern.
+  const paneLabelStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(collapse.value, [0, 1], [1, 0.72]) }],
+    transformOrigin: 'left center',
+  }));
+  const paneDescStyle = useAnimatedStyle(() => ({
+    height: descH ? descH * (1 - collapse.value) : undefined,
+    opacity: interpolate(collapse.value, [0, 1], [1, 0]),
+    marginTop: interpolate(collapse.value, [0, 1], [4, 0]),
+  }));
+  const paneHeaderStyle = useAnimatedStyle(() => ({
+    marginBottom: interpolate(collapse.value, [0, 1], [32, 10]),
+  }));
 
   const { profile, hasPermission } = useAuth();
   const { atLimit: membersAtLimit, remaining: membersRemaining } = useMemberLimit();
@@ -218,7 +250,7 @@ export default function PeopleScreenWeb() {
       </View>
 
       {/* Content pane */}
-      <ScrollView className="flex-1" contentContainerStyle={{ padding: 48 }}>
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 48 }} {...headerScroll}>
         <View className="max-w-[1600px] w-full">
           {!hasWorkspaceAccess ? (
             <View className="w-full items-center justify-center py-40 bg-state-danger/10 rounded-[48px] border border-dashed border-state-danger/30">
@@ -230,10 +262,24 @@ export default function PeopleScreenWeb() {
             </View>
           ) : (
             <>
-              <View className="mb-8">
-                <Text className="text-3xl font-black text-typography-main tracking-tight">{SECTION_META[activeSection].label}</Text>
-                <Text className="text-typography-muted text-sm mt-1 font-medium">{SECTION_META[activeSection].description}</Text>
-              </View>
+              {/* members / teams / roles render an admin grid that brings its
+                  own <GridSectionHeader> — showing the pane label too would
+                  stack two titles. Only the settings panels need this header. */}
+              {!['members', 'teams', 'roles'].includes(activeSection) && (
+                <Animated.View style={[{ alignSelf: 'stretch', width: '100%' }, paneHeaderStyle]}>
+                  <Animated.View style={paneLabelStyle}>
+                    <Text className="font-black text-typography-main text-3xl tracking-tight">{SECTION_META[activeSection].label}</Text>
+                  </Animated.View>
+                  <Animated.View style={[{ overflow: 'hidden' }, paneDescStyle]}>
+                    <Text
+                      className="text-typography-muted text-sm font-medium"
+                      onLayout={(e) => { if (!descH) setDescH(e.nativeEvent.layout.height); }}
+                    >
+                      {SECTION_META[activeSection].description}
+                    </Text>
+                  </Animated.View>
+                </Animated.View>
+              )}
               <RoleManagerProvider>
                 <TeamWorkspaceContent section={activeSection} />
               </RoleManagerProvider>

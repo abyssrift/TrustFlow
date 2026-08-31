@@ -7,7 +7,9 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import { cssInterop } from 'react-native-css-interop';
+import { CollapsibleHeaderProvider, useCollapseProgress, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import UserLink from '@/components/common/UserLink';
 import Tooltip from '@/components/common/Tooltip';
 import { EntityEmptyState } from '@/components/entities/EntityUI';
@@ -85,7 +87,19 @@ function MemberRow({ member, work, onOpen }: { member: Member; work?: WorkInfo; 
 // (descendant-overflow hover zone). Tabs: People (access list + time pie), Activity,
 // and private Notes. Membership is the real access list (rpc_get_pipeline_members) —
 // role-gated, never derived from task assignments.
-export default function RightSidebar({
+//
+// Thin outer wrapper: mounts the collapse SharedValue so the People-tab
+// member-list ScrollView can drive the scroll-linked header collapse (same
+// split as components/intelligence/_index_desktop.tsx).
+export default function RightSidebar(props: React.ComponentProps<typeof RightSidebarInner>) {
+  return (
+    <CollapsibleHeaderProvider>
+      <RightSidebarInner {...props} />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function RightSidebarInner({
   pipelineId,
   pipelineName,
   taskCount,
@@ -103,6 +117,35 @@ export default function RightSidebar({
   currentUserId?: string;
 }) {
   const colors = useThemeColors();
+
+  // Scroll-linked header collapse (#collapsible-header). Only the header block
+  // (accent bar + board name + "Board Info" eyebrow + its margins) collapses —
+  // NOT the stat tiles or the time pie. Those sit above the flex-1 member-list
+  // ScrollView; shrinking them would make the list taller, possibly stop it
+  // overflowing, snap `collapse` back to 0, and strobe. The header block is
+  // small enough that collapsing it never toggles the list's overflow state.
+  // `collapse` is 0 (full) → 1 (condensed); tween + Reduce-Motion live in the hook.
+  const collapse = useCollapseProgress();
+  const headerScroll = useCollapsibleHeaderScroll();
+  const [eyebrowH, setEyebrowH] = useState(0);
+
+  const headerBlockStyle = useAnimatedStyle(() => ({
+    marginTop: interpolate(collapse.value, [0, 1], [4, 2]),
+    marginBottom: interpolate(collapse.value, [0, 1], [16, 6]),
+  }));
+  const accentBarStyle = useAnimatedStyle(() => ({
+    height: interpolate(collapse.value, [0, 1], [36, 22]),
+  }));
+  // Motion on the wrapper, NOT the Text — className colour doesn't resolve on
+  // Animated.Text on web (renders black). Matches TaskHeader's title pattern.
+  const titleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(collapse.value, [0, 1], [1, 0.78]) }],
+    transformOrigin: 'left center',
+  }));
+  const eyebrowStyle = useAnimatedStyle(() => ({
+    height: eyebrowH ? eyebrowH * (1 - collapse.value) : undefined,
+    opacity: interpolate(collapse.value, [0, 1], [1, 0]),
+  }));
   const router = useRouter();
   const [pinned, setPinned] = useState(() => {
     if (Platform.OS === 'web') {
@@ -213,16 +256,25 @@ export default function RightSidebar({
         }}
       >
         <View className="flex-1 p-4">
-          {/* Header — mirrors NavRail's accent-bar title block. */}
-          <View className="mb-4 mt-1 flex-row items-center px-1">
-            <View className="mr-3 h-9 w-1.5 rounded-full bg-brand-primary" />
+          {/* Header — mirrors NavRail's accent-bar title block. Collapses on
+              scroll: margins tighten, accent bar + board name shrink, the
+              "Board Info" eyebrow tucks to zero height. `flex-row` (no wrap),
+              so an Animated wrapper is safe here. */}
+          <Animated.View className="flex-row items-center px-1" style={headerBlockStyle}>
+            <Animated.View className="mr-3 w-1.5 rounded-full bg-brand-primary" style={accentBarStyle} />
             <View className="flex-1 min-w-0">
-              <Text className="text-typography-main text-lg font-black tracking-tighter" numberOfLines={1}>
-                {pipelineName || 'Board'}
-              </Text>
-              <Text className="text-brand-primary text-[10px] font-bold uppercase tracking-widest">Board Info</Text>
+              <Animated.View style={titleStyle}>
+                <Text className="text-typography-main text-lg font-black" numberOfLines={1}>
+                  {pipelineName || 'Board'}
+                </Text>
+              </Animated.View>
+              <Animated.View style={[eyebrowStyle, { overflow: 'hidden' }]}>
+                <View onLayout={(e) => { if (!eyebrowH) setEyebrowH(e.nativeEvent.layout.height); }}>
+                  <Text className="text-brand-primary text-[10px] font-bold uppercase tracking-widest">Board Info</Text>
+                </View>
+              </Animated.View>
             </View>
-          </View>
+          </Animated.View>
 
           {/* Tab switcher */}
           <View className="mb-4 flex-row gap-1 rounded-xl border border-surface-border bg-surface-background p-1">
@@ -266,7 +318,7 @@ export default function RightSidebar({
                 )}
               </View>
 
-              <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+              <ScrollView className="flex-1" showsVerticalScrollIndicator={false} {...headerScroll}>
                 {members.length === 0 ? (
                   <EntityEmptyState
                     icon="users"

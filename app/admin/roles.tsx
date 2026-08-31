@@ -5,6 +5,7 @@ import { BackButton } from '@/components/common/BackButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleManagerProvider, useRoleManager } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { CollapsibleHeaderProvider } from '@/hooks/useCollapsibleHeader';
 import { FontAwesome } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -17,6 +18,11 @@ function RolesLayout() {
   const { loading, error } = useRoleManager();
   const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'roles'>((tab as any) || 'users');
   const router = useRouter();
+
+  // The page header is just the BackButton row + tab strip now — each
+  // assignment grid renders its own <GridSectionHeader> (eyebrow + title)
+  // which is what scroll-collapses (#309), fed by the CollapsibleHeaderProvider
+  // wrapping this screen.
 
   React.useEffect(() => {
     if (tab && (tab === 'users' || tab === 'teams' || tab === 'roles')) {
@@ -57,19 +63,13 @@ function RolesLayout() {
     <SafeAreaView className="flex-1 bg-surface-background">
       <Stack.Screen options={{ headerShown: false }} />
       
-      {/* Header */}
-      <View className="bg-surface-card px-4 pt-6 pb-6 border-b border-surface-border rounded-b-3xl premium-shadow">
+      {/* Header — BackButton + tab strip only; each grid owns its title. */}
+      <View className="bg-surface-card px-4 py-5 border-b border-surface-border rounded-b-3xl premium-shadow">
         <View className="flex-row items-center justify-between mb-6">
           <BackButton />
           <View className="bg-brand-primary-dim px-3 py-1.5 rounded-full border border-brand-primary/20">
             <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Access Manager</Text>
           </View>
-        </View>
-
-        {/* Title Section */}
-        <View className="px-2 mb-8">
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Administrative Shell / RBAC</Text>
-          <Text className="text-typography-main text-3xl font-black tracking-tight">Protocol Sovereignty</Text>
         </View>
 
         {/* Tabs - Segmented Style for Mobile */}
@@ -125,7 +125,9 @@ function RolesLayout() {
 export default function RolesScreen() {
   return (
     <RoleManagerProvider>
-      <RolesLayout />
+      <CollapsibleHeaderProvider>
+        <RolesLayout />
+      </CollapsibleHeaderProvider>
     </RoleManagerProvider>
   );
 }

@@ -10,6 +10,8 @@ import ReportFiltersPanelBody, {
     type ReportFilters,
 } from '@/components/intelligence/ReportFiltersModal';
 import Tooltip from '@/components/common/Tooltip';
+import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
+import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
@@ -116,7 +118,16 @@ function getReportSubtitle(r: any): string {
 const POLL_INTERVAL_MS = 4000;
 
 export default function IntelligenceReports() {
+  return (
+    <CollapsibleHeaderProvider>
+      <IntelligenceReportsInner />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function IntelligenceReportsInner() {
   const colors = useThemeColors();
+  const headerScroll = useCollapsibleHeaderScroll();
   const { limits: planLimits } = useBillingPlan();
   const limits = getAnalyticsLimits(planLimits);
   const [reports, setReports]         = useState<any[]>([]);
@@ -211,57 +222,57 @@ export default function IntelligenceReports() {
   return (
     <View className="flex-1 bg-surface-background flex-col">
 
-      {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row items-center justify-between border-b border-surface-border flex-shrink-0">
-        <View>
-          <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
-          <Text className="text-typography-main text-4xl font-black tracking-tighter">Reports</Text>
-        </View>
-        <View className="flex-row items-center gap-3">
-          <TouchableOpacity
-            onPress={() => setShowFilters(v => !v)}
-            className={`h-10 px-4 flex-row items-center gap-2 rounded-xl border transition-all ${
-              activeFilterCount > 0
-                ? 'bg-brand-primary/10 border-brand-primary'
-                : 'bg-surface-card border-surface-border'
-            }`}
-          >
-            <FontAwesome
-              name="filter"
-              size={12}
-              color={activeFilterCount > 0 ? colors.primary : colors.textMuted}
-            />
-            <Text
-              className={`font-black uppercase tracking-widest text-[10px] ${
-                activeFilterCount > 0 ? 'text-brand-primary' : 'text-typography-muted'
+      {/* ── Header (shared collapsing component — #309) ── */}
+      <IntelligencePageHeader
+        eyebrow="Intelligence Hub"
+        title="Reports"
+        right={
+          <>
+            <TouchableOpacity
+              onPress={() => setShowFilters(v => !v)}
+              className={`h-10 px-4 flex-row items-center gap-2 rounded-xl border transition-all ${
+                activeFilterCount > 0
+                  ? 'bg-brand-primary/10 border-brand-primary'
+                  : 'bg-surface-card border-surface-border'
               }`}
             >
-              Filters
-            </Text>
-            {activeFilterCount > 0 && (
-              <View className="ml-1 min-w-[18px] h-[18px] px-1.5 rounded-full bg-brand-primary items-center justify-center">
-                <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
+              <FontAwesome
+                name="filter"
+                size={12}
+                color={activeFilterCount > 0 ? colors.primary : colors.textMuted}
+              />
+              <Text
+                className={`font-black uppercase tracking-widest text-[10px] ${
+                  activeFilterCount > 0 ? 'text-brand-primary' : 'text-typography-muted'
+                }`}
+              >
+                Filters
+              </Text>
+              {activeFilterCount > 0 && (
+                <View className="ml-1 min-w-[18px] h-[18px] px-1.5 rounded-full bg-brand-primary items-center justify-center">
+                  <Text className="text-white text-[9px] font-black">{activeFilterCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <Tooltip label="Refresh reports">
+              <TouchableOpacity onPress={fetchReports} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
+                <FontAwesome name="refresh" size={13} color={colors.primary} />
+              </TouchableOpacity>
+            </Tooltip>
+            {limits.reports ? (
+              <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
+                <FontAwesome name="file-pdf-o" size={12} color="white" />
+                <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
+              </TouchableOpacity>
+            ) : (
+              <View className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-6 py-2.5 rounded-xl opacity-50">
+                <FontAwesome name="lock" size={12} color={colors.muted} />
+                <Text className="text-typography-muted font-black uppercase tracking-widest text-[11px]">Reports — Pro+</Text>
               </View>
             )}
-          </TouchableOpacity>
-          <Tooltip label="Refresh reports">
-            <TouchableOpacity onPress={fetchReports} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-              <FontAwesome name="refresh" size={13} color={colors.primary} />
-            </TouchableOpacity>
-          </Tooltip>
-          {limits.reports ? (
-            <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
-              <FontAwesome name="file-pdf-o" size={12} color="white" />
-              <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
-            </TouchableOpacity>
-          ) : (
-            <View className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-6 py-2.5 rounded-xl opacity-50">
-              <FontAwesome name="lock" size={12} color={colors.muted} />
-              <Text className="text-typography-muted font-black uppercase tracking-widest text-[11px]">Reports — Pro+</Text>
-            </View>
-          )}
-        </View>
-      </View>
+          </>
+        }
+      />
 
       {/* Filter panel — slide-down beneath the trigger (issue #208) */}
       <SlideDownPanel isOpen={showFilters}>
@@ -353,7 +364,7 @@ export default function IntelligenceReports() {
           </View>
         </View>
       ) : (
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 40 }}>
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 40 }} {...headerScroll}>
           <View className="bg-surface-card rounded-[32px] border border-surface-border overflow-hidden premium-shadow">
             {/* Table header */}
             <View className="flex-row items-center px-8 py-4 border-b border-surface-border bg-surface-background/50">

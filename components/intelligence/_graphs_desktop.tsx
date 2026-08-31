@@ -1,5 +1,7 @@
 import { QualityLeaderboardWeb, SLARiskAlertWeb, StageDwellChartWeb, TrendComparisonCardsWeb, WorkDistributionChartWeb } from '@/components/intelligence/RadarWidgets';
 import { DateRangeControls, useDateRange, useGranularity } from '@/components/intelligence/DateRangeFilter';
+import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
+import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
 import { PointsBucket, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { bucketLabel } from '@/lib/chartBuckets';
@@ -21,7 +23,16 @@ import {
 } from 'recharts';
 
 export default function IntelligenceGraphs() {
+  return (
+    <CollapsibleHeaderProvider>
+      <IntelligenceGraphsInner />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function IntelligenceGraphsInner() {
   const colors = useThemeColors();
+  const headerScroll = useCollapsibleHeaderScroll();
   const tooltipStyle = {
     backgroundColor: colors.card,
     border: `1px solid rgb(var(--surface-border))`,
@@ -79,45 +90,50 @@ export default function IntelligenceGraphs() {
   return (
     <View className="flex-1 bg-surface-background flex-col">
 
-      {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-start justify-between gap-4 border-b border-surface-border flex-shrink-0">
-        <View className="min-w-0">
-          <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
-          <Text className="text-typography-main text-4xl font-black tracking-tighter">Performance</Text>
-        </View>
-        <View className="flex-row flex-wrap items-center justify-end gap-3 max-w-full">
-          {/* Pipeline selector */}
-          {pipelines.length > 1 && (
-            <View className="flex-row flex-wrap max-w-full bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5">
-              {pipelines.slice(0, 4).map(p => (
-                <TouchableOpacity
-                  key={p.id}
-                  onPress={() => setPipelineId(p.id)}
-                  className={`px-4 py-2 rounded-lg max-w-[180px] ${pipelineId === p.id ? 'bg-brand-primary' : ''}`}
-                >
-                  <Text className={`text-[11px] font-black text-center ${pipelineId === p.id ? 'text-white' : 'text-typography-muted'}`} numberOfLines={1}>
-                    {p.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+      {/* ── Header (shared collapsing component — #309) ── */}
+      <IntelligencePageHeader
+        eyebrow="Intelligence Hub"
+        title="Performance"
+        right={
+          <>
+            {/* Pipeline selector — wrapping row, needs a definite max so its
+                own flex-wrap engages under the Animated ancestor on RNW */}
+            {pipelines.length > 1 && (
+              <View style={{ maxWidth: '100%', flexShrink: 1 }}>
+                <View className="flex-row flex-wrap max-w-full bg-surface-card border border-surface-border rounded-xl p-1 gap-0.5">
+                  {pipelines.slice(0, 4).map(p => (
+                    <TouchableOpacity
+                      key={p.id}
+                      onPress={() => setPipelineId(p.id)}
+                      className={`px-4 py-2 rounded-lg max-w-[180px] ${pipelineId === p.id ? 'bg-brand-primary' : ''}`}
+                    >
+                      <Text className={`text-[11px] font-black text-center ${pipelineId === p.id ? 'text-white' : 'text-typography-muted'}`} numberOfLines={1}>
+                        {p.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+            {/* Calendar range filter + shared granularity */}
+            <View style={{ maxWidth: '100%', flexShrink: 1 }}>
+              <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} granularity={granularity} />
             </View>
-          )}
-          {/* Calendar range filter + shared granularity */}
-          <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} granularity={granularity} />
-          <TouchableOpacity onPress={load} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-            {loading && loaded
-              ? <ActivityIndicator size="small" color={colors.primary} />
-              : <FontAwesome name="refresh" size={13} color={colors.primary} />}
-          </TouchableOpacity>
-        </View>
-      </View>
+            <TouchableOpacity onPress={load} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
+              {loading && loaded
+                ? <ActivityIndicator size="small" color={colors.primary} />
+                : <FontAwesome name="refresh" size={13} color={colors.primary} />}
+            </TouchableOpacity>
+          </>
+        }
+      />
 
       {!loaded ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-        <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 32, paddingVertical: 40, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+        <ScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 32, paddingVertical: 40, paddingBottom: 60 }} showsVerticalScrollIndicator={false} {...headerScroll}>
 
           {/* SLA Risks */}
           <View className="mb-6">

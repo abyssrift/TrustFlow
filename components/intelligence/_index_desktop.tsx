@@ -20,6 +20,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
+import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
 import Tooltip from '@/components/common/Tooltip';
 
 const DEFAULT_WIDGETS = ['throughput', 'efficiency', 'flow_ratio', 'first_pass_yield'];
@@ -39,7 +41,18 @@ function WidgetGate({ feature, limits, children }: {
   );
 }
 
+// #308/#309: the shared collapsing <IntelligencePageHeader> owns the identity
+// block + full-width controls row + scroll-linked collapse. The provider is
+// mounted here so the inner body ScrollView can drive the collapse.
 export default function IntelligenceOverview() {
+  return (
+    <CollapsibleHeaderProvider>
+      <IntelligenceOverviewInner />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function IntelligenceOverviewInner() {
   const colors = useThemeColors();
   const { hasPermission, profile } = useAuth();
   const { limits: planLimits } = useBillingPlan();
@@ -96,6 +109,10 @@ export default function IntelligenceOverview() {
 
   const router = useRouter();
 
+  // #308 scroll-linked collapse of the shared header; only one scroll per screen
+  // drives it — the analytics body ScrollView below.
+  const headerScroll = useCollapsibleHeaderScroll();
+
   const renderWidget = (key: string, idx: number) => {
     switch (key) {
       case 'throughput':        return <KPIBoxWeb key={idx} label="Throughput"           val={curThr}                                 delta={curThr - prevThr} />;
@@ -110,35 +127,38 @@ export default function IntelligenceOverview() {
   return (
     <View className="flex-1 bg-surface-background flex-col">
 
-      {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-center justify-between border-b border-surface-border flex-shrink-0 gap-y-4">
-        <View className="flex-row items-center gap-4">
-          <View>
-            <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
-            <Text className="text-typography-main text-4xl font-black tracking-tighter">Overview</Text>
-          </View>
-          <View className="mt-4 px-3 py-1 bg-surface-card border border-surface-border rounded-lg">
-            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Global Organizational View</Text>
-          </View>
-        </View>
-
-        <View className="flex-row flex-wrap items-center gap-3">
-          {canViewAnalytics && (
-            <>
-              {/* Shared pipeline selector + calendar range + granularity */}
-              <PipelineSelector pipelines={pipelines} selectedId={pipelineId} onSelect={setPipelineId} />
-              <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} maxDays={limits.maxDays} granularity={granularity} />
-              <Tooltip label="Refresh data">
-                <TouchableOpacity onPress={fetchAudit} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-                  {loading && data
-                    ? <ActivityIndicator size="small" color={colors.primary} />
-                    : <FontAwesome name="refresh" size={13} color={colors.primary} />}
-                </TouchableOpacity>
-              </Tooltip>
-            </>
-          )}
-        </View>
-      </View>
+      {/* ── Header (shared collapsing component — #308/#309) ── */}
+      <IntelligencePageHeader
+        eyebrow="Intelligence Hub"
+        title="Overview"
+        right={
+          <>
+            {/* "Global Organizational View" pill — kept visible per #308 */}
+            <View className="px-3 py-1 bg-surface-card border border-surface-border rounded-lg">
+              <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Global Organizational View</Text>
+            </View>
+            {canViewAnalytics && (
+              <>
+                {/* Shared pipeline selector + calendar range + granularity. Each
+                    cluster gets a definite max so its own flex-wrap engages. */}
+                <View style={{ maxWidth: '100%', flexShrink: 1 }}>
+                  <PipelineSelector pipelines={pipelines} selectedId={pipelineId} onSelect={setPipelineId} />
+                </View>
+                <View style={{ maxWidth: '100%', flexShrink: 1 }}>
+                  <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} maxDays={limits.maxDays} granularity={granularity} />
+                </View>
+                <Tooltip label="Refresh data">
+                  <TouchableOpacity onPress={fetchAudit} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
+                    {loading && data
+                      ? <ActivityIndicator size="small" color={colors.primary} />
+                      : <FontAwesome name="refresh" size={13} color={colors.primary} />}
+                  </TouchableOpacity>
+                </Tooltip>
+              </>
+            )}
+          </>
+        }
+      />
 
       {canViewAnalytics && loading && !data ? (
         <View className="flex-1 items-center justify-center">
@@ -149,7 +169,7 @@ export default function IntelligenceOverview() {
           <Text className="text-typography-muted text-sm">No data available for this period.</Text>
         </View>
       ) : canViewAnalytics ? (
-        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} {...headerScroll}>
 
           {/* ── KPI Row ── */}
           <View className="px-10 pt-6 pb-0 flex-shrink-0">

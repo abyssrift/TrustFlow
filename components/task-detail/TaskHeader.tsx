@@ -16,9 +16,17 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import { cssInterop } from 'react-native-css-interop';
+import { useCollapseProgress } from '@/hooks/useCollapsibleHeader';
 import { buildTransitionTargetMap, splitStageActions, stageDirection, TYPE_STYLES } from './actionRegistry';
 import { DirectionalActionButton } from './DirectionalActionButton';
+
+// Full-size top padding differs by platform: native has no app chrome so the
+// header must clear the status bar (pt-12), web sits under the app topbar (pt-4).
+// Collapsed, both just need breathing room.
+const PAD_TOP_FULL = Platform.OS === 'web' ? 16 : 48;
+const PAD_TOP_CONDENSED = Platform.OS === 'web' ? 8 : 24;
 
 cssInterop(FontAwesome, {
   className: {
@@ -58,6 +66,28 @@ export default function TaskHeader() {
   const { successToast, errorToast, infoToast } = useToast();
   const { showConfirm } = useAlert();
   const colors = useThemeColors();
+
+  // Scroll-linked collapse (#306): once the task body scrolls past ~64px this
+  // settles the header into an inline strip — title shrinks, vertical padding
+  // tightens, the muted category + pipeline row tucks away — and restores near
+  // the top. The badge row and the horizontal action rail stay: that's the
+  // "necessary things only" that survives. `collapse` is 0 (full) → 1
+  // (condensed); the tween and Reduce-Motion handling live in the hook.
+  const collapse = useCollapseProgress();
+  const [metaH, setMetaH] = React.useState(0);
+  const containerPadStyle = useAnimatedStyle(() => ({
+    paddingTop: interpolate(collapse.value, [0, 1], [PAD_TOP_FULL, PAD_TOP_CONDENSED]),
+    paddingBottom: interpolate(collapse.value, [0, 1], [16, 8]),
+  }));
+  const titleScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(collapse.value, [0, 1], [1, 0.75]) }],
+    transformOrigin: 'left center',
+  }));
+  const metaRowStyle = useAnimatedStyle(() => ({
+    height: metaH ? metaH * (1 - collapse.value) : undefined,
+    opacity: interpolate(collapse.value, [0, 1], [1, 0]),
+    marginTop: interpolate(collapse.value, [0, 1], [4, 0]),
+  }));
 
   const handleArchive = async () => {
     if (!data) return;
@@ -228,7 +258,7 @@ export default function TaskHeader() {
   };
 
   return (
-    <View className={`px-5 ${Platform.OS === 'web' ? 'pt-4' : 'pt-12'} pb-4 bg-surface-card border-b border-surface-border relative z-50`}>
+    <Animated.View className="px-5 bg-surface-card border-b border-surface-border relative z-50" style={containerPadStyle}>
       {/* Top row: back + badges. Elevated so the presence popover clears the rows below it. */}
       <View className="flex-row items-center mb-3 relative z-50">
         <Tooltip label="Go back">
@@ -286,21 +316,28 @@ export default function TaskHeader() {
 
       {/* Title Row — full width */}
       <View className="mt-1 mb-2">
-        <Text className="text-typography-main text-2xl font-black tracking-tight" numberOfLines={3}>
-          {task.title}
-        </Text>
-        {/* Muted info row */}
-        <View className="flex-row items-center gap-4 mt-1">
-          {task.category && (
-            <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider">{task.category}</Text>
-          )}
-          {data.pipeline && (
-            <View className="flex-row items-center">
-              <FontAwesome name="code-fork" size={9} className="text-typography-dim" />
-              <Text className="text-typography-dim text-[10px] font-bold ml-1">{data.pipeline.name}</Text>
-            </View>
-          )}
-        </View>
+        <Animated.View style={titleScaleStyle}>
+          <Text className="text-typography-main text-2xl font-black tracking-tight" numberOfLines={3}>
+            {task.title}
+          </Text>
+        </Animated.View>
+        {/* Muted info row — collapse fuel: height/opacity driven to 0 when condensed. */}
+        <Animated.View style={[metaRowStyle, { overflow: 'hidden' }]}>
+          <View
+            className="flex-row items-center gap-4"
+            onLayout={(e) => { if (!metaH) setMetaH(e.nativeEvent.layout.height); }}
+          >
+            {task.category && (
+              <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider">{task.category}</Text>
+            )}
+            {data.pipeline && (
+              <View className="flex-row items-center">
+                <FontAwesome name="code-fork" size={9} className="text-typography-dim" />
+                <Text className="text-typography-dim text-[10px] font-bold ml-1">{data.pipeline.name}</Text>
+              </View>
+            )}
+          </View>
+        </Animated.View>
       </View>
 
       {/* Actions Row */}
@@ -443,6 +480,6 @@ export default function TaskHeader() {
           setPendingAction(null);
         }}
       />
-    </View>
+    </Animated.View>
   );
 }

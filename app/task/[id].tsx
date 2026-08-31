@@ -13,6 +13,7 @@ import TaskMetadata from '@/components/task-detail/TaskMetadata';
 import TimerPanel from '@/components/task-detail/TimerPanel';
 import Tooltip from '@/components/common/Tooltip';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
+import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -27,6 +28,7 @@ function TaskDetailContent() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isDesktop = width > 768;
+  const headerScroll = useCollapsibleHeaderScroll();
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = async () => {
@@ -112,6 +114,7 @@ function TaskDetailContent() {
       <ScrollView
         className="flex-1 px-4 py-4"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        {...headerScroll}
       >
         <View className="gap-4 pb-8">
           {/* Priority: what the assignee needs first — brief, the work itself, proofs, discussion */}
@@ -142,7 +145,9 @@ export default function TaskDetailPage() {
   return (
     <TaskDetailProvider taskId={id}>
       <Stack.Screen options={{ headerShown: false }} />
-      <TaskDetailContent />
+      <CollapsibleHeaderProvider>
+        <TaskDetailContent />
+      </CollapsibleHeaderProvider>
     </TaskDetailProvider>
   );
 }

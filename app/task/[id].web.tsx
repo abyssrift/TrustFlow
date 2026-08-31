@@ -12,6 +12,7 @@ import TaskMetadata from '@/components/task-detail/TaskMetadata';
 import TimerPanel from '@/components/task-detail/TimerPanel';
 import Tooltip from '@/components/common/Tooltip';
 import { TaskDetailProvider, useTaskDetail } from '@/contexts/TaskDetailContext';
+import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,6 +27,7 @@ function TaskDetailContentWeb() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isWide = width >= 1024;
+  const headerScroll = useCollapsibleHeaderScroll();
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = async () => {
@@ -100,11 +102,14 @@ function TaskDetailContentWeb() {
 
       {isWide ? (
         <View className="flex-1 flex-row">
-          {/* LEFT: Main Operational Area */}
+          {/* LEFT: Main Operational Area — this is the body scroll that drives the
+              header collapse. The right sidebar scroll (below) is deliberately
+              not wired: two scrolls fighting one SharedValue would strobe it. */}
           <ScrollView
             className="flex-1"
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+            {...headerScroll}
           >
             <View className="p-10 max-w-[1000px] mx-auto w-full gap-8 pb-20">
               <TaskBriefPanel />
@@ -137,6 +142,7 @@ function TaskDetailContentWeb() {
           className="flex-1 px-4 py-4"
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          {...headerScroll}
         >
           <View className="gap-4 pb-20">
             <TaskBriefPanel />
@@ -165,7 +171,9 @@ export default function TaskDetailPageWeb() {
   return (
     <TaskDetailProvider taskId={id}>
       <Stack.Screen options={{ headerShown: false }} />
-      <TaskDetailContentWeb />
+      <CollapsibleHeaderProvider>
+        <TaskDetailContentWeb />
+      </CollapsibleHeaderProvider>
     </TaskDetailProvider>
   );
 }

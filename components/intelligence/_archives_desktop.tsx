@@ -11,10 +11,21 @@ import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View 
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
+import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
 import Tooltip from '@/components/common/Tooltip';
 
 export default function IntelligenceArchives() {
+  return (
+    <CollapsibleHeaderProvider>
+      <IntelligenceArchivesInner />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function IntelligenceArchivesInner() {
   const colors = useThemeColors();
+  const headerScroll = useCollapsibleHeaderScroll();
   const { hasPermission }           = useAuth();
   const router                      = useRouter();
   const { showAlert }               = useAlert();
@@ -110,38 +121,38 @@ export default function IntelligenceArchives() {
   return (
     <View className="flex-1 bg-surface-background flex-col">
 
-      {/* ── Header ── */}
-      <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-start justify-between gap-4 border-b border-surface-border flex-shrink-0">
-        <View className="min-w-0">
-          <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
-          <Text className="text-typography-main text-4xl font-black tracking-tighter">Cold Storage</Text>
-        </View>
-        <View className="flex-row flex-wrap items-center justify-end gap-3 max-w-full">
-          {/* Search */}
-          <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[320px] min-w-[220px]">
-            <FontAwesome name="search" size={12} color={colors.textMuted} />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search archives..."
-              placeholderTextColor={colors.textDim}
-              className="flex-1 text-typography-main text-sm font-medium bg-transparent"
-            />
-            {search.length > 0 && (
-              <Tooltip label="Clear search">
-                <TouchableOpacity onPress={() => setSearch('')}>
-                  <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
-                </TouchableOpacity>
-              </Tooltip>
-            )}
-          </View>
-          <Tooltip label="Refresh archives">
-            <TouchableOpacity onPress={fetchArchives} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0">
-              <FontAwesome name="refresh" size={13} color={colors.primary} />
-            </TouchableOpacity>
-          </Tooltip>
-        </View>
-      </View>
+      {/* ── Header (shared collapsing component — #309) ── */}
+      <IntelligencePageHeader
+        eyebrow="Intelligence Hub"
+        title="Cold Storage"
+        right={
+          <>
+            {/* Search */}
+            <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[320px] min-w-[220px]">
+              <FontAwesome name="search" size={12} color={colors.textMuted} />
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search archives..."
+                placeholderTextColor={colors.textDim}
+                className="flex-1 text-typography-main text-sm font-medium bg-transparent"
+              />
+              {search.length > 0 && (
+                <Tooltip label="Clear search">
+                  <TouchableOpacity onPress={() => setSearch('')}>
+                    <FontAwesome name="times-circle" size={12} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </Tooltip>
+              )}
+            </View>
+            <Tooltip label="Refresh archives">
+              <TouchableOpacity onPress={fetchArchives} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl shrink-0">
+                <FontAwesome name="refresh" size={13} color={colors.primary} />
+              </TouchableOpacity>
+            </Tooltip>
+          </>
+        }
+      />
 
       {selected.size > 0 && hasPermission('archive.delete') && (
         <View className="mx-10 mt-5 flex-row items-center justify-between bg-state-danger/10 border border-state-danger/30 rounded-2xl px-6 py-3">
@@ -175,7 +186,7 @@ export default function IntelligenceArchives() {
           </View>
         </View>
       ) : (
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 40 }}>
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 40 }} {...headerScroll}>
           <View className="bg-surface-card rounded-[32px] border border-surface-border overflow-hidden premium-shadow">
             {/* Table header */}
             <View className="flex-row items-center px-8 py-4 border-b border-surface-border bg-surface-background/50">

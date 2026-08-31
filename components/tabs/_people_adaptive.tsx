@@ -10,7 +10,9 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import Tooltip from '@/components/common/Tooltip';
+import { CollapsibleHeaderProvider, useCollapseProgress } from '@/hooks/useCollapsibleHeader';
 
 import NotificationRules from '@/components/admin/NotificationRules';
 import BillingPanel from '@/components/admin/BillingPanel';
@@ -84,12 +86,37 @@ function TeamWorkspaceContent({ section }: { section: PeopleSection }) {
 }
 
 export default function PeopleScreen() {
+  return (
+    <CollapsibleHeaderProvider>
+      <PeopleScreenInner />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function PeopleScreenInner() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ section?: string | string[] }>();
   const sectionParam = Array.isArray(params.section) ? params.section[0] : params.section;
 
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<PeopleSection>('members');
+
+  // Scroll-linked collapse (#310): the grid sections (UserAssignmentGrid /
+  // TeamAssignmentGrid / RoleBuilder) self-wire useCollapsibleHeaderScroll, so
+  // once they scroll past ~64px only the "Corporate" title + subtitle settle
+  // down. Join-code card and section-tab strip are deliberately left alone.
+  const collapse = useCollapseProgress();
+  const [subtitleH, setSubtitleH] = useState(0);
+  // Motion on the wrapper, NOT the Text — className colour doesn't resolve on
+  // Animated.Text on web (renders black). Matches TaskHeader's title pattern.
+  const titleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(collapse.value, [0, 1], [1, 0.72]) }],
+    transformOrigin: 'left center',
+  }));
+  const subtitleStyle = useAnimatedStyle(() => ({
+    height: subtitleH ? subtitleH * (1 - collapse.value) : undefined,
+    opacity: interpolate(collapse.value, [0, 1], [1, 0]),
+  }));
 
   const { showAlert } = useAlert();
   const { profile, hasPermission } = useAuth();
@@ -131,8 +158,17 @@ export default function PeopleScreen() {
         )}
         <View className="flex-row items-center justify-between mb-4">
           <View>
-            <Text className="text-typography-main text-3xl font-black">Corporate</Text>
-            <Text className="text-typography-dim text-xs font-medium">Members, teams, and roles</Text>
+            <Animated.View style={titleStyle}>
+              <Text className="text-typography-main text-3xl font-black tracking-tight">Corporate</Text>
+            </Animated.View>
+            <Animated.View style={[{ overflow: 'hidden' }, subtitleStyle]}>
+              <Text
+                className="text-typography-dim text-xs font-medium"
+                onLayout={(e) => { if (!subtitleH) setSubtitleH(e.nativeEvent.layout.height); }}
+              >
+                Members, teams, and roles
+              </Text>
+            </Animated.View>
           </View>
           <Tooltip label="Workspace settings">
             <TouchableOpacity className="bg-brand-primary w-11 h-11 rounded-2xl items-center justify-center">

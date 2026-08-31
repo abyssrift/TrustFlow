@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { ThemeType } from '@/contexts/ThemeContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
+import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -341,7 +343,16 @@ const TargetCircle = ({
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function IntelligenceTargets() {
+  return (
+    <CollapsibleHeaderProvider>
+      <IntelligenceTargetsInner />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function IntelligenceTargetsInner() {
   const colors = useThemeColors();
+  const headerScroll = useCollapsibleHeaderScroll();
   const { profile } = useAuth();
   const { theme: activeTheme } = useTheme();
   const [targets, setTargets]       = useState<any[]>([]);
@@ -469,38 +480,38 @@ export default function IntelligenceTargets() {
 
       {/* ── LEFT COLUMN ── */}
       <View className="flex-1 flex-col overflow-hidden">
-        <View className="px-10 pt-8 pb-5 flex-row flex-wrap items-start justify-between gap-4 border-b border-surface-border">
-          <View className="min-w-0">
-            <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
-            <Text className="text-typography-main text-4xl font-black tracking-tighter">Performance Targets</Text>
-          </View>
-          <View className="flex-row flex-wrap items-center justify-end gap-3 max-w-full">
-            <TouchableOpacity
-              onPress={() => setShowModal(true)}
-              className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2"
-            >
-              <FontAwesome name="plus" size={12} color="white" />
-              <Text className="text-white font-black uppercase tracking-widest text-[11px]">New Target</Text>
-            </TouchableOpacity>
-            <CustomTooltip label="Toggle activity panel">
+        <IntelligencePageHeader
+          eyebrow="Intelligence Hub"
+          title="Performance Targets"
+          right={
+            <>
               <TouchableOpacity
-                onPress={() => setShowRightSidebar(!showRightSidebar)}
-                className={`px-4 py-2.5 rounded-xl border flex-row items-center gap-2 transition-all ${
-                  showRightSidebar ? 'bg-brand-primary border-brand-primary premium-shadow' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
-                }`}
+                onPress={() => setShowModal(true)}
+                className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2"
               >
-                <FontAwesome name="columns" size={14} color={showRightSidebar ? 'white' : colors.muted} />
+                <FontAwesome name="plus" size={12} color="white" />
+                <Text className="text-white font-black uppercase tracking-widest text-[11px]">New Target</Text>
               </TouchableOpacity>
-            </CustomTooltip>
-          </View>
-        </View>
+              <CustomTooltip label="Toggle activity panel">
+                <TouchableOpacity
+                  onPress={() => setShowRightSidebar(!showRightSidebar)}
+                  className={`px-4 py-2.5 rounded-xl border flex-row items-center gap-2 transition-all ${
+                    showRightSidebar ? 'bg-brand-primary border-brand-primary premium-shadow' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
+                  }`}
+                >
+                  <FontAwesome name="columns" size={14} color={showRightSidebar ? 'white' : colors.muted} />
+                </TouchableOpacity>
+              </CustomTooltip>
+            </>
+          }
+        />
 
         {loading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : (
-          <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <ScrollView className="flex-1" showsVerticalScrollIndicator={false} {...headerScroll}>
             <View className="px-10 py-10">
 
               {/* Active Targets — Circle Grid */}

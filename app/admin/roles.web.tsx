@@ -8,6 +8,7 @@ import UserAssignmentGrid from '@/components/admin/UserAssignmentGrid';
 import TeamAssignmentGrid from '@/components/admin/TeamAssignmentGrid';
 import RoleBuilder from '@/components/admin/RoleBuilder';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { CollapsibleHeaderProvider } from '@/hooks/useCollapsibleHeader';
 
 function RolesWebLayout() {
   const colors = useThemeColors();
@@ -16,6 +17,11 @@ function RolesWebLayout() {
   const { loading, error } = useRoleManager();
   const [activeTab, setActiveTab] = useState<'users' | 'teams' | 'roles'>((tab as any) || 'users');
   const router = useRouter();
+
+  // The page header is just the Back link + tab switcher now — each assignment
+  // grid renders its own <GridSectionHeader> (eyebrow + title) which is what
+  // scroll-collapses (#309). The grids feed `progress` via the
+  // CollapsibleHeaderProvider wrapping this screen.
 
   React.useEffect(() => {
     if (tab && (tab === 'users' || tab === 'teams' || tab === 'roles')) {
@@ -57,32 +63,18 @@ function RolesWebLayout() {
     <View className="flex-1 bg-surface-background" style={{ height: '100dvh', overflow: 'hidden' } as any}>
       <Stack.Screen options={{ headerShown: false }} />
       
-      {/* High-Fidelity Desktop Header */}
-      <View className="bg-surface-card px-8 py-8 border-b border-surface-border">
+      {/* Page header — Back link + tab switcher only; each grid owns its title. */}
+      <View className="bg-surface-card px-8 py-6 border-b border-surface-border">
         <View className="flex-row items-center justify-between max-w-[1600px] mx-auto w-full">
-          <View>
-            <View className="flex-row items-center mb-4">
-              <TouchableOpacity
-                onPress={() => router.back()}
-                className="flex-row items-center group"
-              >
-                <View className="w-8 h-8 rounded-lg bg-surface-background items-center justify-center border border-surface-border group-hover:border-brand-primary transition-colors">
-                  <FontAwesome name="chevron-left" size={10} color={colors.textMuted} />
-                </View>
-                <Text className="text-typography-muted font-bold text-xs ml-3 group-hover:text-typography-main transition-colors">Back to Admin</Text>
-              </TouchableOpacity>
-              <View className="w-1 h-1 rounded-full bg-surface-border mx-4" />
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.3em]">RBAC / RDAC</Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="flex-row items-center group"
+          >
+            <View className="w-8 h-8 rounded-lg bg-surface-background items-center justify-center border border-surface-border group-hover:border-brand-primary transition-colors">
+              <FontAwesome name="chevron-left" size={10} color={colors.textMuted} />
             </View>
-            
-            <View className="flex-row items-center">
-              <View className="w-1.5 h-10 bg-brand-primary rounded-full mr-6" />
-              <View>
-                <Text className="text-typography-main text-4xl font-black tracking-tighter">Protocol Sovereignty</Text>
-                <Text className="text-typography-muted text-sm mt-1 font-medium italic opacity-70">Define authority. Manage inheritance. Secure the matrix.</Text>
-              </View>
-            </View>
-          </View>
+            <Text className="text-typography-muted font-bold text-xs ml-3 group-hover:text-typography-main transition-colors">Back to Admin</Text>
+          </TouchableOpacity>
 
           {/* Desktop Tab Switcher - Segmented Control Style */}
           <View className="bg-surface-background p-1.5 rounded-2xl border border-surface-border flex-row">
@@ -141,7 +133,9 @@ export default function RolesScreen() {
   const colors = useThemeColors();
   return (
     <RoleManagerProvider>
-      <RolesWebLayout />
+      <CollapsibleHeaderProvider>
+        <RolesWebLayout />
+      </CollapsibleHeaderProvider>
     </RoleManagerProvider>
   );
 }

@@ -1,10 +1,12 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 
 import { EntityGlyph, EntityTag, MetaStat, ProgressMeter, fmtDate } from '@/components/entities/EntityUI';
 import PortfolioEditModal from '@/components/portfolios/PortfolioEditModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCollapseProgress } from '@/hooks/useCollapsibleHeader';
 import { usePortfolios } from '@/hooks/usePortfolios';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -47,6 +49,29 @@ export default function PortfolioScopeHeader({
   const wide = width >= 1024;
   const [editing, setEditing] = useState(false);
   const [coverBroken, setCoverBroken] = useState(false);
+  const [statsH, setStatsH] = useState(0);
+
+  // #307 scroll-linked collapse. This component only ever mounts inside the
+  // *scoped* portfolio view, which is wrapped in <CollapsibleHeaderProvider> by
+  // _projects_adaptive/_projects_desktop — so useCollapseProgress() is always
+  // safe here. `collapse` is 0 (full) -> 1 (condensed); as the projects body
+  // scrolls past ~64px the stats/progress row + low-confidence note tuck away
+  // and the name shrinks a step. Back button + glyph + tag + name survive.
+  // Tween + Reduce-Motion handling live in the hook.
+  const collapse = useCollapseProgress();
+  const containerStyle = useAnimatedStyle(() => ({
+    gap: interpolate(collapse.value, [0, 1], [8, 2]),
+  }));
+  const nameRowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(collapse.value, [0, 1], [1, 0.9]) }],
+    transformOrigin: 'left center',
+  }));
+  const statsStyle = useAnimatedStyle(() => ({
+    // undefined until measured so the block lays out at its natural height once,
+    // then becomes height-controlled — no first-frame collapsed flash.
+    height: statsH === 0 ? undefined : statsH * (1 - collapse.value),
+    opacity: interpolate(collapse.value, [0, 1], [1, 0]),
+  }));
 
   // Mounted only when scoped, so the unscoped projects screen never pays for
   // this fetch. usePortfolios is the same reader the grid uses.
@@ -59,7 +84,7 @@ export default function PortfolioScopeHeader({
   const pct = p && p.projects_total > 0 ? (p.projects_done / p.projects_total) * 100 : 0;
 
   return (
-    <View style={{ gap: 8 }}>
+    <Animated.View style={[{ gap: 8 }, containerStyle]}>
       {/* flex-wrap: on a narrow phone, back button + glyph + title + the
           action buttons (all fixed-width except the title) don't fit one
           row — wrapping drops actions to their own line instead of crushing
@@ -90,7 +115,7 @@ export default function PortfolioScopeHeader({
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
           <EntityTag kind="portfolio" />
-          <View className="flex-row items-center" style={{ gap: 10 }}>
+          <Animated.View className="flex-row items-center" style={[{ gap: 10 }, nameRowStyle]}>
             <Text
               numberOfLines={2}
               className={`${wide ? 'text-2xl' : 'text-xl'} text-typography-main font-black tracking-tight flex-shrink`}
@@ -108,7 +133,7 @@ export default function PortfolioScopeHeader({
                 <FontAwesome name="pencil" size={13} color={c.textMuted} />
               </Pressable>
             )}
-          </View>
+          </Animated.View>
         </View>
 
         {actions && (
@@ -123,7 +148,13 @@ export default function PortfolioScopeHeader({
           <ActivityIndicator color={c.primary} />
         </View>
       ) : p ? (
-        <View style={{ gap: 6 }}>
+        // #307: this stats + progress block and the low-confidence note are the
+        // collapse fuel — height/opacity driven to 0 as the body scrolls.
+        <Animated.View style={[statsStyle, { overflow: 'hidden' }]}>
+        <View
+          style={{ gap: 6 }}
+          onLayout={(e) => { if (!statsH) setStatsH(e.nativeEvent.layout.height); }}
+        >
           <View className="flex-row flex-wrap items-center" style={{ gap: wide ? 20 : 14 }}>
             <MetaStat label="Finished" value={`${p.projects_done}/${p.projects_total}`} />
             <MetaStat label="Tasks" value={`${p.tasks_done}/${p.tasks_total}`} />
@@ -155,6 +186,7 @@ export default function PortfolioScopeHeader({
             </View>
           )}
         </View>
+        </Animated.View>
       ) : null}
 
       <PortfolioEditModal
@@ -163,6 +195,6 @@ export default function PortfolioScopeHeader({
         onSaved={refresh}
         portfolio={p ? { id: p.id, name: p.name, cover_url: p.cover_url, target_date: p.target_date } : null}
       />
-    </View>
+    </Animated.View>
   );
 }

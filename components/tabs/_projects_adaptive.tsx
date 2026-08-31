@@ -27,6 +27,7 @@ import { usePersistedState } from '@/hooks/usePersistedState';
 import { isProjectsView, type ProjectsView } from '@/lib/projectPresentation';
 import Tooltip from '@/components/common/Tooltip';
 import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/EntityUI';
+import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 
 // Phase 8 (#187) — the narrow/native sibling of _projects_desktop.tsx. Same
 // reduction: one primary action, one "add many" door, one segmented view
@@ -38,7 +39,23 @@ import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/
 
 // Phase 10 (#191): same optional portfolio scope as _projects_desktop.tsx, so
 // mobile web and native land on the same screen, not a desktop-only fix.
-export default function ProjectsScreen({ portfolioId }: { portfolioId?: string } = {}) {
+//
+// #307 collapsible header: the provider is mounted for every render, but only
+// the scoped portfolio view consumes it (PortfolioScopeHeader reads the
+// progress value; the scoped body ScrollView gets `{...headerScroll}`). The
+// unscoped Projects tab keeps its plain static header, gets an empty spread,
+// and is unaffected. Gating the provider itself would force duplicating the
+// whole return tree, since useCollapsibleHeaderScroll must run unconditionally
+// under a provider.
+export default function ProjectsScreen(props: { portfolioId?: string } = {}) {
+  return (
+    <CollapsibleHeaderProvider>
+      <ProjectsScreenInner {...props} />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function ProjectsScreenInner({ portfolioId }: { portfolioId?: string } = {}) {
   const colors = useThemeColors();
   const { showAlert } = useAlert();
   const { width } = useWindowDimensions();
@@ -70,6 +87,9 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
   const isWeb = Platform.OS === 'web';
   const isLargeScreen = width > 768;
   const { position: navPosition } = useNavBarPosition();
+  // #307: kept above the permission early-return with every other hook (issue
+  // #96) — the spread is gated to `scoped` further down, not the hook call.
+  const headerScroll = useCollapsibleHeaderScroll();
 
   const canViewProjects = hasPermission('project.view');
   const canCreate = hasPermission('project.create');
@@ -96,6 +116,10 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
   // See _projects_desktop.tsx — create actions all take portfolioId now, so
   // a scoped screen gets the same three doors as the unscoped header.
   const scoped = !!portfolioId;
+
+  // #307: only the scoped view drives the collapse. Unscoped => empty spread,
+  // so the plain Projects header and its ScrollView behave exactly as before.
+  const bodyScroll = scoped ? headerScroll : {};
 
   const headerInset = isWeb
     ? (!isLargeScreen && navPosition === 'top' ? { paddingTop: TAB_BAR_HEIGHT.web } : undefined)
@@ -228,6 +252,7 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
         <ScrollView
           className="flex-1 pt-3"
           contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16 }}
+          {...bodyScroll}
         >
           <ProjectsTable
             refreshKey={tableRefreshKey}
@@ -241,6 +266,7 @@ export default function ProjectsScreen({ portfolioId }: { portfolioId?: string }
         <ScrollView
           className="flex-1 pt-3"
           contentContainerStyle={{ paddingBottom: isWeb ? 32 : TAB_BAR_HEIGHT.native + 16, paddingHorizontal: 16 }}
+          {...bodyScroll}
         >
           <ProjectsTimeline
             refreshKey={tableRefreshKey}
