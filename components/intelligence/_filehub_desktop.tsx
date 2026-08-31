@@ -8,9 +8,10 @@ import { useDoubleTap } from '@/hooks/useDoubleTap';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { useDragSource, useDropPulse, useDropTarget, useFileDrop, useMarqueeSelect } from '@/hooks/useWebDnd';
+import { useDragSource, useDropPulse, useDropTarget, useFileDrop, useMarqueeSelect, useSmartPaste } from '@/hooks/useWebDnd';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
 import Popup from '../common/Popup';
+import { FileDropOverlay } from '../common/FileDropOverlay';
 import Tooltip from '../common/Tooltip';
 import UserLink from '../common/UserLink';
 import FileHubAnalytics from './FileHubAnalytics';
@@ -3587,30 +3588,28 @@ function FileHubDesktopInner() {
   // them and the folder you're in (initialFiles + defaultFolderId). Folder
   // drops arrive with webkitRelativePath set, so they nest exactly like the
   // Folder button.
-  const { ref: fileDropRef, isOver: fileDropOver } = useFileDrop(
+  const { ref: fileDropRef, isOver: fileDropOver, isDragActive: fileDropActive } = useFileDrop(
     (files) => { setDroppedFiles(files); setShowUpload(true); },
     canUpload,
   );
-  const { iconScale: fileDropIconScale } = useDropPulse(fileDropOver);
+  // Paste counterpart of the screen-level useFileDrop above (web-only, native
+  // no-op): Ctrl+V a file/screenshot with no upload modal open → same
+  // droppedFiles → UploadModal.initialFiles path.
+  useSmartPaste(
+    { onFiles: (files) => { setDroppedFiles(files); setShowUpload(true); } },
+    canUpload && !showUpload,
+  );
 
   return (
     <View ref={fileDropRef} className="flex-1 bg-surface-background flex-col">
-      {/* Drop-to-upload overlay — only while OS files are dragged over the screen */}
-      {fileDropOver && (
-        <View
-          pointerEvents="none"
-          className="absolute inset-0 z-50 items-center justify-center border-2 border-dashed rounded-3xl m-3"
-          style={{ borderColor: colors.primary, backgroundColor: colors.primary + '14' }}
-        >
-          <View className="items-center gap-3 px-8 py-6 rounded-3xl" style={{ backgroundColor: colors.card }}>
-            <Animated.View style={{ transform: [{ scale: fileDropIconScale }] }}>
-              <FontAwesome name="cloud-upload" size={28} color={colors.primary} />
-            </Animated.View>
-            <Text className="font-black text-base" style={{ color: colors.textMain }}>
-              Drop to upload{selectedFolderId ? ` to ${folders.find(f => f.id === selectedFolderId)?.name ?? 'this folder'}` : ''}
-            </Text>
-          </View>
-        </View>
+      {/* Drop-to-upload overlay — dim on every zone once a drag enters the window,
+          full-strength while it's over this screen. */}
+      {canUpload && (
+        <FileDropOverlay
+          active={fileDropActive}
+          over={fileDropOver}
+          label={`Drop to upload${selectedFolderId ? ` to ${folders.find(f => f.id === selectedFolderId)?.name ?? 'this folder'}` : ''}`}
+        />
       )}
       {/* ── Header ── */}
       <View className="px-10 pt-5 pb-3 flex-row flex-wrap items-center justify-between gap-4 border-b border-surface-border flex-shrink-0">
