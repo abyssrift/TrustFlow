@@ -14,11 +14,11 @@ export default function DevToolsScreen() {
   const router = useRouter();
   const { showAlert, showConfirm } = useAlert();
   const { showToast } = useToast();
-  // Screen-level gate. Not the real security boundary (every destructive RPC
-  // here is server-gated to _is_platform_admin() independently) -- this just
-  // keeps a company owner from ever seeing the screen at all. Called
-  // unconditionally with every other hook; the actual early-return sits after
-  // all hooks, right before the JSX (Rules of Hooks).
+  // Screen-level gate. Not the real security boundary -- every destructive
+  // RPC this screen calls is independently server-gated to
+  // _is_platform_admin() -- this just keeps a company owner from ever seeing
+  // an internal seeding/debug tool. Called unconditionally with every other
+  // hook; the early-return sits after all hooks, before the JSX.
   const isPlatformAdmin = useIsPlatformAdmin();
   const [loading, setLoading] = useState(false);
   const [seedProgress, setSeedProgress] = useState('');

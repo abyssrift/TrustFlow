@@ -14,10 +14,6 @@ export default function DevToolsScreenWeb() {
   const { showAlert } = useAlert();
   const { showToast } = useToast();
   // Screen-level gate -- see dev-tools.tsx (native) for the full rationale.
-  // Every destructive RPC here is independently server-gated to
-  // _is_platform_admin(); this just keeps a company owner from seeing the
-  // screen. Called unconditionally with the other hooks; early-return sits
-  // after all hooks, right before the JSX.
   const isPlatformAdmin = useIsPlatformAdmin();
   const [loading, setLoading] = useState(false);
   const [seedProgress, setSeedProgress] = useState('');

@@ -135,6 +135,8 @@ export interface MultiViewListProps<T> {
   mediumCardMinWidth?: number;
   maxLargeColumns?: number;
   maxMediumColumns?: number;
+  /** Caps the grid (large/medium) body's total width so cards never span an ultrawide slot; the grid is left-aligned under the cap. Column math uses the capped width so the card count matches what's actually visible. List/details ignore it (a table wants the full width). */
+  maxGridWidth?: number;
 
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
@@ -178,6 +180,7 @@ export default function MultiViewList<T>({
   mediumCardMinWidth = 160,
   maxLargeColumns = 4,
   maxMediumColumns = 6,
+  maxGridWidth,
   onEndReached,
   listFooter,
   onScroll,
@@ -205,8 +208,9 @@ export default function MultiViewList<T>({
     if (w > 0 && Math.abs(w - slotWidth) > 1) setSlotWidth(w);
   };
 
-  const largeColumns = computeColumns(slotWidth, cardMinWidth, maxLargeColumns);
-  const mediumColumns = computeColumns(slotWidth, mediumCardMinWidth, maxMediumColumns);
+  const gridSlot = maxGridWidth != null ? Math.min(slotWidth, maxGridWidth) : slotWidth;
+  const largeColumns = computeColumns(gridSlot, cardMinWidth, maxLargeColumns);
+  const mediumColumns = computeColumns(gridSlot, mediumCardMinWidth, maxMediumColumns);
 
   // Value-driven cross-fade on mode change (animation-consistency.md case 2 —
   // manual reanimated, not the declarative entering/exiting props, which
@@ -308,18 +312,26 @@ export default function MultiViewList<T>({
   ) : items.length === 0 ? (
     <EmptyState {...emptyState} />
   ) : mode === 'large' || mode === 'medium' ? (
-    <GridBody
-      items={items}
-      keyExtractor={keyExtractor}
-      density={mode}
-      numColumns={mode === 'large' ? largeColumns : mediumColumns}
-      renderCard={renderCard}
-      onItemPress={onItemPress}
-      onEndReached={onEndReached}
-      listFooter={listFooter}
-      onScroll={onScroll}
-      scrollEventThrottle={scrollEventThrottle}
-    />
+    <View
+      style={
+        maxGridWidth != null
+          ? { width: '100%', maxWidth: maxGridWidth, alignSelf: 'flex-start' }
+          : undefined
+      }
+    >
+      <GridBody
+        items={items}
+        keyExtractor={keyExtractor}
+        density={mode}
+        numColumns={mode === 'large' ? largeColumns : mediumColumns}
+        renderCard={renderCard}
+        onItemPress={onItemPress}
+        onEndReached={onEndReached}
+        listFooter={listFooter}
+        onScroll={onScroll}
+        scrollEventThrottle={scrollEventThrottle}
+      />
+    </View>
   ) : mode === 'list' ? (
     <ListBody
       items={items}
