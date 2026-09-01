@@ -15,6 +15,7 @@ import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ReportGenerator from '@/components/intelligence/_ReportGenerator_adaptive';
+import RoleEditorContainer from '@/components/admin/RoleEditorContainer';
 
 const noop = () => {};
 
@@ -65,14 +66,11 @@ export default function ModalHost() {
     case 'generate-report':
       return <ReportGenerator visible onClose={dismiss} onReportGenerated={noop} />;
 
-    // #323 follow-up: new-role is NOT wired. RoleEditorSheet(.web) is a fully
-    // controlled ~20-prop presentational component; every bit of its state and
-    // the create/update/template logic lives in components/admin/RoleBuilder.tsx
-    // (useRoleManager, createRole, permission list + category derivation).
-    // Summoning it needs that logic lifted into a self-contained modal or a
-    // RoleManagerContext-backed container — a bigger refactor than #323 wants.
+    // new-role (#338): create mode only. RoleEditorContainer owns the role
+    // state RoleBuilder normally feeds RoleEditorSheet and brings its own
+    // RoleManagerProvider (live permission list + rpc_create_role).
     case 'new-role':
-      return null;
+      return <RoleEditorContainer visible onClose={dismiss} />;
 
     // #323 follow-up: create-portfolio has NO standalone modal.
     // PortfolioEditModal is edit-only (needs an existing portfolio row, saves
