@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 import '../global.css';
 
 import BrandSplash from '@/components/BrandSplash';
+import ModalHost from '@/components/common/ModalHost';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Sidebar from '@/components/Sidebar.web';
 import IslandTimeApprovalsBridge from '@/components/island/IslandTimeApprovalsBridge.web';
@@ -141,6 +142,7 @@ function RootLayoutNav() {
                 IslandTimerBridge), so only draw the floating pill on mobile web
                 (< 768). The bridge mirrors the running timer into the island. */}
             <TimerIsland floating={width < 768} />
+            <ModalHost />
             {session && width >= 768 && <IslandTimerBridge />}
             {session && width >= 768 && <IslandTimeApprovalsBridge />}
             <View className="absolute top-0 left-0 right-0 z-[999]">

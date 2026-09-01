@@ -36,6 +36,7 @@ export const unstable_settings = {
 };
 
 import BrandSplash from '@/components/BrandSplash';
+import ModalHost from '@/components/common/ModalHost';
 import GlobalUploadBanner from '@/components/GlobalUploadBanner';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import TimerIsland from '@/components/TimerIsland';
@@ -268,6 +269,7 @@ function ThemedRoot() {
           <Stack.Screen name="notifications/index" options={{ presentation: 'modal' }} />
         </Stack>
         <TimerIsland />
+        <ModalHost />
         <View className="absolute top-0 left-0 right-0 z-[999]">
           <NetworkStatusBanner />
           <GlobalUploadBanner />
