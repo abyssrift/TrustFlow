@@ -11,11 +11,14 @@ type SharedFileItem = {
   name: string;
   mime_type: string | null;
   size_bytes: number;
-  signed_url: string;
+  signed_url: string | null;
+  // Location relative to the shared folder root — '' for a direct child,
+  // 'Sub/Nested' for a file inside a nested subfolder.
+  path?: string;
 };
 
-type ResolvedFileShare = SharedFileItem & { kind?: 'file'; expires_at: string };
-type ResolvedFolderShare = { kind: 'folder'; name: string; expires_at: string; items: SharedFileItem[] };
+type ResolvedFileShare = SharedFileItem & { kind?: 'file'; expires_at: string; download_allowed: boolean };
+type ResolvedFolderShare = { kind: 'folder'; name: string; expires_at: string; download_allowed: boolean; items: SharedFileItem[] };
 type ResolvedShare = ResolvedFileShare | ResolvedFolderShare;
 
 type ResolveError = 'not_found' | 'expired' | 'revoked' | 'missing_token' | 'storage_error' | 'network';
@@ -52,19 +55,26 @@ function SingleFileCard({ file }: { file: ResolvedFileShare }) {
       </View>
       <Text className="text-typography-main text-lg font-black mb-1.5 text-center" numberOfLines={2}>{file.name}</Text>
       <Text className="text-typography-muted text-xs mb-6">{formatFileSize(file.size_bytes)}</Text>
-      <TouchableOpacity
-        onPress={() => Linking.openURL(file.signed_url)}
-        className="flex-row items-center justify-center bg-brand-primary rounded-2xl py-4 px-8 gap-2 w-full"
-      >
-        <FontAwesome name="download" size={14} color="#fff" />
-        <Text className="text-white font-black text-base">Download</Text>
-      </TouchableOpacity>
+      {file.download_allowed && file.signed_url ? (
+        <TouchableOpacity
+          onPress={() => Linking.openURL(file.signed_url!)}
+          className="flex-row items-center justify-center bg-brand-primary rounded-2xl py-4 px-8 gap-2 w-full"
+        >
+          <FontAwesome name="download" size={14} color="#fff" />
+          <Text className="text-white font-black text-base">Download</Text>
+        </TouchableOpacity>
+      ) : (
+        <View className="flex-row items-center justify-center gap-2 bg-surface-background border border-surface-border rounded-2xl py-4 px-8 w-full">
+          <FontAwesome name="eye-slash" size={14} color={colors.textDim} />
+          <Text className="text-typography-dim font-bold text-sm">Downloads disabled by sender</Text>
+        </View>
+      )}
       <Text className="text-typography-dim text-[10px] mt-4 text-center">Shared via TrustFlow File Hub</Text>
     </View>
   );
 }
 
-function SharedFolderRow({ item }: { item: SharedFileItem }) {
+function SharedFolderRow({ item, downloadAllowed }: { item: SharedFileItem; downloadAllowed: boolean }) {
   const colors = useThemeColors();
   const icon = getFileIcon(item.mime_type, colors);
   return (
@@ -74,16 +84,24 @@ function SharedFolderRow({ item }: { item: SharedFileItem }) {
       </View>
       <View className="flex-1 min-w-0">
         <Text className="text-typography-main text-sm font-bold" numberOfLines={1}>{item.name}</Text>
-        <Text className="text-typography-dim text-[11px]">{formatFileSize(item.size_bytes)}</Text>
+        <Text className="text-typography-dim text-[11px]" numberOfLines={1}>
+          {item.path ? `${item.path}/ · ` : ''}{formatFileSize(item.size_bytes)}
+        </Text>
       </View>
-      <Tooltip label="Download file">
-        <TouchableOpacity
-          onPress={() => Linking.openURL(item.signed_url)}
-          className="w-9 h-9 rounded-xl bg-brand-primary/10 border border-brand-primary/20 items-center justify-center flex-shrink-0"
-        >
-          <FontAwesome name="download" size={13} color={colors.primary} />
-        </TouchableOpacity>
-      </Tooltip>
+      {downloadAllowed && item.signed_url ? (
+        <Tooltip label="Download file">
+          <TouchableOpacity
+            onPress={() => Linking.openURL(item.signed_url!)}
+            className="w-9 h-9 rounded-xl bg-brand-primary/10 border border-brand-primary/20 items-center justify-center flex-shrink-0"
+          >
+            <FontAwesome name="download" size={13} color={colors.primary} />
+          </TouchableOpacity>
+        </Tooltip>
+      ) : (
+        <View className="w-9 h-9 rounded-xl bg-surface-background border border-surface-border items-center justify-center flex-shrink-0">
+          <FontAwesome name="eye-slash" size={12} color={colors.textDim} />
+        </View>
+      )}
     </View>
   );
 }
@@ -99,13 +117,14 @@ function SharedFolderCard({ folder }: { folder: ResolvedFolderShare }) {
         <Text className="text-typography-main text-lg font-black text-center" numberOfLines={2}>{folder.name}</Text>
         <Text className="text-typography-muted text-xs mt-1">
           {folder.items.length} file{folder.items.length === 1 ? '' : 's'}
+          {!folder.download_allowed ? ' · downloads disabled by sender' : ''}
         </Text>
       </View>
       {folder.items.length === 0 ? (
         <Text className="text-typography-dim text-sm text-center py-6">This folder is empty.</Text>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
-          {folder.items.map((item, i) => <SharedFolderRow key={`${item.name}-${i}`} item={item} />)}
+          {folder.items.map((item, i) => <SharedFolderRow key={`${item.path ?? ''}/${item.name}-${i}`} item={item} downloadAllowed={folder.download_allowed} />)}
         </ScrollView>
       )}
       <Text className="text-typography-dim text-[10px] mt-5 text-center">Shared via TrustFlow File Hub</Text>

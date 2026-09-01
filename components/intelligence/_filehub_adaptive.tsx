@@ -112,6 +112,7 @@ function FileDetailSheet({
   const [shareLinksLoading, setShareLinksLoading] = useState(false);
   const [creatingShareLink, setCreatingShareLink] = useState(false);
   const [shareExpiryHours, setShareExpiryHours] = useState(168);
+  const [shareDownloadAllowed, setShareDownloadAllowed] = useState(true);
 
   // The "Move to Folder" picker must only offer folders from this file's own
   // scope (Direct/Broadcast/its channel) — folders don't cross those lines.
@@ -668,10 +669,25 @@ function FileDetailSheet({
         </View>
 
         <TouchableOpacity
+          onPress={() => setShareDownloadAllowed(v => !v)}
+          className="flex-row items-center justify-between rounded-xl border border-surface-border bg-surface-background px-4 py-3 mb-5"
+        >
+          <View className="flex-1 min-w-0 pr-3">
+            <Text className="text-typography-main text-xs font-black">Allow Downloads</Text>
+            <Text className="text-typography-dim text-[10px] mt-0.5">
+              {shareDownloadAllowed ? 'Visitors can download the file.' : 'Visitors cannot download — link carries no file bytes.'}
+            </Text>
+          </View>
+          <View className={`w-10 h-6 rounded-full justify-center px-0.5 ${shareDownloadAllowed ? 'bg-brand-primary' : 'bg-surface-border'}`}>
+            <View className="w-5 h-5 rounded-full bg-white" style={{ marginLeft: shareDownloadAllowed ? 16 : 0 }} />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={async () => {
             setCreatingShareLink(true);
             try {
-              await createShareLink(file.id, shareExpiryHours);
+              await createShareLink(file.id, shareExpiryHours, shareDownloadAllowed);
               setShareLinksLoading(true);
               listShareLinks(file.id).then(setShareLinks).catch(console.error).finally(() => setShareLinksLoading(false));
             } catch { /* alerted */ } finally {
@@ -697,6 +713,7 @@ function FileDetailSheet({
                 <Text className="text-typography-main text-xs font-bold mb-1" numberOfLines={1}>{shareLinkUrl(link.token)}</Text>
                 <Text className="text-typography-dim text-[9px] mb-2">
                   Expires {new Date(link.expires_at).toLocaleDateString()} · {link.view_count} view{link.view_count === 1 ? '' : 's'}
+                  {link.download_allowed === false ? ' · downloads off' : ''}
                   {/* Other people's links show here too now — say whose. */}
                   {link.creator_name && link.can_revoke === false ? ` · by ${link.creator_name}` : ''}
                 </Text>
