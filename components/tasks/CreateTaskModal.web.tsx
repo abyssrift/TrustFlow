@@ -1,6 +1,7 @@
 import AssignmentModePreview from '@/components/tasks/AssignmentModePreview';
 import ClipboardControls from '@/components/common/ClipboardControls';
 import DraggableSheet from '@/components/common/DraggableSheet';
+import { FileDropOverlay } from '@/components/common/FileDropOverlay';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Popup from '@/components/common/Popup';
 import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
@@ -9,17 +10,17 @@ import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import Tooltip from '@/components/common/Tooltip';
 import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTaskCreation } from '@/contexts/TaskCreationContext';
+import { useTaskCreation, type StagedBriefFile } from '@/contexts/TaskCreationContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { getPastedImageFile, fileToStaged } from '@/lib/pasteImage';
-import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
+import { getPastedImageFile, fileToStaged, applyTaskSeed } from '@/lib/pasteImage';
+import { useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
 import { supabase } from '@/lib/supabase';
 import { localIsoDay } from '@/lib/time';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 
 cssInterop(FontAwesome, {
@@ -33,6 +34,8 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   initialPipelineId?: string | null;
+  initialText?: string | null;
+  initialFiles?: StagedBriefFile[] | null;
 };
 
 type Pipeline = { id: string; name: string };
@@ -170,7 +173,7 @@ function AdaptiveFileGrid({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function CreateTaskModal({ visible, onClose, initialPipelineId }: Props) {
+export default function CreateTaskModal({ visible, onClose, initialPipelineId, initialText, initialFiles }: Props) {
   const colors = useThemeColors();
   const { hasPermission } = useAuth();
   const { draft, setDraft, toggleTeamAssignee, loadTeamMembers, createTask, createBulkTasks, loading, recentTasks, loadRecentTasks, briefFiles, setBriefFiles } = useTaskCreation();
@@ -261,6 +264,27 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [visible, canSubmit, loading, closeAllOverlays, handleCreate]);
+
+  // Phase 2: Ctrl/Cmd+V a screenshot or file anywhere in the open composer →
+  // stage it as a brief file, same path as the drag-drop + "Paste Image" button.
+  // (No onText — paste into the focused title/description is the browser's job.)
+  useSmartPaste(
+    { onFiles: (files) => setBriefFiles(prev => [...prev, ...files.map(fileToStaged)]) },
+    visible && !bulkMode && !loading,
+  );
+
+  // Phase 3: seed title/description/brief files from a screen-level paste or
+  // drop that opened this composer. Runs once per open (visible false→true).
+  useEffect(() => {
+    if (!visible) return;
+    applyTaskSeed(
+      { initialText, initialFiles },
+      { title: draft.title, description: draft.description },
+      setDraft,
+      (files) => setBriefFiles(prev => [...prev, ...files]),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   useEffect(() => {
     if (visible) {
@@ -366,11 +390,10 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
 
   // Drag OS files onto the composer → stage them as brief files (not in bulk
   // mode, where brief files don't apply).
-  const { ref: briefDropRef, isOver: briefDropOver } = useFileDrop(
+  const { ref: briefDropRef, isOver: briefDropOver, isDragActive: briefDropActive } = useFileDrop(
     (files) => setBriefFiles(prev => [...prev, ...files.map(fileToStaged)]),
     visible && !bulkMode && !loading,
   );
-  const { glowOpacity: briefDropGlow } = useDropPulse(briefDropOver);
 
   // ─── Mobile-web wizard (narrow viewports) ───────────────────────────────────
   // Mirrors native's CreateTaskModal.tsx (formerly CreateTaskSheet.tsx) step-by-step DraggableSheet pattern, but
@@ -1182,14 +1205,15 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
       )}
     >
       {/* ── MAIN CONTENT ── */}
-      <View ref={briefDropRef} className="flex-1 flex-col" style={{ borderWidth: briefDropOver ? 2 : 0, borderColor: briefDropOver ? colors.primary : 'transparent' }}>
-        {briefDropOver && (
-          <Animated.View
-            pointerEvents="none"
-            className="absolute inset-0"
-            style={{ borderWidth: 2, borderColor: colors.primary, opacity: briefDropGlow }}
-          />
-        )}
+      <View ref={briefDropRef} className="flex-1 flex-col">
+        {/* Phase 3.5: dim hint on drag-enter-window, full-strength while the
+            cursor is over the composer. Scoped to this View (absolute inset-0).
+            Same gate as this View's useFileDrop. */}
+        <FileDropOverlay
+          active={briefDropActive && visible && !bulkMode && !loading}
+          over={briefDropOver}
+          label="Drop files to attach"
+        />
 
             {/* Header */}
             <View className="px-10 py-8 flex-row items-center justify-between" style={{ borderBottomWidth: 1, borderColor: colors.border }}>

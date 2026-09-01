@@ -51,6 +51,7 @@ export default function SearchDropdown({
   results,
   archives,
   loading,
+  searchError,
   recent,
   saved,
   querySaved,
@@ -71,6 +72,7 @@ export default function SearchDropdown({
   results: SearchResult[];
   archives: SearchResult[];
   loading: boolean;
+  searchError: boolean;
   recent: string[];
   saved: string[];
   querySaved: boolean;
@@ -152,8 +154,10 @@ export default function SearchDropdown({
         <View className="items-center py-6"><ActivityIndicator size="small" color={colors.primary} /></View>
       ) : results.length === 0 && archives.length === 0 ? (
         <View className="items-center px-3 py-6">
-          <Text className="text-typography-muted text-xs">No results for “{query.trim()}”</Text>
-          {showArchiveToggle ? <ArchiveToggle colors={colors} on={includeArchived} onPress={onToggleArchived} /> : null}
+          <Text className="text-typography-muted text-xs">
+            {searchError ? 'Search failed — try again' : `No results for “${query.trim()}”`}
+          </Text>
+          {showArchiveToggle && !searchError ? <ArchiveToggle colors={colors} on={includeArchived} onPress={onToggleArchived} /> : null}
         </View>
       ) : (
         // ── Grouped results ───────────────────────────────────────────────

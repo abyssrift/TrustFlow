@@ -1,6 +1,7 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
+import { FileDropOverlay } from '@/components/common/FileDropOverlay';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import SlideDownPanel from '@/components/common/SlideDownPanel';
@@ -21,13 +22,15 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
-import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
+import { TaskCreationProvider, type StagedBriefFile } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { TAB_BAR_HEIGHT } from '@/lib/layout';
+import { fileToStaged } from '@/lib/pasteImage';
 import { supabase } from '@/lib/supabase';
 import { addPinnedTaskId, emptyColumnPage, mergeTasksById, stagePageQuery, TASK_PAGE_SIZE, type BoardFilters, type ColumnPage } from '@/lib/taskBoardPage';
 import { formatCompact, formatRelative } from '@/lib/time';
@@ -314,6 +317,10 @@ function TasksScreen() {
   const [showPersonalizer, setShowPersonalizer] = useState(false);
   const [showMobility, setShowMobility] = useState(false);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  // Phase 3: content pasted/dropped on the screen with no composer open, handed
+  // to CreateTaskModal as seed data on the next open (web only in practice).
+  const [seedText, setSeedText] = useState<string | null>(null);
+  const [seedFiles, setSeedFiles] = useState<StagedBriefFile[] | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ priorities: [], categories: [], projectIds: [], managerIds: [], dueDates: [] });
   const [sortKey, setSortKey] = useState<TaskSortKey>('default');
@@ -938,6 +945,22 @@ function TasksScreen() {
     setShowCreateSheet(true);
   };
 
+  // Phase 3: screen-level OS-file drop / Ctrl+V with no composer open → open it
+  // pre-seeded. useFileDrop/useSmartPaste Platform-gate to web, so this whole
+  // block is an inert no-op on native — only narrow-web hits it.
+  const openWithSeed = () => setShowCreateSheet(true);
+  const { ref: taskDropRef, isOver: taskDropOver, isDragActive: taskDropActive } = useFileDrop(
+    (files) => { setSeedFiles(files.map(fileToStaged)); openWithSeed(); },
+    !showCreateSheet,
+  );
+  useSmartPaste(
+    {
+      onFiles: (files) => { setSeedFiles(files.map(fileToStaged)); openWithSeed(); },
+      onText:  (text)  => { setSeedText(text); openWithSeed(); },
+    },
+    !showCreateSheet,
+  );
+
   // handleAdvanceTask removed — logic moved to TaskCardActions component
 
   const handleArchiveTask = async () => {
@@ -1289,7 +1312,12 @@ function TasksScreen() {
   }
 
    return (
-     <View className="flex-1 bg-surface-background">
+     <View ref={taskDropRef} className="flex-1 bg-surface-background">
+      {/* Phase 3 / 3.5: drop-to-create affordance (web only — taskDropOver /
+          taskDropActive never trip on native). Dim on drag-enter-window,
+          full-strength while the cursor is over this screen. */}
+      <FileDropOverlay active={taskDropActive && !showCreateSheet} over={taskDropOver} label="Drop to create a task" />
+
       {Platform.OS === 'web'
         ? (!isLargeScreen && navPosition === 'top' && <View style={{ height: TAB_BAR_HEIGHT.web }} />)
         : <View style={{ height: TAB_BAR_HEIGHT.native }} />}
@@ -1702,8 +1730,12 @@ function TasksScreen() {
       <CreateTaskModal
         visible={showCreateSheet}
         initialPipelineId={pipeline?.id}
+        initialText={seedText}
+        initialFiles={seedFiles}
         onClose={() => {
           setShowCreateSheet(false);
+          setSeedText(null);
+          setSeedFiles(null);
           fetchData();
         }}
       />

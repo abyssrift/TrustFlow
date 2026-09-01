@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import {
   FlatList,
   LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   ScrollView,
   StyleProp,
   Text,
@@ -139,6 +141,11 @@ export interface MultiViewListProps<T> {
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
 
+  /** Forwarded onto whichever body FlatList is mounted. Used by the
+   *  collapsible-header hook (#309) — `{...useCollapsibleHeaderScroll()}`. */
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  scrollEventThrottle?: number;
+
   style?: StyleProp<ViewStyle>;
   testIDPrefix?: string;
 }
@@ -176,6 +183,8 @@ export default function MultiViewList<T>({
   maxGridWidth,
   onEndReached,
   listFooter,
+  onScroll,
+  scrollEventThrottle,
   style,
   testIDPrefix,
 }: MultiViewListProps<T>) {
@@ -319,6 +328,8 @@ export default function MultiViewList<T>({
         onItemPress={onItemPress}
         onEndReached={onEndReached}
         listFooter={listFooter}
+        onScroll={onScroll}
+        scrollEventThrottle={scrollEventThrottle}
       />
     </View>
   ) : mode === 'list' ? (
@@ -329,6 +340,8 @@ export default function MultiViewList<T>({
       onItemPress={onItemPress}
       onEndReached={onEndReached}
       listFooter={listFooter}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
     />
   ) : isDesktop ? (
     <DetailsTable
@@ -338,6 +351,8 @@ export default function MultiViewList<T>({
       onItemPress={onItemPress}
       onEndReached={onEndReached}
       listFooter={listFooter}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
     />
   ) : (
     <DetailsStacked
@@ -347,6 +362,8 @@ export default function MultiViewList<T>({
       onItemPress={onItemPress}
       onEndReached={onEndReached}
       listFooter={listFooter}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
     />
   );
 
@@ -432,6 +449,8 @@ function GridBody<T>({
   onItemPress,
   onEndReached,
   listFooter,
+  onScroll,
+  scrollEventThrottle,
 }: {
   items: T[];
   keyExtractor: (item: T) => string;
@@ -441,13 +460,15 @@ function GridBody<T>({
   onItemPress?: (item: T) => void;
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  scrollEventThrottle?: number;
 }) {
   return (
     <FlatList
       // RN throws if numColumns changes on a live FlatList — key it so a
       // resize (window or slot) or a mode swap remounts cleanly instead.
       key={`grid-${density}-${numColumns}`}
-      style={{ flex: 1 }}
+      style={{ flex: 1, overflow: 'hidden' }}
       data={items}
       keyExtractor={keyExtractor}
       numColumns={numColumns}
@@ -467,6 +488,8 @@ function GridBody<T>({
       onEndReachedThreshold={0.4}
       ListFooterComponent={listFooter ?? undefined}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
     />
   );
 }
@@ -480,6 +503,8 @@ function ListBody<T>({
   onItemPress,
   onEndReached,
   listFooter,
+  onScroll,
+  scrollEventThrottle,
 }: {
   items: T[];
   keyExtractor: (item: T) => string;
@@ -487,6 +512,8 @@ function ListBody<T>({
   onItemPress?: (item: T) => void;
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  scrollEventThrottle?: number;
 }) {
   return (
     <FlatList
@@ -508,6 +535,8 @@ function ListBody<T>({
       onEndReachedThreshold={0.4}
       ListFooterComponent={listFooter ?? undefined}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
     />
   );
 }
@@ -532,6 +561,8 @@ function DetailsTable<T>({
   onItemPress,
   onEndReached,
   listFooter,
+  onScroll,
+  scrollEventThrottle,
 }: {
   items: T[];
   keyExtractor: (item: T) => string;
@@ -539,6 +570,8 @@ function DetailsTable<T>({
   onItemPress?: (item: T) => void;
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  scrollEventThrottle?: number;
 }) {
   return (
     <View style={{ flex: 1 }}>
@@ -569,6 +602,8 @@ function DetailsTable<T>({
         onEndReachedThreshold={0.4}
         ListFooterComponent={listFooter ?? undefined}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={scrollEventThrottle}
       />
     </View>
   );
@@ -585,6 +620,8 @@ function DetailsStacked<T>({
   onItemPress,
   onEndReached,
   listFooter,
+  onScroll,
+  scrollEventThrottle,
 }: {
   items: T[];
   keyExtractor: (item: T) => string;
@@ -592,6 +629,8 @@ function DetailsStacked<T>({
   onItemPress?: (item: T) => void;
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
+  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  scrollEventThrottle?: number;
 }) {
   return (
     <FlatList
@@ -619,6 +658,8 @@ function DetailsStacked<T>({
       onEndReachedThreshold={0.4}
       ListFooterComponent={listFooter ?? undefined}
       showsVerticalScrollIndicator={false}
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
     />
   );
 }

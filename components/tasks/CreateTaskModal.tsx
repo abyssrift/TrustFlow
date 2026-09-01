@@ -1,10 +1,11 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { getPastedImageFile } from '@/lib/pasteImage';
+import { getPastedImageFile, applyTaskSeed } from '@/lib/pasteImage';
+import type { StagedBriefFile } from '@/contexts/TaskCreationContext';
 import { FontAwesome } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Tooltip from '@/components/common/Tooltip';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -119,9 +120,11 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   initialPipelineId?: string | null;
+  initialText?: string | null;
+  initialFiles?: StagedBriefFile[] | null;
 };
 
-export default function CreateTaskModal({ visible, onClose, initialPipelineId }: Props) {
+export default function CreateTaskModal({ visible, onClose, initialPipelineId, initialText, initialFiles }: Props) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { showAlert, showConfirm } = useAlert();
@@ -137,6 +140,20 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId }:
   } = useCreateTaskWizard({ visible, initialPipelineId });
   const { preview: assignmentPreview } = usePipelineAssignmentPreview(draft.pipelineId);
   const dateConflict = !!(draft.startDate && draft.dueDate && draft.startDate > draft.dueDate);
+
+  // Phase 3: seed from a screen-level paste/drop. Native screens don't pass
+  // these today (no OS drag / bare-Ctrl+V idiom), so this is a harmless no-op
+  // here — kept identical to the web modal in case a native caller ever seeds.
+  useEffect(() => {
+    if (!visible) return;
+    applyTaskSeed(
+      { initialText, initialFiles },
+      { title: draft.title, description: draft.description },
+      setDraft,
+      (files) => setBriefFiles(prev => [...prev, ...files]),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const renderStep = () => {
     switch (step) {

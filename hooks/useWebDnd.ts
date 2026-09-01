@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Animated, Easing, Platform } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 import { walkEntry } from '@/lib/fileDropEntries';
 
 // react-native-web's View/TouchableOpacity only forward an allowlist of DOM
@@ -16,6 +17,53 @@ import { walkEntry } from '@/lib/fileDropEntries';
 // A module-level ref is the source of truth (only one drag is ever active);
 // dataTransfer.setData still runs so the browser treats it as a valid drag.
 let activeDragPayload: unknown = null;
+
+// ─── Global "an OS file drag is in progress somewhere in the window" signal ───
+// True from the moment an OS file drag enters the browser window until it drops
+// or leaves — so every mounted drop zone can show its idle affordance at once
+// (Slack/Notion pattern), not just the one zone the cursor has reached.
+// Installed once at import, web-only, same shape as lib/webModifierKeys.
+
+// True only for a real OS file drag (Explorer/Finder), never an in-app row drag
+// (those carry activeDragPayload and no 'Files' type). Shared by useFileDrop and
+// the window-level tracker below so the guard lives in exactly one place.
+const isOsFileDrag = (e: DragEvent) =>
+  activeDragPayload === null && !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+
+// Pure counter step, exported for the self-check. dragenter/dragleave fire per
+// element boundary so they're balanced; drop/dragend hard-reset to 0.
+export function nextDragDepth(depth: number, kind: 'enter' | 'leave' | 'reset'): number {
+  if (kind === 'reset') return 0;
+  return kind === 'enter' ? depth + 1 : Math.max(0, depth - 1);
+}
+
+let _dragDepth = 0;
+const _dragListeners = new Set<() => void>();
+function _setDragDepth(next: number) {
+  const wasActive = _dragDepth > 0;
+  _dragDepth = Math.max(0, next);
+  if ((_dragDepth > 0) !== wasActive) _dragListeners.forEach(l => l());
+}
+
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  window.addEventListener('dragenter', e => { if (isOsFileDrag(e as DragEvent)) _setDragDepth(nextDragDepth(_dragDepth, 'enter')); }, true);
+  window.addEventListener('dragleave', e => { if (isOsFileDrag(e as DragEvent)) _setDragDepth(nextDragDepth(_dragDepth, 'leave')); }, true);
+  // ponytail: best-effort — a drag that leaves the window without a final
+  // balancing dragleave is caught by these. Upgrade to pointer tracking only if
+  // a stuck overlay is ever actually reported.
+  window.addEventListener('drop', () => _setDragDepth(0), true);
+  window.addEventListener('dragend', () => _setDragDepth(0), true);
+}
+
+const _dragActiveStore = {
+  subscribe(cb: () => void) { _dragListeners.add(cb); return () => { _dragListeners.delete(cb); }; },
+  getSnapshot: () => _dragDepth > 0,
+};
+
+/** True while an OS file drag is anywhere over the window (web); always false on native. */
+export function useIsFileDragActive(): boolean {
+  return useSyncExternalStore(_dragActiveStore.subscribe, _dragActiveStore.getSnapshot, () => false);
+}
 
 export function useDragSource<T>(payload: T, enabled: boolean = true) {
   const ref = useRef<any>(null);
@@ -196,6 +244,7 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled: boolean =
   const [node, setNode] = useState<HTMLElement | null>(null);
   const ref = useCallback((el: any) => setNode(el ?? null), []);
   const [isOver, setIsOver] = useState(false);
+  const isDragActive = useIsFileDragActive();
   const onFilesRef = useRef(onFiles);
   onFilesRef.current = onFiles;
 
@@ -205,9 +254,9 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled: boolean =
     if (!el || typeof el.addEventListener !== 'function') return;
 
     // Only react to OS file drags. An in-app row drag (activeDragPayload set, or
-    // a non-Files dataTransfer) must pass through untouched.
-    const isFileDrag = (e: DragEvent) =>
-      activeDragPayload === null && !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+    // a non-Files dataTransfer) must pass through untouched. Same guard the
+    // window-level tracker uses.
+    const isFileDrag = isOsFileDrag;
 
     let depth = 0; // dragenter/leave fire per descendant; count to avoid flicker
     const onDragOver = (e: DragEvent) => { if (!isFileDrag(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; };
@@ -243,7 +292,9 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled: boolean =
     };
   }, [enabled, node]);
 
-  return { ref, isOver };
+  // isDragActive: an OS file drag is somewhere over the window (any zone should
+  // show its idle affordance); isOver: the cursor is over this specific node.
+  return { ref, isOver, isDragActive };
 }
 
 // ─── Shared drop-indicator pulse ──────────────────────────────────────────────
@@ -254,9 +305,12 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled: boolean =
 // re-implementing its own loop.
 export function useDropPulse(active: boolean) {
   const pulse = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!active) { pulse.setValue(0); return; }
+    // Reduced motion: hold a static mid-affordance instead of looping.
+    if (reduceMotion) { pulse.setValue(0.5); return; }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 1, duration: 600, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
@@ -265,10 +319,78 @@ export function useDropPulse(active: boolean) {
     );
     loop.start();
     return () => loop.stop();
-  }, [active, pulse]);
+  }, [active, pulse, reduceMotion]);
 
   return {
     iconScale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }),
     glowOpacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
   };
+}
+
+// ─── Smart clipboard paste (Ctrl/Cmd+V of files, images, or text) ─────────────
+// Web-only sibling of useFileDrop: a single window-level `paste` listener that
+// routes clipboard files/images to onFiles and bare text to onText. Files are
+// always intercepted (a text field can't hold a pasted image); text is only
+// intercepted when nothing editable is focused, so Ctrl+V into an input /
+// textarea / contenteditable still does the normal in-field paste.
+// ponytail: web-only; native has no bare-Ctrl+V idiom — the "Paste Image"
+// button in the composer covers the native path.
+
+// Pure parse of a paste's DataTransfer, split out so the self-check can exercise
+// it without a real ClipboardEvent. The editable-target check + preventDefault
+// routing stay in the hook below.
+export function extractClipboardPayload(dt: DataTransfer): { files: File[]; text: string } {
+  const files: File[] = [];
+  // items[] is the reliable source for inline/screenshot images, which several
+  // browsers never surface in .files.
+  for (const item of Array.from(dt.items || [])) {
+    if (item.kind === 'file') {
+      const f = item.getAsFile();
+      if (f) files.push(f);
+    }
+  }
+  // Fallback: some browsers populate .files but leave .items empty.
+  if (files.length === 0 && dt.files && dt.files.length) {
+    files.push(...Array.from(dt.files));
+  }
+  return { files, text: dt.getData('text/plain') || '' };
+}
+
+export function useSmartPaste(
+  handlers: { onFiles?: (files: File[]) => void; onText?: (text: string) => void },
+  enabled: boolean = true,
+): void {
+  // Ref so a new handlers object every render doesn't re-subscribe the listener.
+  const handlersRef = useRef(handlers);
+  handlersRef.current = handlers;
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !enabled) return; // native: no `paste` event, no-op
+    if (typeof window === 'undefined') return;
+
+    const onPaste = (e: ClipboardEvent) => {
+      const dt = e.clipboardData;
+      if (!dt) return;
+      const { files, text } = extractClipboardPayload(dt);
+      const { onFiles, onText } = handlersRef.current;
+
+      // Files win, even when a text field is focused — a textarea can't hold an image.
+      if (files.length && onFiles) {
+        e.preventDefault();
+        onFiles(files);
+        return;
+      }
+      if (onText && text) {
+        const el = document.activeElement as HTMLElement | null;
+        const tag = el?.tagName;
+        const editable = tag === 'INPUT' || tag === 'TEXTAREA' || !!el?.isContentEditable;
+        if (editable) return; // let the browser paste into the focused field
+        e.preventDefault();
+        onText(text);
+      }
+    };
+
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, [enabled]);
 }

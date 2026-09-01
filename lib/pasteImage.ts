@@ -29,6 +29,30 @@ export function fileToStaged(file: File): PastedFile {
   };
 }
 
+/**
+ * Phase 3: seed an opening Create-Task composer from a screen-level paste/drop.
+ * `initialText`'s first line becomes the title (only while the title is still
+ * empty); any remainder is appended to the description. `initialFiles` are
+ * appended to the staged brief files. Lives here so CreateTaskModal.web.tsx and
+ * CreateTaskModal.tsx keep identical logic instead of duplicating it.
+ */
+export function applyTaskSeed(
+  seed: { initialText?: string | null; initialFiles?: PastedFile[] | null },
+  current: { title: string; description: string },
+  setDraft: (updates: { title?: string; description?: string }) => void,
+  addBriefFiles: (files: PastedFile[]) => void,
+): void {
+  const text = seed.initialText;
+  if (text) {
+    const nl = text.indexOf('\n');
+    const firstLine = nl === -1 ? text : text.slice(0, nl);
+    const rest = nl === -1 ? '' : text.slice(nl + 1);
+    if (!current.title) setDraft({ title: firstLine });
+    if (rest) setDraft({ description: current.description ? current.description + '\n' + rest : rest });
+  }
+  if (seed.initialFiles && seed.initialFiles.length) addBriefFiles(seed.initialFiles);
+}
+
 export async function getPastedImageFile(): Promise<PastedFile | null> {
   if (!(await Clipboard.hasImageAsync())) return null;
   const img = await Clipboard.getImageAsync({ format: 'png' });

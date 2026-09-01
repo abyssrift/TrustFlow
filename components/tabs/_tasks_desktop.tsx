@@ -1,4 +1,5 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
+import { FileDropOverlay } from '@/components/common/FileDropOverlay';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Tooltip from '@/components/common/Tooltip';
@@ -18,12 +19,14 @@ import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePingHighlight } from '@/contexts/PingHighlightContext';
-import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
+import { TaskCreationProvider, type StagedBriefFile } from '@/contexts/TaskCreationContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { BOARD_PICKER_KEYS, useBoardPicker } from '@/hooks/useBoardPicker';
+import { useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
+import { fileToStaged } from '@/lib/pasteImage';
 import { supabase } from '@/lib/supabase';
 import { addPinnedTaskId, emptyColumnPage, mergeTasksById, stagePageQuery, TASK_PAGE_SIZE, type BoardFilters, type ColumnPage } from '@/lib/taskBoardPage';
 import { formatCompact, formatRelative } from '@/lib/time';
@@ -320,6 +323,10 @@ export function TasksScreenWeb() {
   const [availablePipelines, setAvailablePipelines] = useState<Pipeline[]>((seed?.availablePipelines as Pipeline[]) ?? []);
   const [showPipelinePicker, setShowPipelinePicker] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Phase 3: content pasted/dropped on the screen with no composer open, handed
+  // to CreateTaskModal as seed data on the next open.
+  const [seedText, setSeedText] = useState<string | null>(null);
+  const [seedFiles, setSeedFiles] = useState<StagedBriefFile[] | null>(null);
   const [activeSessions, setActiveSessions] = useState<Record<string, ActiveSessionUser[]>>(seed?.activeSessions ?? {});
   const [pulse, setPulse] = useState<PersonalPulse | null>(null);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
@@ -909,6 +916,22 @@ export function TasksScreenWeb() {
     setShowCreateModal(true);
   };
 
+  // Phase 3: screen-level OS-file drop / Ctrl+V with no composer open → open it
+  // pre-seeded. useFileDrop/useSmartPaste Platform-gate to web (no-op elsewhere);
+  // disabled while the modal is open so its own paste handler (Phase 2) wins.
+  const openWithSeed = () => setShowCreateModal(true);
+  const { ref: taskDropRef, isOver: taskDropOver, isDragActive: taskDropActive } = useFileDrop(
+    (files) => { setSeedFiles(files.map(fileToStaged)); openWithSeed(); },
+    !showCreateModal,
+  );
+  useSmartPaste(
+    {
+      onFiles: (files) => { setSeedFiles(files.map(fileToStaged)); openWithSeed(); },
+      onText:  (text)  => { setSeedText(text); openWithSeed(); },
+    },
+    !showCreateModal,
+  );
+
   const handleOpenAssignments = (task: Task) => {
     setSelectedTask(task);
     setShowAssignmentModal(true);
@@ -1308,7 +1331,12 @@ export function TasksScreenWeb() {
 
 
   return (
-    <View className="flex-1 bg-surface-background">
+    <View ref={taskDropRef} className="flex-1 bg-surface-background">
+      {/* Phase 3 / 3.5: drop-to-create affordance — dim on every zone the instant
+          a file drag enters the window, full-strength while it's over this
+          screen. Web-only: taskDropOver / taskDropActive never trip on native. */}
+      <FileDropOverlay active={taskDropActive && !showCreateModal} over={taskDropOver} label="Drop to create a task" />
+
       {/* BOARD SWITCH OVERLAY — shown while an uncached board loads (warmed boards swap instantly) */}
       <LoadingOverlay visible={switchingBoard} message="Switching board…" />
 
@@ -1845,8 +1873,12 @@ export function TasksScreenWeb() {
       <CreateTaskModal
         visible={showCreateModal}
         initialPipelineId={pipeline?.id}
+        initialText={seedText}
+        initialFiles={seedFiles}
         onClose={() => {
           setShowCreateModal(false);
+          setSeedText(null);
+          setSeedFiles(null);
           fetchData();
         }}
       />
