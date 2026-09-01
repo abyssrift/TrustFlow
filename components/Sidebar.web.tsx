@@ -9,7 +9,7 @@ import { useAutoCollapseSubNav } from '@/hooks/useAutoCollapseSubNav';
 import { usePortfolios } from '@/hooks/usePortfolios';
 import { supabase } from '@/lib/supabase';
 import { useLocalSearchParams, usePathname } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View, useWindowDimensions } from 'react-native';
 import NavRail from './sidebar/NavRail.web';
 import { SHORTCUTS, shortcutVisible } from './sidebar/constants';
@@ -105,6 +105,18 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   // live here because the palette can't listen for its own open key while
   // unmounted; it owns arrow/enter/escape nav once open.
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // #341: the top-bar search field opens the palette carrying whatever's typed.
+  // `paletteSeed` is that hand-off text, applied once on the palette's open edge.
+  const [paletteSeed, setPaletteSeed] = useState('');
+  const openPalette = useCallback((seed: string) => {
+    setPaletteSeed(seed);
+    setPaletteOpen(true);
+  }, []);
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    setPaletteSeed('');
+    setTopSearch('');
+  }, []);
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const toggle = (e: KeyboardEvent) => {
@@ -184,7 +196,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
           position={navPosition}
           onLongPressToggle={toggleNavPosition}
         />
-        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        <CommandPalette open={paletteOpen} onClose={closePalette} initialQuery={paletteSeed} />
       </View>
     );
   }
@@ -219,6 +231,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
           pipelines={pipelines}
           portfolios={portfolios}
           portfoliosLoading={portfoliosLoading}
+          onRequestPalette={openPalette}
         />
 
         <View className="flex-1 bg-surface-background">
@@ -226,7 +239,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
         </View>
       </View>
 
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <CommandPalette open={paletteOpen} onClose={closePalette} initialQuery={paletteSeed} />
     </View>
   );
 }

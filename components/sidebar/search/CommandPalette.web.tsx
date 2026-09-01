@@ -1,7 +1,8 @@
 // Command palette (⌘K / Ctrl+K / Ctrl+F) — web only. A centered floating
 // overlay that unifies "Go to" (permissioned app pages) with global search
-// results (rpc_global_search via useGlobalSearch). The top-bar <TextInput> +
-// hover SearchDropdown stay as-is; this is an additive hotkey overlay.
+// results (rpc_global_search via useGlobalSearch). As of #341 this is also the
+// only search surface: the top-bar field just triggers it (seeded via
+// `initialQuery`), and the old hover SearchDropdown is retired from the top bar.
 //
 // Hotkeys live in Sidebar.web.tsx (the mount point) — the palette can't listen
 // for its own open key while unmounted. This component owns the arrow/enter/
@@ -52,7 +53,15 @@ function renderHighlighted(text: string | null, tintStyle: { backgroundColor: st
   return runs.map((run, i) => (run ? <Text key={i} style={i % 2 ? tintStyle : undefined}>{run}</Text> : null));
 }
 
-export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function CommandPalette({
+  open,
+  onClose,
+  initialQuery,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initialQuery?: string;
+}) {
   const colors = useThemeColors();
   const router = useRouter();
   const { hasPermission, profile } = useAuth();
@@ -114,10 +123,14 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
 
   useEffect(() => {
     if (!open) return;
-    setQuery('');
+    // Seed only on the open edge — deps are [open] on purpose: while open, the
+    // user's typing owns `query`, so a mid-open `initialQuery` change must not
+    // clobber it.
+    setQuery(initialQuery ?? '');
     setSel(0);
     const t = setTimeout(() => inputRef.current?.focus(), 50);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -196,6 +209,10 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
             placeholder="Search or jump to…"
             placeholderTextColor={colors.textDim}
             returnKeyType="search"
+            // Palette auto-focuses and focus-traps this input, so a keyboard user
+            // always knows where focus is — the :focus-visible ring earns nothing
+            // on this surface. Sanctioned greppable opt-out (ui-consistency.md §Focus).
+            className="focus-ring-none"
             style={{ flex: 1, fontSize: 16, color: colors.textMain, paddingVertical: 14 }}
           />
           <View className="px-1.5 py-0.5 rounded-md" style={{ borderWidth: 1, borderColor: colors.border }}>
