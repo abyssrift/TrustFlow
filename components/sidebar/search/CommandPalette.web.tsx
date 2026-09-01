@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
+import { useModalDispatch } from '@/contexts/ModalDispatchContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { resultRoute, useGlobalSearch, type ResultType, type SearchResult } from '@/hooks/useGlobalSearch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
@@ -30,8 +31,17 @@ const GROUP_LABEL: Record<string, string> = {
 const PER_GROUP = 5;
 
 type PaletteItem =
+  | { kind: 'action'; run: () => void }
   | { kind: 'page'; shortcut: Shortcut }
   | { kind: 'result'; result: SearchResult };
+
+type CreateAction = {
+  id: string;
+  label: string;
+  icon: React.ComponentProps<typeof FontAwesome>['name'];
+  permission: string;
+  run: () => void;
+};
 
 // Render ts_headline's <b>…</b> spans as tinted runs. `tintStyle` carries BOTH
 // the accent-dim background and an explicit text color — inline because theme
@@ -46,6 +56,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   const colors = useThemeColors();
   const router = useRouter();
   const { hasPermission, profile } = useAuth();
+  const { summon } = useModalDispatch();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const inputRef = useRef<TextInput>(null);
@@ -63,6 +74,22 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
   );
   const selBg = colors.primary + '1A';
 
+  // Create/compose actions — only the 3 ModalHost wires today (#325). Permission
+  // keys verified against real gates: task.create + report.view
+  // (QuickCreateButton.tsx), project.create (_projects_desktop.tsx "New Project").
+  const createActions = useMemo<CreateAction[]>(() => {
+    const all: CreateAction[] = [
+      { id: 'create-task', label: 'New Task', icon: 'check-square-o', permission: 'task.create', run: () => summon('create-task') },
+      { id: 'create-project', label: 'New Project', icon: 'folder-o', permission: 'project.create', run: () => summon('create-project') },
+      { id: 'generate-report', label: 'Generate Report', icon: 'bar-chart', permission: 'report.view', run: () => summon('generate-report') },
+    ];
+    return all.filter((a) => hasPermission(a.permission));
+  }, [hasPermission, summon]);
+  const matchedActions = useMemo(
+    () => (q ? createActions.filter((a) => a.label.toLowerCase().includes(q)) : createActions),
+    [createActions, q]
+  );
+
   const pages = useMemo(
     () => SHORTCUTS.filter((s) => shortcutVisible(s, { hasPermission, isOwner: !!profile?.is_owner, isMobile })),
     [hasPermission, profile?.is_owner, isMobile]
@@ -76,13 +103,14 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     [q, grouped]
   );
 
-  // Flat, ordered nav list: pages first, then results group by group — the
-  // render below walks the same order so `sel` lines up with what's on screen.
+  // Flat, ordered nav list: create actions, then pages, then results group by
+  // group — the render below walks the same order so `sel` lines up on screen.
   const flatItems = useMemo<PaletteItem[]>(() => {
-    const items: PaletteItem[] = matchedPages.map((s) => ({ kind: 'page', shortcut: s }));
+    const items: PaletteItem[] = matchedActions.map((a) => ({ kind: 'action', run: a.run }));
+    for (const s of matchedPages) items.push({ kind: 'page', shortcut: s });
     for (const t of groupRows) for (const r of grouped[t]!.slice(0, PER_GROUP)) items.push({ kind: 'result', result: r });
     return items;
-  }, [matchedPages, groupRows, grouped]);
+  }, [matchedActions, matchedPages, groupRows, grouped]);
 
   useEffect(() => {
     if (!open) return;
@@ -105,6 +133,11 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
 
   const activate = useCallback(
     (it: PaletteItem) => {
+      if (it.kind === 'action') {
+        it.run();
+        onClose();
+        return;
+      }
       onClose();
       if (it.kind === 'page') {
         router.push(it.shortcut.href as any);
@@ -170,11 +203,43 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
           </View>
         </View>
 
-        {/* Phase 2 (#325): create/compose actions ("New Task", "New Project",
-            "Upload", "Generate Report", "New Role") go here — needs the
-            modal-dispatch refactor (#322-#325). */}
-
         <ScrollView style={{ maxHeight: isMobile ? 380 : 460 }} keyboardShouldPersistTaps="handled">
+          {/* Create/compose actions (#325) — walked FIRST in flatItems, so
+              rendered first here to keep `idx` aligned with `sel`. */}
+          {matchedActions.length > 0 && (
+            <View className="mb-1 pt-2">
+              <Text
+                className="text-[9px] font-black uppercase tracking-widest px-2 py-1"
+                style={{ color: colors.textMuted }}
+              >
+                Create
+              </Text>
+              {matchedActions.map((a) => {
+                const i = idx++;
+                return (
+                  <Pressable
+                    key={a.id}
+                    onHoverIn={() => setSel(i)}
+                    onPress={() => activate({ kind: 'action', run: a.run })}
+                    className="flex-row items-center gap-3 rounded-xl px-3 py-2 mx-1"
+                    style={i === sel ? { backgroundColor: selBg } : undefined}
+                  >
+                    <View
+                      className="h-7 w-7 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: colors.primary + '1A' }}
+                    >
+                      <FontAwesome name={a.icon} size={13} color={colors.primary} />
+                    </View>
+                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, fontWeight: '600', color: colors.textMain }}>
+                      {a.label}
+                    </Text>
+                    <FontAwesome name="plus" size={11} color={colors.textDim} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
           {matchedPages.length > 0 && (
             <View className="mb-1 pt-2">
               <Text
@@ -246,7 +311,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
               <View className="items-center py-8">
                 <ActivityIndicator size="small" color={colors.primary} />
               </View>
-            ) : results.length === 0 && matchedPages.length === 0 ? (
+            ) : results.length === 0 && matchedPages.length === 0 && matchedActions.length === 0 ? (
               <View className="items-center px-3 py-8">
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>No results for “{query.trim()}”</Text>
               </View>
