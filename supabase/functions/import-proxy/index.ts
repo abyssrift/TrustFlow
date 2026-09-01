@@ -27,6 +27,10 @@ serve(async (req) => {
   // Establish/refresh a stored connection for api-key + token providers.
   if (resource === 'connect') return handleConnect(supabase, user.id, provider, p)
 
+  // Non-secret connection details, for prefilling the connect form on
+  // reconnect. The API key / OAuth token never leaves the server.
+  if (resource === 'read') return handleRead(supabase, provider)
+
   // RLS scopes this select to the caller's own row.
   const { data: conn } = await supabase
     .from('import_connections')
@@ -74,6 +78,35 @@ async function handleConnect(
   )
   if (error) { console.error('[import-proxy] connect upsert failed:', error); return text('Failed to store connection', 500) }
   return json({ ok: true })
+}
+
+async function handleRead(supabase: SupabaseClient, provider: string): Promise<Response> {
+  // RLS scopes this select to the caller's own row.
+  const { data: conn } = await supabase
+    .from('import_connections')
+    .select('encrypted_tokens, instance_url, provider_display_name, updated_at')
+    .eq('provider', provider)
+    .maybeSingle()
+  if (!conn) return json({ connected: false })
+
+  // Best-effort: a corrupt/legacy ciphertext still means "connected", just
+  // without the extra detail to prefill.
+  let creds: any = {}
+  try { creds = await decryptJson(conn.encrypted_tokens) } catch { /* fall through with {} */ }
+
+  const detail: Record<string, unknown> = {
+    connected: true,
+    instanceUrl: conn.instance_url,
+    displayName: conn.provider_display_name,
+    updatedAt: conn.updated_at,
+  }
+  // Odoo's db/username aren't secrets — surface them so a reconnect only ever
+  // needs a fresh API key, not the whole form retyped. apiKey/token never go here.
+  if (provider === 'odoo') {
+    detail.db = creds.db ?? null
+    detail.username = creds.username ?? null
+  }
+  return json(detail)
 }
 
 // ── Jira (OAuth2 3LO) ─────────────────────────────────────────────
