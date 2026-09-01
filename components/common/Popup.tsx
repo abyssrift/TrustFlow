@@ -43,6 +43,8 @@ type PopupCommonProps = {
   backdropStyle?: StyleProp<ViewStyle>;
   /** Centered-presentation only: rendered as a sibling of the card, inside the same backdrop/Modal layer but outside the card's `overflow: hidden` — for `position: fixed` floating content (dropdowns, date pickers) anchored via viewport coordinates, which would otherwise get clipped by the card's rounded corners. */
   overlays?: React.ReactNode;
+  /** Renders the resolved 'centered'/'auto' presentation on native too (via RN's `Modal`, same as web), instead of always downgrading native to a sheet. The centered branch is built entirely from cross-platform RN primitives, so this is safe to opt into. Off by default — a bottom sheet is native's usual idiom; use this only for content that specifically needs a centered dialog everywhere (e.g. a blocking confirmation that shouldn't read as a draggable/dismissible sheet). Ignored when `presentation` is `'sheet'`. */
+  forceCenteredOnNative?: boolean;
 };
 
 /**
@@ -113,12 +115,13 @@ export default function Popup({
   backdropBlur = false,
   backdropStyle,
   overlays,
+  forceCenteredOnNative = false,
 }: PopupProps) {
   const c = useThemeColors();
   const { width: screenWidth } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const resolvedPresentation = presentation === 'auto' ? (screenWidth >= desktopBreakpoint ? 'centered' : 'sheet') : presentation;
-  const effectivePresentation = isWeb ? resolvedPresentation : 'sheet';
+  const effectivePresentation = isWeb || (forceCenteredOnNative && resolvedPresentation !== 'sheet') ? resolvedPresentation : 'sheet';
   // `?? 420` is unreachable for a centered card: PopupProps requires maxWidth
   // whenever presentation is 'centered' or 'auto', and those are the only ways
   // effectivePresentation becomes 'centered'. It exists to satisfy the
