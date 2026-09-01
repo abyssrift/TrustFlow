@@ -26,7 +26,7 @@ ALTER TABLE public.filehub_share_links
 -- 2-arg call and refuses to pick one (the same class of bug fixed by
 -- 20260819_filehub_dedupe_name_overload_fix).
 DROP FUNCTION IF EXISTS public.rpc_filehub_share_link_create(UUID, INT);
-CREATE FUNCTION public.rpc_filehub_share_link_create(
+CREATE OR REPLACE FUNCTION public.rpc_filehub_share_link_create(
     p_file_id UUID,
     p_expires_in_hours INT DEFAULT 168,
     p_download_allowed BOOLEAN DEFAULT true
@@ -69,7 +69,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.rpc_filehub_share_link_create(UUID, INT, BOOLEAN) TO authenticated;
 
 DROP FUNCTION IF EXISTS public.rpc_filehub_folder_share_link_create(UUID, INT);
-CREATE FUNCTION public.rpc_filehub_folder_share_link_create(
+CREATE OR REPLACE FUNCTION public.rpc_filehub_folder_share_link_create(
     p_folder_id UUID,
     p_expires_in_hours INT DEFAULT 168,
     p_download_allowed BOOLEAN DEFAULT true
@@ -114,7 +114,7 @@ GRANT EXECUTE ON FUNCTION public.rpc_filehub_folder_share_link_create(UUID, INT,
 -- List rpcs: add download_allowed to the returned row. Return type changes,
 -- so DROP first (CREATE OR REPLACE cannot alter output columns).
 DROP FUNCTION IF EXISTS public.rpc_filehub_share_link_list(UUID);
-CREATE FUNCTION public.rpc_filehub_share_link_list(p_file_id UUID)
+CREATE OR REPLACE FUNCTION public.rpc_filehub_share_link_list(p_file_id UUID)
 RETURNS TABLE (
     id UUID, token TEXT, created_at TIMESTAMPTZ, expires_at TIMESTAMPTZ,
     revoked_at TIMESTAMPTZ, view_count INT, last_viewed_at TIMESTAMPTZ,
@@ -139,7 +139,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.rpc_filehub_share_link_list(UUID) TO authenticated;
 
 DROP FUNCTION IF EXISTS public.rpc_filehub_folder_share_link_list(UUID);
-CREATE FUNCTION public.rpc_filehub_folder_share_link_list(p_folder_id UUID)
+CREATE OR REPLACE FUNCTION public.rpc_filehub_folder_share_link_list(p_folder_id UUID)
 RETURNS TABLE (
     id UUID, token TEXT, created_at TIMESTAMPTZ, expires_at TIMESTAMPTZ,
     revoked_at TIMESTAMPTZ, view_count INT, last_viewed_at TIMESTAMPTZ,
@@ -183,7 +183,7 @@ CREATE INDEX IF NOT EXISTS filehub_activity_folder_id_idx
 -- rpc_filehub_log_activity gains an optional folder target. Arg count changes
 -- (3 -> 4), so drop the old signature first (same overload hazard as above).
 DROP FUNCTION IF EXISTS public.rpc_filehub_log_activity(UUID, TEXT, JSONB);
-CREATE FUNCTION public.rpc_filehub_log_activity(
+CREATE OR REPLACE FUNCTION public.rpc_filehub_log_activity(
     p_file_id UUID DEFAULT NULL,
     p_action TEXT DEFAULT NULL,
     p_metadata JSONB DEFAULT NULL,

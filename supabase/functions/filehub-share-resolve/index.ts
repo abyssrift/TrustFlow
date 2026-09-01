@@ -85,6 +85,9 @@ serve(async (req: Request) => {
       if (childErr) return respond({ error: 'storage_error' }, 500)
       const next: string[] = []
       for (const c of children ?? []) {
+        // Guard against a cyclic parent chain (no DB constraint prevents one) —
+        // without this a cycle would loop here until the function times out.
+        if (pathById.has(c.id as string)) continue
         const parentPath = pathById.get(c.parent_id as string) ?? ''
         pathById.set(c.id, parentPath ? `${parentPath}/${c.name}` : c.name)
         next.push(c.id)
