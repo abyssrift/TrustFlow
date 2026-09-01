@@ -10,7 +10,7 @@ import { Pressable, Text, View } from 'react-native';
 // tinted square — §17: a project must look like a project everywhere.
 const ENTITY_KIND: Partial<Record<string, EntityKind>> = { project: 'project', portfolio: 'portfolio' };
 
-const TYPE_ICON: Record<string, React.ComponentProps<typeof FontAwesome>['name']> = {
+export const TYPE_ICON: Record<string, React.ComponentProps<typeof FontAwesome>['name']> = {
   task: 'check-square-o',
   file: 'file-o',
   report: 'bar-chart',
@@ -18,7 +18,7 @@ const TYPE_ICON: Record<string, React.ComponentProps<typeof FontAwesome>['name']
   person: 'user',
   archive: 'archive',
 };
-const TYPE_LABEL: Record<string, string> = {
+export const TYPE_LABEL: Record<string, string> = {
   task: 'Task', file: 'File', report: 'Report', comment: 'Comment', person: 'Person', archive: 'Archived',
   project: ENTITY_META.project.label, portfolio: ENTITY_META.portfolio.label,
 };
@@ -28,7 +28,7 @@ function plain(s: string | null): string {
   return (s || '').replace(/<\/?b>/g, '').replace(/\s+/g, ' ').trim();
 }
 
-function relTime(iso: string): string {
+export function relTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const d = Math.floor(diff / 86400000);
   if (d <= 0) return 'today';

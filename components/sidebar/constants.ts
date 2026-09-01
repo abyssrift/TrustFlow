@@ -110,3 +110,24 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'briefcase', label: 'Corporate', href: '/people?section=teams' },
   { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'code-fork', label: 'Pipelines', href: '/admin/pipelines' },
 ];
+
+// "Can this user see this shortcut?" — the desktop nav rail (Sidebar.web.tsx)
+// and the command palette (CommandPalette.web.tsx) both need this exact test.
+// One predicate, two callers: don't inline the boolean in a third place.
+export function shortcutVisible(
+  s: Shortcut,
+  ctx: { hasPermission: (key: string) => boolean; isOwner: boolean; isMobile: boolean }
+): boolean {
+  const { hasPermission, isOwner, isMobile } = ctx;
+  return (
+    s.id === 'dashboard' ||
+    s.id === 'tasks' ||
+    // Search/Deadlines already have a desktop entry point (topbar search,
+    // topbar calendar strip) — only surface these as shortcuts on mobile web.
+    (isMobile && (s.id === 'search' || s.id === 'deadlines')) ||
+    (isOwner && (s.id === 'team' || s.id === 'pipelines-admin')) ||
+    (s.anyPermissions ? s.anyPermissions.some((p) => hasPermission(p)) : false) ||
+    (!!s.permissionKey && hasPermission(s.permissionKey)) ||
+    (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
+  );
+}
