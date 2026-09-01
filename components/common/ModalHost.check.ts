@@ -14,7 +14,7 @@ const MAPPING: Record<ModalType, Wiring> = {
   'create-task': 'wired',       // <TaskCreationProvider><CreateTaskModal/>
   'create-project': 'wired',    // <ProjectFolderModal/>
   'generate-report': 'wired',   // <ReportGenerator/> (_ReportGenerator_adaptive)
-  'new-role': 'stub',           // #323 follow-up: RoleEditorSheet is fully controlled by RoleBuilder
+  'new-role': 'wired',          // #338: <RoleEditorContainer/> (owns RoleManagerProvider)
   'create-portfolio': 'stub',   // #323 follow-up: no standalone create modal exists
   'upload': 'stub',             // #323 follow-up: FileHub UploadModal is screen-local, not exported
 };
@@ -25,8 +25,8 @@ console.assert(types.length === 6, `expected 6 ModalType entries, got ${types.le
 
 const wired = types.filter((t) => MAPPING[t] === 'wired');
 console.assert(
-  wired.length === 3,
-  `expected 3 wired modals, got ${wired.length}: ${wired.join(', ')}`,
+  wired.length === 4,
+  `expected 4 wired modals, got ${wired.length}: ${wired.join(', ')}`,
 );
 
 for (const t of types) {
