@@ -10,6 +10,7 @@
 import React from 'react';
 
 import { useModalDispatch } from '@/contexts/ModalDispatchContext';
+import { useModalQueryParam } from '@/hooks/useModalQueryParam';
 import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
@@ -19,6 +20,13 @@ const noop = () => {};
 
 export default function ModalHost() {
   const { active, dismiss } = useModalDispatch();
+
+  // #324: separate concern — turns `/tasks?new=1&type=task` style deep links
+  // into a summon() call, then strips the params. Lives here (not in each
+  // layout) so it is mounted exactly where ModalHost already is, on web and
+  // native both. Runs unconditionally, before the early return below.
+  useModalQueryParam();
+
   if (!active) return null;
 
   switch (active.type) {
