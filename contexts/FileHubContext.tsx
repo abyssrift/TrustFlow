@@ -52,6 +52,7 @@ export type FileHubShareLink = {
   created_by?: string;
   creator_name?: string | null;
   can_revoke?: boolean;
+  download_allowed: boolean;
 };
 
 // Builds the public /share/<token> URL. EXPO_PUBLIC_APP_URL covers native
@@ -262,11 +263,11 @@ type FileHubContextType = {
   folderVersions: (folderId: string) => Promise<FolderVersion[]>;
   restoreFolderVersion: (folderId: string, batchId: string) => Promise<FolderRestoreResult>;
   // Share links (public, read-only, expiring)
-  createShareLink: (fileId: string, expiresInHours: number) => Promise<FileHubShareLink>;
+  createShareLink: (fileId: string, expiresInHours: number, downloadAllowed?: boolean) => Promise<FileHubShareLink>;
   revokeShareLink: (id: string) => Promise<void>;
   listShareLinks: (fileId: string) => Promise<FileHubShareLink[]>;
   // Folder share links — same model as files (revoke is shared, keyed by link id)
-  createFolderShareLink: (folderId: string, expiresInHours: number) => Promise<FileHubShareLink>;
+  createFolderShareLink: (folderId: string, expiresInHours: number, downloadAllowed?: boolean) => Promise<FileHubShareLink>;
   listFolderShareLinks: (folderId: string) => Promise<FileHubShareLink[]>;
   // Groups
   groups: FileHubGroup[];
@@ -290,6 +291,7 @@ type FileHubContextType = {
   fetchGroupMembers: (groupId: string) => Promise<FileHubGroupMember[]>;
   // Activity + tag management
   logActivity: (fileId: string, action: string, metadata?: Record<string, any> | null) => void;
+  logFolderActivity: (folderId: string, action: string, metadata?: Record<string, any> | null) => void;
   fileActivity: (fileId: string) => Promise<FileActivity[]>;
   allTagsWithCounts: () => Promise<{ tag: string; count: number }[]>;
   renameTag: (oldTag: string, newTag: string) => Promise<number>;
@@ -849,13 +851,15 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     return data as FolderRestoreResult;
   }, [refresh, refreshGroupFiles]);
 
-  const createShareLink = useCallback(async (fileId: string, expiresInHours: number): Promise<FileHubShareLink> => {
+  const createShareLink = useCallback(async (fileId: string, expiresInHours: number, downloadAllowed: boolean = true): Promise<FileHubShareLink> => {
     const { data, error } = await supabase.rpc('rpc_filehub_share_link_create', {
       p_file_id: fileId,
       p_expires_in_hours: expiresInHours,
+      p_download_allowed: downloadAllowed,
     });
     if (error) { showAlert('Error', error.message); throw error; }
-    return { ...(data as { id: string; token: string; expires_at: string }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
+    logActivity(fileId, 'share');
+    return { ...(data as { id: string; token: string; expires_at: string; download_allowed: boolean }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
   }, []);
 
   const revokeShareLink = useCallback(async (id: string): Promise<void> => {
@@ -869,13 +873,15 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     return data || [];
   }, []);
 
-  const createFolderShareLink = useCallback(async (folderId: string, expiresInHours: number): Promise<FileHubShareLink> => {
+  const createFolderShareLink = useCallback(async (folderId: string, expiresInHours: number, downloadAllowed: boolean = true): Promise<FileHubShareLink> => {
     const { data, error } = await supabase.rpc('rpc_filehub_folder_share_link_create', {
       p_folder_id: folderId,
       p_expires_in_hours: expiresInHours,
+      p_download_allowed: downloadAllowed,
     });
     if (error) { showAlert('Error', error.message); throw error; }
-    return { ...(data as { id: string; token: string; expires_at: string }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
+    logFolderActivity(folderId, 'share');
+    return { ...(data as { id: string; token: string; expires_at: string; download_allowed: boolean }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
   }, []);
 
   const listFolderShareLinks = useCallback(async (folderId: string): Promise<FileHubShareLink[]> => {
@@ -887,6 +893,14 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const logActivity = useCallback((fileId: string, action: string, metadata?: Record<string, any> | null) => {
     supabase.rpc('rpc_filehub_log_activity', {
       p_file_id: fileId,
+      p_action: action,
+      p_metadata: metadata ?? null,
+    }).then(() => {}, () => {});
+  }, []);
+
+  const logFolderActivity = useCallback((folderId: string, action: string, metadata?: Record<string, any> | null) => {
+    supabase.rpc('rpc_filehub_log_activity', {
+      p_folder_id: folderId,
       p_action: action,
       p_metadata: metadata ?? null,
     }).then(() => {}, () => {});
@@ -939,7 +953,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       groupFiles, groupFilesLoading,
       refreshGroups, refreshGroupFiles,
       createGroup, renameGroup, deleteGroup, addGroupMember, removeGroupMember, fetchGroupMembers,
-      logActivity, fileActivity, allTagsWithCounts, renameTag, deleteTag,
+      logActivity, logFolderActivity, fileActivity, allTagsWithCounts, renameTag, deleteTag,
     }}>
       {children}
     </FileHubContext.Provider>
