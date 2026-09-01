@@ -19,12 +19,13 @@ import { useGlobalSearchParams, useRouter } from 'expo-router';
 import { useModalDispatch, type ActiveModal } from '@/contexts/ModalDispatchContext';
 
 // `type=` param value -> wired ModalType. Values not listed here (portfolio,
-// role, upload) are unwired in ModalHost — ignore them silently.
-// #324: unwired, see #323
+// upload) is still unwired in ModalHost — ignored silently.
+// #324: unwired, see #339 (create-portfolio) / #340 (upload)
 const TYPE_TO_MODAL = {
   task: 'create-task',
   project: 'create-project',
   report: 'generate-report',
+  role: 'new-role',
 } as const;
 
 // Params this hook recognises — and therefore also strips once it has fired.
@@ -60,7 +61,8 @@ export function mapModalQueryParams(params: RawParams): ActiveModal | null {
     if (portfolioId) payload.portfolioId = portfolioId;
     return { type: 'create-project', payload };
   }
-  return { type: 'generate-report', payload: {} };
+  // generate-report and new-role take no seed params.
+  return { type: modalType, payload: {} };
 }
 
 export function useModalQueryParam(): void {

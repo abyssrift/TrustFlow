@@ -8,7 +8,7 @@
 // for its own open key while unmounted. This component owns the arrow/enter/
 // escape nav while open.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions, type TextStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Popup from '@/components/common/Popup';
@@ -44,10 +44,11 @@ type CreateAction = {
   run: () => void;
 };
 
-// Render ts_headline's <b>…</b> spans as tinted runs. `tintStyle` carries BOTH
-// the accent-dim background and an explicit text color — inline because theme
-// token color classes go black inside an RN <Modal> on web (see Tooltip.tsx).
-function renderHighlighted(text: string | null, tintStyle: { backgroundColor: string; color: string }) {
+// Render ts_headline's <b>…</b> spans as tinted runs — a real highlighter-pen
+// swipe (opaque-ish accent behind the text + bold), not just a bolder greyish
+// word. Inline styles because theme token color classes go black inside an RN
+// <Modal> on web (see Tooltip.tsx).
+function renderHighlighted(text: string | null, tintStyle: TextStyle) {
   const runs = highlightRuns(text);
   if (runs.length === 1 && runs[0] === '') return null;
   return runs.map((run, i) => (run ? <Text key={i} style={i % 2 ? tintStyle : undefined}>{run}</Text> : null));
@@ -76,21 +77,28 @@ export default function CommandPalette({
   const { recent, push: pushRecent } = useRecentSearches();
 
   const q = query.trim().toLowerCase();
-  // bg-brand-accent-dim === rgba(var(--brand-accent), 0.1); 0x1A ≈ 0.10 alpha.
-  const tintStyle = useMemo(
-    () => ({ backgroundColor: colors.accent + '1A', color: colors.textMain }),
+  // Highlighter pen, not a whisper: ~0x66 ≈ 40% accent behind the text, bold,
+  // rounded so it reads as a marker stroke. 10% (the old 0x1A) was invisible.
+  const tintStyle = useMemo<TextStyle>(
+    () => ({
+      backgroundColor: colors.accent + '66',
+      color: colors.textMain,
+      fontWeight: '700',
+      borderRadius: 3,
+    }),
     [colors.accent, colors.textMain]
   );
   const selBg = colors.primary + '1A';
 
-  // Create/compose actions — only the 3 ModalHost wires today (#325). Permission
-  // keys verified against real gates: task.create + report.view
-  // (QuickCreateButton.tsx), project.create (_projects_desktop.tsx "New Project").
+  // Create/compose actions — the ModalHost-wired types only. Permission keys
+  // verified against real gates: task.create + report.view (QuickCreateButton),
+  // project.create (_projects_desktop "New Project"), role.manage (RoleBuilder).
   const createActions = useMemo<CreateAction[]>(() => {
     const all: CreateAction[] = [
       { id: 'create-task', label: 'New Task', icon: 'check-square-o', permission: 'task.create', run: () => summon('create-task') },
       { id: 'create-project', label: 'New Project', icon: 'folder-o', permission: 'project.create', run: () => summon('create-project') },
       { id: 'generate-report', label: 'Generate Report', icon: 'bar-chart', permission: 'report.view', run: () => summon('generate-report') },
+      { id: 'new-role', label: 'New Role', icon: 'user-plus', permission: 'role.manage', run: () => summon('new-role') },
     ];
     return all.filter((a) => hasPermission(a.permission));
   }, [hasPermission, summon]);
@@ -319,7 +327,9 @@ export default function CommandPalette({
             </View>
           )}
 
-          {q &&
+          {/* !!q, not q: a bare falsy `''` renders as a stray text node and
+              RNW warns "text node cannot be a child of <View>". */}
+          {!!q &&
             (searchError ? (
               <View className="items-center px-3 py-8">
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>Search failed — try again</Text>
@@ -390,7 +400,7 @@ function ResultRow({
   r: SearchResult;
   selected: boolean;
   selBg: string;
-  tintStyle: { backgroundColor: string; color: string };
+  tintStyle: TextStyle;
   colors: ReturnType<typeof useThemeColors>;
   onHoverIn: () => void;
   onPress: () => void;

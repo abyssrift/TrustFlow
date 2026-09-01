@@ -40,6 +40,13 @@ assert.deepStrictEqual(
   'report should map to generate-report',
 );
 
+// 3b. role -> new-role (wired in #338), empty payload, NOT falling through to report
+assert.deepStrictEqual(
+  mapModalQueryParams({ new: '1', type: 'role' }),
+  { type: 'new-role', payload: {} },
+  'role should map to new-role',
+);
+
 // 4. missing `new` -> null even with an otherwise-valid type
 assert.strictEqual(
   mapModalQueryParams({ type: 'task' }),
