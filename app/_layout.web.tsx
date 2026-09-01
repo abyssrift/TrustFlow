@@ -28,6 +28,7 @@ import { TimerProvider } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
 import { PingHighlightProvider } from '@/contexts/PingHighlightContext';
+import { ModalDispatchProvider } from '@/contexts/ModalDispatchContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
@@ -126,6 +127,7 @@ function RootLayoutNav() {
       <AnalyticsProvider>
         <NotificationsProvider>
           <PingHighlightProvider>
+          <ModalDispatchProvider>
           {/* 100dvh, not 100vh: on mobile browsers `vh` is the *large* viewport and
               includes the space behind the retracting address bar, so a 100vh root
               overflows the (overflow:hidden) body and clips whatever sits at its
@@ -152,6 +154,7 @@ function RootLayoutNav() {
               <Slot />
             )}
           </View>
+          </ModalDispatchProvider>
           </PingHighlightProvider>
         </NotificationsProvider>
       </AnalyticsProvider>

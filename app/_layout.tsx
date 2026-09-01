@@ -90,6 +90,7 @@ import { usePushRegistration } from '@/hooks/usePushRegistration';
 import { usePushAutoSubscribe } from '@/hooks/usePushAutoSubscribe';
 import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
 import { PingHighlightProvider } from '@/contexts/PingHighlightContext';
+import { ModalDispatchProvider } from '@/contexts/ModalDispatchContext';
 import WebPushPrompt from '@/components/WebPushPrompt';
 
 function PushRegistrationGuard() {
@@ -217,7 +218,9 @@ function RootLayoutNav() {
               <NotificationsProvider>
                 <ToastProvider>
                   <PingHighlightProvider>
-                    <ThemedRoot />
+                    <ModalDispatchProvider>
+                      <ThemedRoot />
+                    </ModalDispatchProvider>
                   </PingHighlightProvider>
                 </ToastProvider>
               </NotificationsProvider>
