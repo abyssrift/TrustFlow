@@ -785,6 +785,221 @@ function FileDetailSheet({
   );
 }
 
+// ─── Folder Detail Sheet ────────────────────────────────────────────────────
+// Folder equivalent of FileDetailSheet: shows a folder's properties (location,
+// contents) and gives access to open/rename/share/delete, mirroring desktop's
+// FolderDetailPanel.
+
+function FolderDetailSheet({
+  folder,
+  folders,
+  onClose,
+  onOpen,
+  onRename,
+  onDelete,
+}: {
+  folder: FileHubFolder | null;
+  folders: FileHubFolder[];
+  onClose: () => void;
+  onOpen: () => void;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+}) {
+  const colors = useThemeColors();
+  const { createFolderShareLink, listFolderShareLinks, revokeShareLink } = useFileHub();
+  const { showConfirm } = useAlert();
+  const { successToast } = useToast();
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(folder?.name ?? '');
+  const [showShareLink, setShowShareLink] = useState(false);
+  const [shareLinks, setShareLinks] = useState<FileHubShareLink[]>([]);
+  const [shareLinksLoading, setShareLinksLoading] = useState(false);
+  const [creatingShareLink, setCreatingShareLink] = useState(false);
+  const [shareExpiryHours, setShareExpiryHours] = useState(168);
+
+  useEffect(() => { setIsRenaming(false); setRenameValue(folder?.name ?? ''); }, [folder?.id]);
+
+  if (!folder) return null;
+
+  const subfolderCount = folders.filter(f => f.parent_id === folder.id).length;
+  const parent = folder.parent_id ? folders.find(f => f.id === folder.parent_id) : null;
+  const location = parent ? folderPath(folders, parent.id) : 'Top level';
+
+  const commitRename = () => {
+    setIsRenaming(false);
+    const v = renameValue.trim();
+    if (v && v !== folder.name) onRename(v);
+  };
+
+  const loadShareLinks = () => {
+    setShareLinksLoading(true);
+    listFolderShareLinks(folder.id).then(setShareLinks).catch(console.error).finally(() => setShareLinksLoading(false));
+  };
+
+  return (
+    <>
+    <Popup visible={!!folder} onClose={onClose} presentation="auto" maxWidth={420}>
+      <View className="items-center px-6 pt-2 pb-4 border-b border-surface-border/50">
+        <View className="w-20 h-20 bg-surface-background border border-surface-border rounded-2xl items-center justify-center mb-3">
+          <FontAwesome name="folder-o" size={36} color={colors.primary} />
+        </View>
+        {isRenaming ? (
+          <TextInput
+            value={renameValue}
+            onChangeText={setRenameValue}
+            onBlur={commitRename}
+            onSubmitEditing={commitRename}
+            autoFocus
+            className="text-typography-main text-lg font-black text-center bg-transparent"
+          />
+        ) : (
+          <Text className="text-typography-main text-lg font-black text-center" numberOfLines={2}>{folder.name}</Text>
+        )}
+        <Text className="text-typography-muted text-sm mt-1">Folder</Text>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, paddingTop: 16 }}>
+        <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden mb-5">
+          <View className="flex-row items-center px-4 py-3.5 border-b border-surface-border/50">
+            <Text className="text-typography-muted text-xs w-24">Location</Text>
+            <Text className="text-typography-main text-xs font-bold flex-1">{location}</Text>
+          </View>
+          <View className="flex-row items-center px-4 py-3.5">
+            <Text className="text-typography-muted text-xs w-24">Contains</Text>
+            <Text className="text-typography-main text-xs font-bold flex-1">{subfolderCount} subfolder{subfolderCount === 1 ? '' : 's'}</Text>
+          </View>
+        </View>
+
+        <View className="gap-3">
+          <TouchableOpacity
+            onPress={() => { onOpen(); onClose(); }}
+            className="flex-row items-center justify-center bg-brand-primary rounded-2xl py-4 gap-2"
+          >
+            <FontAwesome name="folder-open-o" size={14} color="#fff" />
+            <Text className="text-white font-black text-base">Open Folder</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => { setRenameValue(folder.name); setIsRenaming(true); }}
+            className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl py-3.5 gap-2"
+          >
+            <FontAwesome name="pencil-square-o" size={13} color={colors.primary} />
+            <Text className="text-brand-primary font-black text-sm">Rename</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => { loadShareLinks(); setShowShareLink(true); }}
+            className="flex-row items-center justify-center bg-surface-background border border-surface-border rounded-2xl py-3.5 gap-2"
+          >
+            <FontAwesome name="link" size={13} color={colors.primary} />
+            <Text className="text-brand-primary font-black text-sm">Share Link</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => { onDelete(); onClose(); }}
+            className="flex-row items-center justify-center bg-state-danger/10 border border-state-danger/20 rounded-2xl py-3.5 gap-2"
+          >
+            <FontAwesome name="trash-o" size={13} color={colors.danger} />
+            <Text className="text-state-danger font-black text-sm">Delete</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </Popup>
+    <Popup visible={showShareLink} onClose={() => setShowShareLink(false)} presentation="auto" maxWidth={420}>
+      <View className="px-6 pt-2 pb-6">
+        <Text className="text-typography-main font-black text-lg mb-4">Share "{folder.name}"</Text>
+
+        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Expires In</Text>
+        <View className="flex-row gap-2 mb-4">
+          {[
+            { label: '1 Day', hours: 24 },
+            { label: '7 Days', hours: 168 },
+            { label: '30 Days', hours: 720 },
+          ].map(opt => (
+            <TouchableOpacity
+              key={opt.hours}
+              onPress={() => setShareExpiryHours(opt.hours)}
+              className={`flex-1 items-center py-2.5 rounded-xl border ${shareExpiryHours === opt.hours ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
+            >
+              <Text className={`text-xs font-black ${shareExpiryHours === opt.hours ? 'text-brand-primary' : 'text-typography-muted'}`}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          onPress={async () => {
+            setCreatingShareLink(true);
+            try {
+              await createFolderShareLink(folder.id, shareExpiryHours);
+              loadShareLinks();
+            } catch { /* alerted */ } finally {
+              setCreatingShareLink(false);
+            }
+          }}
+          disabled={creatingShareLink}
+          className="flex-row items-center justify-center bg-brand-primary rounded-2xl py-3.5 gap-2 mb-5"
+        >
+          {creatingShareLink ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome name="plus" size={12} color="#fff" />}
+          <Text className="text-white font-black text-sm">Create Link</Text>
+        </TouchableOpacity>
+
+        <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-2">Active Links</Text>
+        {shareLinksLoading ? (
+          <View className="py-4 items-center"><ActivityIndicator color={colors.primary} /></View>
+        ) : shareLinks.filter(l => !l.revoked_at && new Date(l.expires_at).getTime() > Date.now()).length === 0 ? (
+          <Text className="text-typography-dim text-xs py-2">No active share links.</Text>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {shareLinks.filter(l => !l.revoked_at && new Date(l.expires_at).getTime() > Date.now()).map(link => (
+              <View key={link.id} className="border border-surface-border rounded-xl px-3 py-2 mb-2">
+                <Text className="text-typography-main text-xs font-bold mb-1" numberOfLines={1}>{shareLinkUrl(link.token)}</Text>
+                <Text className="text-typography-dim text-[9px] mb-2">
+                  Expires {new Date(link.expires_at).toLocaleDateString()} · {link.view_count} view{link.view_count === 1 ? '' : 's'}
+                  {link.creator_name && link.can_revoke === false ? ` · by ${link.creator_name}` : ''}
+                </Text>
+                <View className="flex-row gap-1.5">
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(shareLinkUrl(link.token));
+                      successToast('Link copied');
+                    }}
+                    className="flex-1 flex-row items-center justify-center gap-1 bg-surface-background border border-surface-border rounded-lg py-1.5"
+                  >
+                    <FontAwesome name="copy" size={10} color={colors.primary} />
+                    <Text className="text-brand-primary text-xs font-bold">Copy</Text>
+                  </TouchableOpacity>
+                  {link.can_revoke !== false && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      showConfirm(
+                        'Revoke Link',
+                        'Anyone with this link will lose access immediately.',
+                        async () => {
+                          try {
+                            await revokeShareLink(link.id);
+                            loadShareLinks();
+                          } catch { /* alerted */ }
+                        },
+                        undefined, 'Revoke', 'Cancel', 'destructive'
+                      );
+                    }}
+                    className="flex-1 flex-row items-center justify-center gap-1 bg-state-danger/10 border border-state-danger/20 rounded-lg py-1.5"
+                  >
+                    <FontAwesome name="ban" size={10} color={colors.danger} />
+                    <Text className="text-state-danger text-xs font-bold">Revoke</Text>
+                  </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+    </Popup>
+    </>
+  );
+}
+
 // ─── Upload Sheet ─────────────────────────────────────────────────────────────
 
 function UploadSheet({
@@ -1931,11 +2146,12 @@ function GroupMembersSheet({
 
 // ─── File Card ────────────────────────────────────────────────────────────────
 
-function FolderCard({ folder, onNavigate, onRename, onDelete }: {
+function FolderCard({ folder, onNavigate, onRename, onDelete, onInfo }: {
   folder: FileHubFolder;
   onNavigate: () => void;
   onRename: (name: string) => void;
   onDelete: () => void;
+  onInfo: () => void;
 }) {
   const colors = useThemeColors();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -1978,6 +2194,9 @@ function FolderCard({ folder, onNavigate, onRename, onDelete }: {
       <View className="flex-1 min-w-0">
         <Text className="text-typography-main font-black text-sm" numberOfLines={1}>{folder.name}</Text>
       </View>
+      <TouchableOpacity onPress={onInfo} className="w-9 h-9 items-center justify-center">
+        <FontAwesome name="info-circle" size={13} color={colors.textMuted} />
+      </TouchableOpacity>
       <TouchableOpacity onPress={() => { setRenameValue(folder.name); setIsRenaming(true); }} className="w-9 h-9 items-center justify-center">
         <FontAwesome name="pencil-square-o" size={12} color={colors.textMuted} />
       </TouchableOpacity>
@@ -2288,6 +2507,7 @@ function FileHubAdaptiveInner() {
   // Floating tab bar sits at insets.bottom + 24/16 and is ~76px tall; clear it with margin.
   const tabBarClearance = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 16) + 76;
   const [selectedFile, setSelectedFile] = useState<FileHubFile | null>(null);
+  const [selectedFolderDetail, setSelectedFolderDetail] = useState<FileHubFolder | null>(null);
   const [fastTrackPreview, setFastTrackPreview] = useState(false);
   const isDoubleTap = useDoubleTap();
 
@@ -2827,6 +3047,7 @@ function FileHubAdaptiveInner() {
                   onNavigate={() => setSelectedFolderId(f.id)}
                   onRename={(name) => renameFolder(f.id, name)}
                   onDelete={() => handleDeleteFolder(f.id, f.name)}
+                  onInfo={() => setSelectedFolderDetail(f)}
                 />
               ))}
               {!selectionMode && <NewFolderCard onCreate={handleCreateFolder} />}
@@ -2885,6 +3106,7 @@ function FileHubAdaptiveInner() {
                   onNavigate={() => setSelectedFolderId(f.id)}
                   onRename={(name) => renameFolder(f.id, name)}
                   onDelete={() => handleDeleteFolder(f.id, f.name)}
+                  onInfo={() => setSelectedFolderDetail(f)}
                 />
               ))}
               {!selectionMode && <NewFolderCard onCreate={handleCreateFolder} />}
@@ -2971,6 +3193,16 @@ function FileHubAdaptiveInner() {
         currentUserId={user?.id}
         autoPreview={fastTrackPreview}
         onClose={() => { setSelectedFile(null); setFastTrackPreview(false); }}
+      />
+
+      {/* ── Folder detail sheet ── */}
+      <FolderDetailSheet
+        folder={selectedFolderDetail}
+        folders={folders}
+        onClose={() => setSelectedFolderDetail(null)}
+        onOpen={() => { if (selectedFolderDetail) setSelectedFolderId(selectedFolderDetail.id); }}
+        onRename={(name) => { if (selectedFolderDetail) renameFolder(selectedFolderDetail.id, name); }}
+        onDelete={() => { if (selectedFolderDetail) handleDeleteFolder(selectedFolderDetail.id, selectedFolderDetail.name); }}
       />
 
       {/* ── Upload sheet ── */}
