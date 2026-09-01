@@ -1,8 +1,18 @@
 // Command palette (⌘K / Ctrl+K / Ctrl+F) — web only. A centered floating
-// overlay that unifies "Go to" (permissioned app pages) with global search
-// results (rpc_global_search via useGlobalSearch). As of #341 this is also the
-// only search surface: the top-bar field just triggers it (seeded via
-// `initialQuery`), and the old hover SearchDropdown is retired from the top bar.
+// overlay that unifies "Go to" (permissioned app pages + keyword-indexed
+// sub-destinations) with global search results (rpc_global_search via
+// useGlobalSearch). As of #341 this is also the only search surface: the
+// top-bar field just triggers it (seeded via `initialQuery`), and the old
+// hover SearchDropdown is retired from the top bar.
+//
+// #342 redesign — modelled on the Cloudflare dashboard command palette:
+//   • CREATE is a wrapping row of chunky accent-tinted tiles, not list rows.
+//   • GO TO draws from SHORTCUTS *and* PALETTE_DESTINATIONS (constants.ts) and
+//     matches synonyms — "compare" finds Analytics — showing a breadcrumb or an
+//     "Also known as:" line depending on what matched.
+//   • A pinned footer hint bar (↑↓ / ⏎ / esc) sits below the scroll area.
+//   • When the query is empty we also show the scoped-search tips the
+//     hooks/useSearchQuery.ts parser already understands (task:, due tomorrow…).
 //
 // Hotkeys live in Sidebar.web.tsx (the mount point) — the palette can't listen
 // for its own open key while unmounted. This component owns the arrow/enter/
@@ -17,7 +27,7 @@ import { useModalDispatch } from '@/contexts/ModalDispatchContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { resultRoute, useGlobalSearch, type ResultType, type SearchResult } from '@/hooks/useGlobalSearch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
-import { SHORTCUTS, shortcutVisible, type Shortcut } from '@/components/sidebar/constants';
+import { matchDestinations, type DestinationMatch, type IconName } from '@/components/sidebar/constants';
 import { ENTITY_META, EntityGlyph, type EntityKind } from '@/components/entities/EntityUI';
 import { relTime, TYPE_ICON, TYPE_LABEL } from './SearchResultRow';
 import { highlightRuns } from './highlight';
@@ -29,11 +39,24 @@ const GROUP_LABEL: Record<string, string> = {
   task: 'Tasks', person: 'People', file: 'Files', report: 'Reports', comment: 'Comments',
   project: ENTITY_META.project.plural, portfolio: ENTITY_META.portfolio.plural,
 };
-const PER_GROUP = 5;
+// Tighter than #325's 5 — with GO TO synonyms now feeding the same list, 3 per
+// group keeps the palette from becoming a wall; "See all" carries the rest.
+const PER_GROUP = 3;
+
+// Scoped-search prefixes hooks/useSearchQuery.ts already parses (type: prefixes
+// + natural-language dates). Surfaced, not re-implemented — tapping one just
+// seeds the input. Not nav targets, so they stay out of the arrow-key list.
+const SEARCH_TIPS: { token: string; hint: string; icon: IconName }[] = [
+  { token: 'task:', hint: 'Only tasks', icon: 'check-square-o' },
+  { token: 'file:', hint: 'Only files', icon: 'file-o' },
+  { token: 'report:', hint: 'Only reports', icon: 'bar-chart' },
+  { token: 'comment:', hint: 'Only comments', icon: 'comment-o' },
+  { token: 'due tomorrow', hint: 'Filter by date', icon: 'calendar-o' },
+];
 
 type PaletteItem =
   | { kind: 'action'; run: () => void }
-  | { kind: 'page'; shortcut: Shortcut }
+  | { kind: 'page'; dest: DestinationMatch }
   | { kind: 'result'; result: SearchResult };
 
 type CreateAction = {
@@ -52,6 +75,44 @@ function renderHighlighted(text: string | null, tintStyle: TextStyle) {
   const runs = highlightRuns(text);
   if (runs.length === 1 && runs[0] === '') return null;
   return runs.map((run, i) => (run ? <Text key={i} style={i % 2 ? tintStyle : undefined}>{run}</Text> : null));
+}
+
+// Plain (non-<b>) substring highlighter for GO TO rows: tint the letters the
+// user actually typed, in the label or in the "Also known as:" synonym.
+function highlightSub(text: string, q: string, tintStyle: TextStyle): React.ReactNode {
+  if (!q) return text;
+  const at = text.toLowerCase().indexOf(q);
+  if (at < 0) return text;
+  return (
+    <>
+      {text.slice(0, at)}
+      <Text style={tintStyle}>{text.slice(at, at + q.length)}</Text>
+      {text.slice(at + q.length)}
+    </>
+  );
+}
+
+function SectionHeader({ label, colors }: { label: string; colors: ReturnType<typeof useThemeColors> }) {
+  return (
+    <View className="flex-row items-center gap-1 px-3 pt-3 pb-1.5">
+      <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
+        {label}
+      </Text>
+      {/* The "GO TO →" glyph the owner drew — long arrow, not a chevron. */}
+      <FontAwesome name="long-arrow-right" size={10} color={colors.textDim} />
+    </View>
+  );
+}
+
+function HintKey({ combo, label, colors }: { combo: string; label: string; colors: ReturnType<typeof useThemeColors> }) {
+  return (
+    <View className="flex-row items-center gap-1.5">
+      <View className="px-1.5 py-0.5 rounded-md" style={{ borderWidth: 1, borderColor: colors.border }}>
+        <Text style={{ fontFamily: 'SpaceMono', fontSize: 10, color: colors.textDim }}>{combo}</Text>
+      </View>
+      <Text style={{ fontSize: 11, color: colors.textMuted }}>{label}</Text>
+    </View>
+  );
 }
 
 export default function CommandPalette({
@@ -88,7 +149,8 @@ export default function CommandPalette({
     }),
     [colors.accent, colors.textMain]
   );
-  const selBg = colors.primary + '1A';
+  // Selected/hover row fill — a light accent wash (#342: accent, not flat grey).
+  const selBg = colors.primary + '14';
 
   // Create/compose actions — the ModalHost-wired types only. Permission keys
   // verified against real gates: task.create + report.view (QuickCreateButton),
@@ -107,27 +169,38 @@ export default function CommandPalette({
     [createActions, q]
   );
 
-  const pages = useMemo(
-    () => SHORTCUTS.filter((s) => shortcutVisible(s, { hasPermission, isOwner: !!profile?.is_owner, isMobile })),
-    [hasPermission, profile?.is_owner, isMobile]
-  );
-  const matchedPages = useMemo(
-    () => (q ? pages.filter((s) => s.label.toLowerCase().includes(q)) : pages),
-    [pages, q]
+  // GO TO: top-level SHORTCUTS + keyword-indexed sub-destinations, one registry
+  // (constants.ts). Empty query → top-level only; otherwise label + synonym
+  // matches across both, deduped by href.
+  const destMatches = useMemo(
+    () => matchDestinations(query, { hasPermission, isOwner: !!profile?.is_owner, isMobile }),
+    [query, hasPermission, profile?.is_owner, isMobile]
   );
   const groupRows = useMemo(
     () => (q ? GROUP_ORDER.filter((t) => grouped[t]?.length) : []),
     [q, grouped]
   );
 
-  // Flat, ordered nav list: create actions, then pages, then results group by
+  // Flat, ordered nav list: create actions, then GO TO rows, then results by
   // group — the render below walks the same order so `sel` lines up on screen.
+  //
+  // 2D-within-1-D: the CREATE tiles are simply the first `tileCount` entries.
+  // ⏎ / `sel` work unchanged; the key handler adds ←/→ that only move inside
+  // [0, tileCount) and makes ↑/↓ hop the grid↔list boundary in whole rows.
   const flatItems = useMemo<PaletteItem[]>(() => {
     const items: PaletteItem[] = matchedActions.map((a) => ({ kind: 'action', run: a.run }));
-    for (const s of matchedPages) items.push({ kind: 'page', shortcut: s });
+    for (const d of destMatches) items.push({ kind: 'page', dest: d });
     for (const t of groupRows) for (const r of grouped[t]!.slice(0, PER_GROUP)) items.push({ kind: 'result', result: r });
     return items;
-  }, [matchedActions, matchedPages, groupRows, grouped]);
+  }, [matchedActions, destMatches, groupRows, grouped]);
+
+  const tileCount = matchedActions.length;
+  const tileCols = tileCount === 0 ? 1 : isMobile ? Math.min(2, tileCount) : tileCount;
+  // Last tile the selection sat on — ↑ from the first non-tile row returns here.
+  const lastTile = useRef(0);
+  useEffect(() => {
+    if (sel < tileCount) lastTile.current = sel;
+  }, [sel, tileCount]);
 
   useEffect(() => {
     if (!open) return;
@@ -161,7 +234,7 @@ export default function CommandPalette({
       }
       onClose();
       if (it.kind === 'page') {
-        router.push(it.shortcut.href as any);
+        router.push(it.dest.href as any);
       } else {
         const raw = query.trim();
         if (raw) pushRecent(raw);
@@ -174,13 +247,31 @@ export default function CommandPalette({
   // Arrow / Enter / Escape while open. Web only.
   useEffect(() => {
     if (!open || Platform.OS !== 'web') return;
+    const last = () => flatItems.length - 1;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
+      const inGrid = sel < tileCount;
+      if (e.key === 'ArrowRight' && inGrid) {
         e.preventDefault();
-        setSel((i) => Math.min(i + 1, flatItems.length - 1));
+        setSel((i) => Math.min(tileCount - 1, i + 1));
+      } else if (e.key === 'ArrowLeft' && inGrid) {
+        e.preventDefault();
+        setSel((i) => Math.max(0, i - 1));
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSel((i) => {
+          if (i < tileCount) {
+            const next = i + tileCols; // next tile row, or out of the grid
+            return next < tileCount ? next : Math.min(tileCount, last());
+          }
+          return Math.min(i + 1, last());
+        });
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSel((i) => Math.max(i - 1, 0));
+        setSel((i) => {
+          if (i === tileCount && tileCount > 0) return Math.min(lastTile.current, tileCount - 1); // list → grid
+          if (i < tileCount) return Math.max(0, i - tileCols);
+          return Math.max(i - 1, 0);
+        });
       } else if (e.key === 'Enter') {
         const it = flatItems[sel];
         if (it) {
@@ -196,7 +287,13 @@ export default function CommandPalette({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, flatItems, sel, query, activate, seeAll, onClose]);
+  }, [open, flatItems, sel, tileCount, tileCols, query, activate, seeAll, onClose]);
+
+  const seedTip = useCallback((token: string) => {
+    setQuery(token + ' ');
+    setSel(0);
+    inputRef.current?.focus();
+  }, []);
 
   // running flat index — MUST advance in the same order as flatItems
   let idx = 0;
@@ -223,76 +320,92 @@ export default function CommandPalette({
             className="focus-ring-none"
             style={{ flex: 1, fontSize: 16, color: colors.textMain, paddingVertical: 14 }}
           />
+          {/* While open, esc is the useful key — ⌘K already did its job. */}
           <View className="px-1.5 py-0.5 rounded-md" style={{ borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontFamily: 'SpaceMono', fontSize: 10, color: colors.textDim }}>{'⌘K'}</Text>
+            <Text style={{ fontFamily: 'SpaceMono', fontSize: 10, color: colors.textDim }}>esc</Text>
           </View>
         </View>
 
-        <ScrollView style={{ maxHeight: isMobile ? 380 : 460 }} keyboardShouldPersistTaps="handled">
-          {/* Create/compose actions (#325) — walked FIRST in flatItems, so
+        <ScrollView style={{ maxHeight: isMobile ? 360 : 440 }} keyboardShouldPersistTaps="handled">
+          {/* CREATE — a wrapping tile grid (#342). Walked FIRST in flatItems, so
               rendered first here to keep `idx` aligned with `sel`. */}
           {matchedActions.length > 0 && (
-            <View className="mb-1 pt-2">
-              <Text
-                className="text-[9px] font-black uppercase tracking-widest px-2 py-1"
-                style={{ color: colors.textMuted }}
-              >
-                Create
-              </Text>
-              {matchedActions.map((a) => {
-                const i = idx++;
-                return (
-                  <Pressable
-                    key={a.id}
-                    onHoverIn={() => setSel(i)}
-                    onPress={() => activate({ kind: 'action', run: a.run })}
-                    className="flex-row items-center gap-3 rounded-xl px-3 py-2 mx-1"
-                    style={i === sel ? { backgroundColor: selBg } : undefined}
-                  >
-                    <View
-                      className="h-7 w-7 items-center justify-center rounded-lg"
-                      style={{ backgroundColor: colors.primary + '1A' }}
+            <View className="mb-1">
+              <SectionHeader label="Create" colors={colors} />
+              <View className="flex-row flex-wrap gap-2 px-3 pb-1">
+                {matchedActions.map((a) => {
+                  const i = idx++;
+                  const on = i === sel;
+                  return (
+                    <Pressable
+                      key={a.id}
+                      onHoverIn={() => setSel(i)}
+                      onPress={() => activate({ kind: 'action', run: a.run })}
+                      className="items-center justify-center gap-2 rounded-2xl px-3 py-3.5"
+                      style={{
+                        flexGrow: 1,
+                        flexBasis: 132,
+                        minWidth: 132,
+                        borderWidth: 1,
+                        borderColor: on ? colors.accent : 'transparent',
+                        backgroundColor: colors.accent + (on ? '2E' : '1A'),
+                      }}
                     >
-                      <FontAwesome name={a.icon} size={13} color={colors.primary} />
-                    </View>
-                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, fontWeight: '600', color: colors.textMain }}>
-                      {a.label}
-                    </Text>
-                    <FontAwesome name="plus" size={11} color={colors.textDim} />
-                  </Pressable>
-                );
-              })}
+                      <View
+                        className="h-9 w-9 items-center justify-center rounded-xl"
+                        style={{ backgroundColor: colors.primary + '1A' }}
+                      >
+                        <FontAwesome name={a.icon} size={18} color={colors.primary} />
+                      </View>
+                      <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: colors.textMain }}>
+                        {a.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           )}
 
-          {matchedPages.length > 0 && (
-            <View className="mb-1 pt-2">
-              <Text
-                className="text-[9px] font-black uppercase tracking-widest px-2 py-1"
-                style={{ color: colors.textMuted }}
-              >
-                Go to
-              </Text>
-              {matchedPages.map((s) => {
+          {destMatches.length > 0 && (
+            <View className="mb-1">
+              <SectionHeader label="Go to" colors={colors} />
+              {destMatches.map((d) => {
                 const i = idx++;
+                const on = i === sel;
                 return (
                   <Pressable
-                    key={s.id}
+                    key={d.id}
                     onHoverIn={() => setSel(i)}
-                    onPress={() => activate({ kind: 'page', shortcut: s })}
-                    className="flex-row items-center gap-3 rounded-xl px-3 py-2 mx-1"
-                    style={i === sel ? { backgroundColor: selBg } : undefined}
+                    onPress={() => activate({ kind: 'page', dest: d })}
+                    className="flex-row items-center gap-3 rounded-xl px-3 py-2.5 mx-1"
+                    style={on ? { backgroundColor: selBg } : undefined}
                   >
                     <View
                       className="h-7 w-7 items-center justify-center rounded-lg"
-                      style={{ backgroundColor: colors.primary + '1A' }}
+                      style={{ backgroundColor: colors.primary + '14' }}
                     >
-                      <FontAwesome name={s.icon} size={13} color={colors.primary} />
+                      <FontAwesome name={d.icon} size={13} color={colors.primary} />
                     </View>
-                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, fontWeight: '600', color: colors.textMain }}>
-                      {s.label}
-                    </Text>
-                    <FontAwesome name="arrow-right" size={11} color={colors.textDim} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '600', color: colors.textMain }}>
+                        {highlightSub(d.label, q, tintStyle)}
+                      </Text>
+                      {d.matchedKeyword ? (
+                        <Text numberOfLines={1} style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
+                          Also known as: {highlightSub(d.matchedKeyword, q, tintStyle)}
+                        </Text>
+                      ) : d.parentLabel ? (
+                        <Text numberOfLines={1} style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
+                          {d.parentLabel} › {d.label}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {/* Trailing → only on the active row (Cloudflare) — fixed-width
+                        slot so selecting a row doesn't shift the label. */}
+                    <View className="w-4 items-end">
+                      {on && <FontAwesome name="arrow-right" size={11} color={colors.textDim} />}
+                    </View>
                   </Pressable>
                 );
               })}
@@ -301,12 +414,11 @@ export default function CommandPalette({
 
           {!q && recent.length > 0 && (
             <View className="mb-1">
-              <Text
-                className="text-[9px] font-black uppercase tracking-widest px-2 py-1"
-                style={{ color: colors.textMuted }}
-              >
-                Recent
-              </Text>
+              <View className="flex-row items-center gap-1 px-3 pt-3 pb-1.5">
+                <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
+                  Recent
+                </Text>
+              </View>
               {/* ponytail: recent chips refill the box, they aren't nav targets —
                   deliberately not in the arrow-key flat list. */}
               {recent.map((r) => (
@@ -327,6 +439,34 @@ export default function CommandPalette({
             </View>
           )}
 
+          {!q && (
+            <View className="mb-1">
+              <View className="flex-row items-center gap-1 px-3 pt-3 pb-1.5">
+                <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
+                  Search tips
+                </Text>
+              </View>
+              {SEARCH_TIPS.map((t) => (
+                <Pressable
+                  key={t.token}
+                  onPress={() => seedTip(t.token)}
+                  className="flex-row items-center gap-3 rounded-xl px-3 py-2 mx-1"
+                >
+                  <View
+                    className="h-7 w-7 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: colors.primary + '14' }}
+                  >
+                    <FontAwesome name={t.icon} size={12} color={colors.textDim} />
+                  </View>
+                  <Text style={{ fontFamily: 'SpaceMono', fontSize: 12, color: colors.textMain }}>{t.token}</Text>
+                  <Text numberOfLines={1} style={{ flex: 1, fontSize: 12, color: colors.textMuted }}>
+                    {t.hint}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
           {/* !!q, not q: a bare falsy `''` renders as a stray text node and
               RNW warns "text node cannot be a child of <View>". */}
           {!!q &&
@@ -338,7 +478,7 @@ export default function CommandPalette({
               <View className="items-center py-8">
                 <ActivityIndicator size="small" color={colors.primary} />
               </View>
-            ) : results.length === 0 && matchedPages.length === 0 && matchedActions.length === 0 ? (
+            ) : results.length === 0 && destMatches.length === 0 && matchedActions.length === 0 ? (
               <View className="items-center px-3 py-8">
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>No results for “{query.trim()}”</Text>
               </View>
@@ -347,7 +487,7 @@ export default function CommandPalette({
                 {groupRows.map((t) => (
                   <View key={t} className="mb-1">
                     <Text
-                      className="text-[9px] font-black uppercase tracking-widest px-2 py-1"
+                      className="text-[9px] font-black uppercase tracking-widest px-3 pt-3 pb-1.5"
                       style={{ color: colors.textMuted }}
                     >
                       {GROUP_LABEL[t]} ({grouped[t]!.length})
@@ -383,6 +523,17 @@ export default function CommandPalette({
               </>
             ))}
         </ScrollView>
+
+        {/* Pinned hint bar (#342) — Cloudflare keeps this at the bottom; it's a
+            lot of the "life" the redesign is after. */}
+        <View
+          className="flex-row items-center gap-4 px-4 py-2.5"
+          style={{ borderTopWidth: 1, borderTopColor: colors.border }}
+        >
+          <HintKey combo="↑↓" label="navigate" colors={colors} />
+          <HintKey combo="⏎" label="select" colors={colors} />
+          <HintKey combo="esc" label="close" colors={colors} />
+        </View>
       </View>
     </Popup>
   );
@@ -417,7 +568,7 @@ function ResultRow({
     <Pressable
       onHoverIn={onHoverIn}
       onPress={onPress}
-      className="flex-row items-center gap-3 rounded-xl px-3 py-2 mx-1"
+      className="flex-row items-center gap-3 rounded-xl px-3 py-2.5 mx-1"
       style={selected ? { backgroundColor: selBg } : undefined}
     >
       {isEntity ? (
@@ -425,7 +576,7 @@ function ResultRow({
       ) : (
         <View
           className="h-7 w-7 items-center justify-center rounded-lg"
-          style={{ backgroundColor: colors.primary + '1A', flexShrink: 0 }}
+          style={{ backgroundColor: colors.primary + '14', flexShrink: 0 }}
         >
           <FontAwesome name={TYPE_ICON[r.type] ?? 'circle-o'} size={13} color={colors.primary} />
         </View>
