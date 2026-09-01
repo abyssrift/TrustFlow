@@ -8,6 +8,8 @@ import { useRoleManager, Team, Role, User } from '@/contexts/RoleManagerContext'
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { cssInterop } from 'react-native-css-interop';
 import MultiViewList from '@/components/common/MultiViewList';
+import GridSectionHeader from '@/components/admin/GridSectionHeader';
+import { useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 
 cssInterop(FontAwesome, {
   className: {
@@ -89,6 +91,9 @@ function RoleChip({ role }: { role: Role }) {
 export default function TeamAssignmentGrid() {
   const colors = useThemeColors();
   const { users, teams, roles, teamRoles, teamMembers, updateTeamAssignments, setTeamClaiming, createTeam, loading } = useRoleManager();
+  // #309: drives the roles-screen collapsible header. Inert when this grid
+  // renders outside a <CollapsibleHeaderProvider> (hook is null-safe).
+  const headerScroll = useCollapsibleHeaderScroll();
 
   const membersByTeam = useMemo(() => {
     const map = new Map<string, User[]>();
@@ -161,20 +166,21 @@ export default function TeamAssignmentGrid() {
 
   return (
     <View className="flex-1">
-        <View className="flex-row items-center justify-between mb-4 px-1">
-          <View className="flex-1 mr-3">
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Operational Clusters</Text>
-            <Text className="text-typography-main text-2xl font-black tracking-tight">Active Teams</Text>
-          </View>
-          <TouchableOpacity
-            onPress={() => setIsCreating(true)}
-            className="bg-brand-primary px-4 py-3 rounded-xl active:scale-[0.98]"
-          >
-            <Text className="text-white font-black text-[10px] uppercase tracking-widest">+ New Team</Text>
-          </TouchableOpacity>
-        </View>
+        <GridSectionHeader
+          eyebrow="Operational Clusters"
+          title="Active Teams"
+          right={
+            <TouchableOpacity
+              onPress={() => setIsCreating(true)}
+              className="bg-brand-primary px-4 py-3 rounded-xl active:scale-[0.98]"
+            >
+              <Text className="text-white font-black text-[10px] uppercase tracking-widest">+ New Team</Text>
+            </TouchableOpacity>
+          }
+        />
 
         <MultiViewList
+          {...headerScroll}
           items={visibleTeams}
           keyExtractor={(t) => t.id}
           renderCard={(t) => {

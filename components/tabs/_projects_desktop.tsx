@@ -20,6 +20,7 @@ import ProjectBoard from '@/components/projects/ProjectBoard';
 import ProjectsTimeline from '@/components/projects/ProjectsTimeline';
 import PortfolioScopeHeader from '@/components/portfolios/PortfolioScopeHeader';
 import { EntityGlyph, EntityTag, SegmentedControl } from '@/components/entities/EntityUI';
+import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { isProjectsView, type ProjectsView } from '@/lib/projectPresentation';
@@ -46,7 +47,25 @@ import { isProjectsView, type ProjectsView } from '@/lib/projectPresentation';
 // portfolio's rollup sits above, the screen below is the one the user already
 // likes, with search, filters, sorting, paging and all three views intact.
 // There is no second projects screen.
-export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: string } = {}) {
+//
+// #307 collapsible header: the CollapsibleHeaderProvider is mounted here for
+// every render, but ONLY the scoped portfolio view consumes it — the scoped
+// body ScrollView gets `{...headerScroll}` spread and PortfolioScopeHeader
+// reads the progress value to collapse. The unscoped Projects tab has a plain
+// static header that never calls useCollapseProgress and gets an empty spread,
+// so it is byte-for-byte unaffected. (Mounting the provider unconditionally is
+// one useSharedValue; gating it would mean duplicating the whole return tree
+// because useCollapsibleHeaderScroll must be called unconditionally under a
+// provider.)
+export default function ProjectsScreenWeb(props: { portfolioId?: string } = {}) {
+  return (
+    <CollapsibleHeaderProvider>
+      <ProjectsScreenWebInner {...props} />
+    </CollapsibleHeaderProvider>
+  );
+}
+
+function ProjectsScreenWebInner({ portfolioId }: { portfolioId?: string } = {}) {
   const colors = useThemeColors();
   const { showAlert } = useAlert();
   const { hasPermission } = useAuth();
@@ -77,6 +96,9 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
   const canViewProjects = hasPermission('project.view');
   const canCreate = hasPermission('project.create');
   const canManageFields = hasPermission('project.edit');
+  // #307: kept above the permission early-return with every other hook (issue
+  // #96) — the spread is gated to `scoped` further down, not the hook call.
+  const headerScroll = useCollapsibleHeaderScroll();
 
   // Permission check: user must have project.view permission. Placed after
   // every hook call above (never before) so the same hooks run on every
@@ -107,6 +129,10 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
   // `actions` slot) is the same three doors as the unscoped header, just
   // scoped.
   const scoped = !!portfolioId;
+
+  // #307: only the scoped view drives the collapse. Unscoped => empty spread,
+  // so the plain Projects header and its ScrollView behave exactly as before.
+  const bodyScroll = scoped ? headerScroll : {};
 
   return (
     <View className="flex-1 bg-surface-background px-8 py-4">
@@ -236,7 +262,7 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
         </View>
 
         {view === 'table' ? (
-          <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+          <ScrollView showsVerticalScrollIndicator={false} className="flex-1" {...bodyScroll}>
             <ProjectsTable
               refreshKey={tableRefreshKey}
               portfolioId={portfolioId ?? null}
@@ -247,7 +273,7 @@ export default function ProjectsScreenWeb({ portfolioId }: { portfolioId?: strin
             <View className="h-16" />
           </ScrollView>
         ) : view === 'timeline' ? (
-          <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+          <ScrollView showsVerticalScrollIndicator={false} className="flex-1" {...bodyScroll}>
             <ProjectsTimeline
               refreshKey={tableRefreshKey}
               portfolioId={portfolioId ?? null}

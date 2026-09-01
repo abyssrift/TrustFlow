@@ -10,6 +10,8 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { RoleTemplate } from '@/lib/roleTemplates';
 import Tooltip from '@/components/common/Tooltip';
 import MultiViewList from '@/components/common/MultiViewList';
+import GridSectionHeader from '@/components/admin/GridSectionHeader';
+import { useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 
 export default function RoleBuilder() {
   const colors = useThemeColors();
@@ -17,6 +19,9 @@ export default function RoleBuilder() {
   const { hasPermission } = useAuth();
   const canManageRoles = hasPermission('role.manage');
   const { roles, permissions, userRoles, teamRoles, createRole, updateRole, deleteRole, loading } = useRoleManager();
+  // #309: drives the roles-screen collapsible header. Inert when this grid
+  // renders outside a <CollapsibleHeaderProvider> (hook is null-safe).
+  const headerScroll = useCollapsibleHeaderScroll();
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -123,12 +128,10 @@ export default function RoleBuilder() {
 
   return (
     <View className="flex-1">
-        <View className="flex-row items-center justify-between mb-4 px-1">
-          <View className="flex-1 mr-3">
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Structural Paradigms</Text>
-            <Text className="text-typography-main text-2xl font-black tracking-tight">Role Registry</Text>
-          </View>
-          {canManageRoles && (
+        <GridSectionHeader
+          eyebrow="Structural Paradigms"
+          title="Role Registry"
+          right={canManageRoles && (
             <View className="flex-row items-center gap-2">
               <TouchableOpacity
                 onPress={() => setShowTemplates(true)}
@@ -145,9 +148,10 @@ export default function RoleBuilder() {
               </TouchableOpacity>
             </View>
           )}
-        </View>
+        />
 
         <MultiViewList
+          {...headerScroll}
           items={visibleRoles}
           keyExtractor={(r) => r.id}
           renderCard={(r) => {

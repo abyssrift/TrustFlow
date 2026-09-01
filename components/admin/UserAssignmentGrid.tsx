@@ -1,6 +1,8 @@
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import MultiViewList from '@/components/common/MultiViewList';
+import GridSectionHeader from '@/components/admin/GridSectionHeader';
+import { useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -82,6 +84,9 @@ export default function UserAssignmentGrid() {
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
+  // #309: drives the roles-screen collapsible header. Inert when this grid
+  // renders outside a <CollapsibleHeaderProvider> (hook is null-safe).
+  const headerScroll = useCollapsibleHeaderScroll();
 
   const canAssignRoles = hasPermission('role.manage');
   const canRemoveUsers = hasPermission('role.manage');
@@ -292,7 +297,9 @@ export default function UserAssignmentGrid() {
 
   return (
     <View className="flex-1">
+      <GridSectionHeader eyebrow="Company Directory" title="Members" />
       <MultiViewList
+        {...headerScroll}
         items={visibleUsers}
         keyExtractor={(u) => u.id}
         renderCard={(u) => {
