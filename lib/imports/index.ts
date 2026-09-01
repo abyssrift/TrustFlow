@@ -5,5 +5,11 @@ export type {
   ImporterAdapter, ImporterManifest, ImportedTask, AuthPayload, AuthType, ImportProgress,
 } from './types';
 export { fetchViaProxy, connectViaProxy } from './importProxyClient';
-export { startOAuthFlow, deleteConnection, getConnection, getOAuthUrl } from './oauthClient';
+export {
+  startOAuthFlow, deleteConnection, getConnection, getOAuthUrl,
+  readConnectionMeta, listConnections, type ConnectionMeta, type StoredConnection,
+} from './oauthClient';
 export { guessStageMapping, type StageMapping } from './statusMapper';
+export {
+  getLastUsedImport, setLastUsedImport, type LastUsedImport,
+} from './importPreferences';
