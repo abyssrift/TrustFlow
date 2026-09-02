@@ -128,6 +128,7 @@ decisions.forEach((d, i) => {
   const existing: ExistingFieldDef[] = [{
     id: 'def-1', key: 'inventory_count_needed', label: 'Inventory count',
     data_type: 'boolean', enum_options: null, source_column: 'Inventory Count Needed',
+    scope: 'client',
   }];
   const again = buildColumnDecisions(profiles, mapping, ENGAGEMENT_REGISTER, HEADER, existing);
   const d = again.find(x => x.profile.header.trim() === 'Inventory Count Needed')!;
@@ -135,7 +136,27 @@ decisions.forEach((d, i) => {
   if (d.target.kind === 'custom') {
     assert.strictEqual(d.target.defId, 'def-1', 'a saved mapping must bind to the existing def');
     assert.strictEqual(d.target.label, 'Inventory count', "and keep the user's label, not the header");
+    // #199 — a matched column inherits the def's scope, it does not re-guess it.
+    assert.strictEqual(d.target.scope, 'client', 'a matched column must inherit the existing def scope');
   }
+}
+
+// ── 5b. #199 — a NEW custom column's default scope by content primitive ────
+{
+  const fresh = buildColumnDecisions(profiles, mapping, ENGAGEMENT_REGISTER, HEADER, []);
+  for (const dec of fresh) {
+    if (dec.target.kind !== 'custom') continue;
+    const expected = dec.profile.primitive === 'email' || dec.profile.primitive === 'phone' || dec.profile.primitive === 'unique_id'
+      ? 'client' : 'project';
+    assert.strictEqual(
+      dec.target.scope, expected,
+      `"${dec.profile.header}" (${dec.profile.primitive}) should default to scope=${expected}`,
+    );
+  }
+  assert.ok(
+    customFieldPlans(fresh).every(p => p.scope === 'project' || p.scope === 'client'),
+    'every custom field plan carries a concrete scope',
+  );
 }
 
 // ── 6. Enum values: variants are SHOWN merging, unmatched is explicit ───────

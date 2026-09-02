@@ -6,6 +6,7 @@ import Calendar from '@/components/common/Calendar';
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import { FilterChip, SectionCard } from '@/components/entities/EntityUI';
+import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectDetail } from '@/contexts/ProjectDetailContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -48,7 +49,7 @@ export default function ProjectFieldsCard() {
   const { projectId } = useProjectDetail();
   const { hasPermission } = useAuth();
   const { defs, loading: defsLoading } = useProjectFieldDefs();
-  const { values, loading: valuesLoading, refresh } = useProjectFieldValues(projectId);
+  const { values, clientId, loading: valuesLoading, refresh } = useProjectFieldValues(projectId);
   const { width } = useWindowDimensions();
 
   const [editing, setEditing] = useState<ProjectFieldDef | null>(null);
@@ -110,6 +111,7 @@ export default function ProjectFieldsCard() {
                     def={def}
                     value={values[def.key]}
                     projectId={projectId}
+                    clientId={clientId}
                     canEdit={canEdit}
                     first={r === 0}
                     onSaved={refresh}
@@ -126,6 +128,7 @@ export default function ProjectFieldsCard() {
         <FieldValueEditor
           def={editing}
           projectId={projectId}
+          clientId={clientId}
           current={values[editing.key]}
           onClose={() => setEditing(null)}
           onSaved={refresh}
@@ -141,12 +144,40 @@ function needsPopup(def: ProjectFieldDef) {
   return def.data_type === 'enum' || def.data_type === 'date';
 }
 
+/** #199 — client-scoped rows say so up front: editing one changes the value on
+ *  every one of that client's engagements. On a project with no client linked
+ *  the field is read-only and the badge explains why. */
+function SharedFieldBadge({ clientLess }: { clientLess: boolean }) {
+  const c = useThemeColors();
+  return (
+    <Tooltip
+      label={
+        clientLess
+          ? 'Shared client detail — but this project has no client linked, so it is read-only here.'
+          : "Shared · one value for every one of this client's engagements. Editing it here changes them all."
+      }
+      side="top"
+    >
+      <View
+        className="flex-row items-center gap-1 rounded-md px-1.5"
+        style={{ backgroundColor: c.info + '1A', minHeight: 16 }}
+      >
+        <FontAwesome name={clientLess ? 'chain-broken' : 'link'} size={7} color={c.info} />
+        <Text className="text-[8px] font-black uppercase tracking-[0.12em]" style={{ color: c.info }}>
+          {clientLess ? 'client · unlinked' : 'shared'}
+        </Text>
+      </View>
+    </Tooltip>
+  );
+}
+
 // ── one row of the table ───────────────────────────────────────────────────
 
 function FieldRow({
   def,
   value,
   projectId,
+  clientId,
   canEdit,
   first,
   onSaved,
@@ -155,6 +186,7 @@ function FieldRow({
   def: ProjectFieldDef;
   value: ProjectFieldValue | undefined;
   projectId: string;
+  clientId: string | null;
   canEdit: boolean;
   first: boolean;
   onSaved: () => void;
@@ -162,8 +194,13 @@ function FieldRow({
 }) {
   const c = useThemeColors();
   const { errorToast } = useToast();
+  const { showConfirm } = useAlert();
   const [draft, setDraft] = useState<string | null>(null); // non-null === editing in place
   const [saving, setSaving] = useState(false);
+
+  const isClientScoped = def.scope === 'client';
+  const clientLess = isClientScoped && !clientId;
+  const rowCanEdit = canEdit && !clientLess;
   // Escape must not save, but on web blur fires after the key handler — so the
   // key handler marks the edit abandoned and blur checks the flag.
   const cancelled = useRef(false);
@@ -172,9 +209,31 @@ function FieldRow({
   const shownValue = formatFieldValue(def, value);
   const typeLine =
     `${FIELD_TYPE_LABELS[def.data_type]}${def.source_column ? ` · from the “${def.source_column}” column` : ''}` +
-    (canEdit && def.data_type === 'boolean' ? ' · click the value to cycle Yes / No / empty' : '');
+    (isClientScoped ? ' · shared across this client’s engagements' : '') +
+    (rowCanEdit && def.data_type === 'boolean' ? ' · click the value to cycle Yes / No / empty' : '');
 
-  const commit = async (raw: string) => {
+  const write = async (next: string | number | boolean | null) => {
+    setSaving(true);
+    const err = await setProjectFieldValue(projectId, def.id, next, isClientScoped ? { clientId } : undefined);
+    setSaving(false);
+    if (err) { errorToast(err, 'Could not save'); return; }
+    onSaved();
+  };
+
+  // #199 — a client-scoped edit has a blast radius the user has to opt into.
+  const commitValue = (next: string | number | boolean | null) => {
+    if (!isClientScoped) { void write(next); return; }
+    showConfirm(
+      'Update shared client detail?',
+      `“${def.label}” is shared — this changes it on every project for this client.`,
+      () => { void write(next); },
+      undefined,
+      'Update all',
+      'Cancel',
+    );
+  };
+
+  const commit = (raw: string) => {
     setDraft(null);
     const trimmed = raw.trim();
     if (trimmed === fieldValueToInput(def, value).trim()) return; // untouched
@@ -192,27 +251,13 @@ function FieldRow({
     } else {
       next = trimmed;
     }
-
-    setSaving(true);
-    const err = await setProjectFieldValue(projectId, def.id, next);
-    setSaving(false);
-    if (err) {
-      errorToast(err, 'Could not save');
-      return;
-    }
-    onSaved();
+    commitValue(next);
   };
 
-  const setBool = async (next: boolean | null) => {
-    setSaving(true);
-    const err = await setProjectFieldValue(projectId, def.id, next);
-    setSaving(false);
-    if (err) { errorToast(err, 'Could not save'); return; }
-    onSaved();
-  };
+  const setBool = (next: boolean | null) => commitValue(next);
 
   const openEditor = () => {
-    if (!canEdit) return;
+    if (!rowCanEdit) return;
     if (needsPopup(def)) { onNeedsPopup(); return; }
     if (def.data_type === 'boolean') { setBool(value === true ? false : value === false ? null : true); return; }
     setDraft(fieldValueToInput(def, value));
@@ -223,18 +268,30 @@ function FieldRow({
       className={`flex-row items-center gap-3 py-2 ${first ? '' : 'border-t'} border-surface-border`}
       style={{ minHeight: 40 }}
     >
-      <Tooltip label={typeLine} side="right">
-        <Text
-          numberOfLines={2}
-          className="text-typography-dim text-[9px] font-black uppercase tracking-[0.14em]"
-          style={{ width: 124 }}
-        >
-          {def.label}
-        </Text>
-      </Tooltip>
+      <View style={{ width: 124 }} className="gap-1">
+        <Tooltip label={typeLine} side="right">
+          <Text
+            numberOfLines={2}
+            className="text-typography-dim text-[9px] font-black uppercase tracking-[0.14em]"
+          >
+            {def.label}
+          </Text>
+        </Tooltip>
+        {isClientScoped && (
+          <View className="self-start">
+            <SharedFieldBadge clientLess={clientLess} />
+          </View>
+        )}
+      </View>
 
       <View className="flex-1 min-w-0">
-        {draft !== null ? (
+        {clientLess ? (
+          <Text numberOfLines={2} className="text-typography-dim text-[11px]">
+            {empty ? '—' : shownValue}
+            {'  ·  '}
+            <Text className="text-typography-dim text-[10px]">no client linked, so this shared field can’t be edited here</Text>
+          </Text>
+        ) : draft !== null ? (
           <TextInput
             value={draft}
             onChangeText={setDraft}
@@ -252,20 +309,20 @@ function FieldRow({
           />
         ) : (
           <TouchableOpacity
-            disabled={!canEdit || saving}
+            disabled={!rowCanEdit || saving}
             onPress={openEditor}
-            accessibilityRole={canEdit ? 'button' : undefined}
-            accessibilityLabel={canEdit ? `Edit ${def.label}` : undefined}
-            className={`flex-row items-center gap-2 rounded-lg -mx-1.5 px-1.5 ${canEdit ? 'hover:bg-surface-overlay' : ''}`}
+            accessibilityRole={rowCanEdit ? 'button' : undefined}
+            accessibilityLabel={rowCanEdit ? `Edit ${def.label}` : undefined}
+            className={`flex-row items-center gap-2 rounded-lg -mx-1.5 px-1.5 ${rowCanEdit ? 'hover:bg-surface-overlay' : ''}`}
             style={{ minHeight: 32 }}
           >
             <Text
               numberOfLines={1}
               className={`text-sm font-bold flex-shrink ${empty ? 'text-typography-dim' : 'text-typography-main'}`}
             >
-              {empty && canEdit ? 'Add…' : shownValue}
+              {empty && rowCanEdit ? 'Add…' : shownValue}
             </Text>
-            {canEdit && !saving && (
+            {rowCanEdit && !saving && (
               // Not a tooltip-only affordance: the pencil is what makes the
               // whole row read as editable, which is the thing the stat grid
               // never managed to say.
@@ -286,29 +343,31 @@ function FieldRow({
 function FieldValueEditor({
   def,
   projectId,
+  clientId,
   current,
   onClose,
   onSaved,
 }: {
   def: ProjectFieldDef;
   projectId: string;
+  clientId: string | null;
   current: ProjectFieldValue | undefined;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const c = useThemeColors();
+  const { showConfirm } = useAlert();
   const { successToast, errorToast } = useToast();
   const [draft, setDraft] = useState<string>(fieldValueToInput(def, current));
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
-  const save = async () => {
-    const raw = draft.trim();
-    const value: string | null = raw === '' ? null : raw;
+  const isClientScoped = def.scope === 'client';
 
+  const persist = async (value: string | null) => {
     setSaving(true);
     setProblem(null);
-    const err = await setProjectFieldValue(projectId, def.id, value);
+    const err = await setProjectFieldValue(projectId, def.id, value, isClientScoped ? { clientId } : undefined);
     setSaving(false);
     if (err) {
       setProblem(err);
@@ -318,6 +377,21 @@ function FieldValueEditor({
     successToast(value === null ? `${def.label} cleared.` : `${def.label} saved.`, 'Updated');
     onSaved();
     onClose();
+  };
+
+  const save = () => {
+    const raw = draft.trim();
+    const value: string | null = raw === '' ? null : raw;
+    if (!isClientScoped) { void persist(value); return; }
+    // #199 — a client-scoped edit changes every one of the client's projects.
+    showConfirm(
+      'Update shared client detail?',
+      `“${def.label}” is shared — this changes it on every project for this client.`,
+      () => { void persist(value); },
+      undefined,
+      'Update all',
+      'Cancel',
+    );
   };
 
   return (
@@ -336,6 +410,14 @@ function FieldValueEditor({
           {FIELD_TYPE_LABELS[def.data_type]}
           {def.source_column ? ` · imported from the “${def.source_column}” spreadsheet column` : ''}
         </Text>
+
+        {isClientScoped && (
+          <View className="rounded-xl px-3 py-2" style={{ backgroundColor: c.info + '14', borderWidth: 1, borderColor: c.info }}>
+            <Text className="text-[11px] font-semibold" style={{ color: c.info }}>
+              Shared client detail — saving this changes the value on every project for this client.
+            </Text>
+          </View>
+        )}
 
         {def.data_type === 'enum' ? (
           <View className="gap-1.5">

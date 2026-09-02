@@ -67,6 +67,7 @@ import {
   summariseRowWarnings,
   detectSummaryRows,
   fieldTypeForPrimitive,
+  defaultScopeForPrimitive,
   slugifyFieldKey,
   cellToFieldValue,
   FIELD_TYPE_LABELS,
@@ -75,6 +76,7 @@ import {
   type EnumValueMatch,
   type ExistingFieldDef,
   type FieldDataType,
+  type FieldScope,
 } from '@/lib/imports/importPlan';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -507,7 +509,7 @@ export default function SpreadsheetImportSheet({
         parseSpreadsheetBytes(bytes),
         fetchExistingClients(),
         supabase.from('project_field_defs')
-          .select('id, key, label, data_type, enum_options, source_column')
+          .select('id, key, label, data_type, enum_options, source_column, scope')
           .is('deleted_at', null)
           .then(r => (r.data ?? []) as ExistingFieldDef[], () => [] as ExistingFieldDef[]),
       ]);
@@ -558,6 +560,7 @@ export default function SpreadsheetImportSheet({
             label: d.profile.header.trim() || `Column ${d.index + 1}`,
             dataType,
             enumOptions: dataType === 'enum' ? (d.profile.enumValues ?? []).map(v => v.label) : null,
+            scope: defaultScopeForPrimitive(d.profile.primitive),
           },
         };
       }
@@ -924,32 +927,95 @@ export default function SpreadsheetImportSheet({
       const { data, error: defErr } = await supabase.rpc('rpc_save_project_field_def', {
         p_key: plan.key, p_label: plan.label, p_data_type: plan.dataType,
         p_enum_options: options, p_source_column: plan.sourceColumn,
-        p_sort_order: i, p_id: plan.defId, p_format: plan.format,
+        p_sort_order: i, p_id: plan.defId, p_format: plan.format, p_scope: plan.scope,
       });
       if (defErr) throw defErr;
       saved.push({ plan, id: (data as any).id as string, canonical });
     }
 
-    const values: { project_id: string; field_def_id: string; value: string | number | boolean }[] = [];
+    const cellValue = (sheetRow: any[], plan: typeof fieldPlans[number], canonical: Map<string, string | null>) => {
+      let value = cellToFieldValue(
+        sheetRow[plan.columnIndex], plan.dataType,
+        cell => parseDateValue(cell, dateOrderFor(plan.columnIndex)),
+        parseMoneyCell,
+      );
+      if (plan.dataType === 'enum' && value !== null) {
+        value = canonical.get(normalizeMatchKey(String(value))) ?? null;
+      }
+      return value;
+    };
+
+    type Element = { project_id?: string; client_id?: string; field_def_id: string; value: string | number | boolean };
+    const elements: Element[] = [];
+
+    // ── project-scoped: one element per (project, field), unchanged ──────────
     for (const row of importableRows) {
       const projectId = idByName.get(row.name);
       if (!projectId) continue;
       const sheetRow = parsed.aoa[row.rowNumber - 1] || [];
       for (const { plan, id, canonical } of saved) {
-        const raw = sheetRow[plan.columnIndex];
-        let value = cellToFieldValue(
-          raw, plan.dataType,
-          cell => parseDateValue(cell, dateOrderFor(plan.columnIndex)),
-          parseMoneyCell,
-        );
-        if (plan.dataType === 'enum' && value !== null) {
-          value = canonical.get(normalizeMatchKey(String(value))) ?? null;
-        }
-        if (value !== null) values.push({ project_id: projectId, field_def_id: id, value });
+        if (plan.scope !== 'project') continue;
+        const value = cellValue(sheetRow, plan, canonical);
+        if (value !== null) elements.push({ project_id: projectId, field_def_id: id, value });
       }
     }
-    if (values.length === 0) return;
-    const { error: valErr } = await supabase.rpc('rpc_set_project_field_values', { p_values: values });
+
+    // ── client-scoped: resolve each created project's client, then write ONCE
+    //    per (client, field). Two source rows for one client that disagree on a
+    //    shared field: keep the last, name the collision.
+    // ponytail: last-row-wins on intra-import client conflict; upgrade to a
+    // merge-review step if firms report bad collisions.
+    const clientPlans = saved.filter(s => s.plan.scope === 'client');
+    if (clientPlans.length > 0) {
+      const projectIds = [...new Set([...idByName.values()])];
+      const { data: projRows, error: projErr } = await supabase
+        .from('projects').select('id, client_id').in('id', projectIds);
+      if (projErr) throw projErr;
+      const clientByProject = new Map<string, string>();
+      for (const r of (projRows ?? []) as any[]) if (r.client_id) clientByProject.set(r.id as string, r.client_id as string);
+
+      const clientNameById = new Map<string, string>();
+      const cids = [...new Set([...clientByProject.values()])];
+      if (cids.length > 0) {
+        const { data: clientRows } = await supabase.from('clients').select('id, name').in('id', cids);
+        for (const r of (clientRows ?? []) as any[]) clientNameById.set(r.id as string, r.name as string);
+      }
+
+      // key: `${clientId}::${fieldDefId}` -> chosen value; track conflicts.
+      const chosen = new Map<string, string | number | boolean>();
+      const conflicts: string[] = [];
+      const seenConflict = new Set<string>();
+      for (const row of importableRows) {
+        const projectId = idByName.get(row.name);
+        const clientId = projectId ? clientByProject.get(projectId) : undefined;
+        if (!clientId) continue; // a client-less project can't carry a shared value
+        const sheetRow = parsed.aoa[row.rowNumber - 1] || [];
+        for (const { plan, id, canonical } of clientPlans) {
+          const value = cellValue(sheetRow, plan, canonical);
+          if (value === null) continue;
+          const k = `${clientId}::${id}`;
+          if (chosen.has(k) && chosen.get(k) !== value && !seenConflict.has(k)) {
+            seenConflict.add(k);
+            conflicts.push(`“${plan.label}” for ${clientNameById.get(clientId) ?? 'a client'}`);
+          }
+          chosen.set(k, value); // last row wins
+        }
+      }
+      for (const [k, value] of chosen) {
+        const [client_id, field_def_id] = k.split('::');
+        elements.push({ client_id, field_def_id, value });
+      }
+      if (conflicts.length > 0) {
+        const shown = conflicts.slice(0, 3).join('; ');
+        errorToast(
+          `Rows disagreed on ${shown}${conflicts.length > 3 ? ` and ${conflicts.length - 3} more` : ''}. Kept the last value for each — check these on the client.`,
+          'Shared client details: conflicting rows',
+        );
+      }
+    }
+
+    if (elements.length === 0) return;
+    const { error: valErr } = await supabase.rpc('rpc_set_project_field_values', { p_values: elements });
     if (valErr) throw valErr;
 
     successToast(`${saved.length} extra column${saved.length === 1 ? '' : 's'} carried across as project fields.`, 'Import complete');
@@ -1815,6 +1881,7 @@ function ColumnDetail({
     label: custom?.label ?? (p.header.trim() || `Column ${decision.index + 1}`),
     dataType,
     enumOptions: dataType === 'enum' ? (custom?.enumOptions ?? (p.enumValues ?? []).map(v => v.label)) : null,
+    scope: custom?.scope ?? defaultScopeForPrimitive(p.primitive),
   });
 
   return (
@@ -1914,6 +1981,40 @@ function ColumnDetail({
               <Text className="text-typography-dim text-[11px]">
                 This field already holds data, so its type is fixed — changing it is a data migration, not an edit.
               </Text>
+            )}
+          </View>
+
+          {/* #199 — is this column ABOUT the engagement, or about the client? */}
+          <View style={{ gap: 6 }}>
+            <Text className="text-typography-label text-[11px] font-black uppercase tracking-widest">Belongs to</Text>
+            <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+              <PickerOption
+                label="This engagement"
+                active={custom.scope === 'project'}
+                tone={c.info}
+                onPress={() => { if (!custom.defId) onSetTarget({ ...custom, scope: 'project' }); }}
+                c={c}
+              />
+              <PickerOption
+                label="The client (shared)"
+                active={custom.scope === 'client'}
+                tone={c.info}
+                onPress={() => { if (!custom.defId) onSetTarget({ ...custom, scope: 'client' }); }}
+                c={c}
+              />
+            </View>
+            {custom.defId ? (
+              <Text className="text-typography-dim text-[11px]">
+                Inherited from the existing “{custom.label}” field — {custom.scope === 'client' ? 'shared across the client’s engagements' : 'stored per engagement'}.
+              </Text>
+            ) : custom.scope === 'client' ? (
+              <Text className="text-[11px]" style={{ color: c.info }}>
+                {(p.primitive === 'email' || p.primitive === 'phone' || p.primitive === 'unique_id')
+                  ? 'Looks like client info (a focal point, mobile, ID) — written once per client and shown on every one of their engagements.'
+                  : 'Written once per client and shown on every one of their engagements.'}
+              </Text>
+            ) : (
+              <Text className="text-typography-dim text-[11px]">A separate value on each engagement created from this file.</Text>
             )}
           </View>
         </View>

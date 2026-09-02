@@ -10,7 +10,7 @@ import type { FieldDataType, FieldFormat } from './imports/importPlan';
 // that drifts is an insert failure nobody sees until a user hits it.
 
 export { FIELD_TYPE_LABELS } from './imports/importPlan';
-export type { FieldDataType, FieldFormat } from './imports/importPlan';
+export type { FieldDataType, FieldFormat, FieldScope } from './imports/importPlan';
 
 /** The shape both this module and `rpc_projects_table.custom_fields` speak. */
 export type FieldDef = {
@@ -91,6 +91,6 @@ export function friendlyFieldError(message: string | null | undefined): string {
   if (/invalid input syntax|invalid_text_representation/i.test(m)) {
     return 'That value does not match the field’s type. Check the format and try again.';
   }
-  if (/^(Cannot|Custom field|Field |An enum|Project not found|Value )/.test(m)) return m;
+  if (/^(Cannot|Custom field|Field |An enum|Project not found|Client not found|Each value|Value )/.test(m)) return m;
   return m ? `${m} — if this keeps happening, tell an admin.` : 'Could not save the change.';
 }

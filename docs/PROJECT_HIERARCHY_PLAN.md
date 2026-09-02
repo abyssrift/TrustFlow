@@ -1569,6 +1569,25 @@ commit 0452396) — no local `outline`/focus code in this tab.
 
 ---
 
+### 13.19 Custom field values are per-project — client data ends up copied (amends §18.3, #199)
+
+`project_field_values` keys on `project_id` only, so the spreadsheet importer
+has nowhere to put a client's contact card (focal point, email, position,
+mobile) except onto every one of that client's projects — the real engagement
+register produced 21 independently-editable copies of one phone number, none
+authoritative. #199 adds a `scope` to `project_field_defs` (`'project'` default,
+`'client'`) and a parallel `client_field_values` table keyed by `client_id`;
+`rpc_set_project_field_values`, `rpc_projects_table` and `fn_project_field_matches`
+each gain one client-scoped leg resolved through `projects.client_id`, so a
+client-scoped value is written once and read identically on every engagement.
+Phase 1 (scope mechanism for new fields, importer defaults email/phone/unique_id
+columns to client scope) moves zero rows and is the piece that must ship before
+any export faithfully copies the duplication around. Promoting an
+already-populated field, cross-project copy, and the shared-value UI affordances
+are Phases 2–3. Full plan: `docs/CLIENT_SCOPED_FIELDS_PLAN.md`.
+
+---
+
 ## 14. Phase 8 — re-brand and interaction polish
 
 The last phase, and the longest. Everything before it is judged on whether the

@@ -3,9 +3,11 @@ import React, { useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import Popup from '@/components/common/Popup';
+import Tooltip from '@/components/common/Tooltip';
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
 import {
   FIELD_TYPE_LABELS,
   deleteFieldDef,
@@ -13,6 +15,7 @@ import {
   sortDefs,
   useProjectFieldDefs,
   type FieldDataType,
+  type FieldScope,
   type ProjectFieldDef,
 } from '@/hooks/useProjectFields';
 
@@ -38,6 +41,11 @@ const TYPE_OPTIONS: { value: FieldDataType; label: string; icon: string }[] = [
   { value: 'enum', label: 'Choice list', icon: 'list-ul' },
 ];
 
+const SCOPE_OPTIONS: { value: FieldScope; label: string; icon: string; hint: string }[] = [
+  { value: 'project', label: 'Per project', icon: 'folder-o', hint: 'A separate value on every engagement.' },
+  { value: 'client', label: 'Shared per client', icon: 'users', hint: 'One value shared across all of a client’s engagements.' },
+];
+
 function slugify(label: string): string {
   return (
     label
@@ -54,11 +62,12 @@ type Draft = {
   key: string;
   label: string;
   data_type: FieldDataType;
+  scope: FieldScope;
   enumOptions: string; // comma-separated in the form; parsed on save
   keyTouched: boolean;
 };
 
-const BLANK: Draft = { id: null, key: '', label: '', data_type: 'text', enumOptions: '', keyTouched: false };
+const BLANK: Draft = { id: null, key: '', label: '', data_type: 'text', scope: 'project', enumOptions: '', keyTouched: false };
 
 export default function ManageProjectFieldsPopup({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const c = useThemeColors();
@@ -70,20 +79,32 @@ export default function ManageProjectFieldsPopup({ visible, onClose }: { visible
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  // #199 — scope cannot be flipped once a def has values (the RPC refuses it);
+  // the toggle disables and explains rather than letting the save fail.
+  const [editingHasValues, setEditingHasValues] = useState(false);
 
   const sorted = sortDefs(defs);
 
-  const startCreate = () => { setProblem(null); setDraft({ ...BLANK }); };
+  const startCreate = () => { setProblem(null); setEditingHasValues(false); setDraft({ ...BLANK }); };
   const startEdit = (d: ProjectFieldDef) => {
     setProblem(null);
+    setEditingHasValues(false);
     setDraft({
       id: d.id,
       key: d.key,
       label: d.label,
       data_type: d.data_type,
+      scope: d.scope,
       enumOptions: (d.enum_options ?? []).join(', '),
       keyTouched: true,
     });
+    void (async () => {
+      const [{ count: pc }, { count: cc }] = await Promise.all([
+        supabase.from('project_field_values').select('field_def_id', { count: 'exact', head: true }).eq('field_def_id', d.id),
+        supabase.from('client_field_values').select('field_def_id', { count: 'exact', head: true }).eq('field_def_id', d.id),
+      ]);
+      setEditingHasValues((pc ?? 0) > 0 || (cc ?? 0) > 0);
+    })();
   };
 
   const save = async () => {
@@ -105,7 +126,7 @@ export default function ManageProjectFieldsPopup({ visible, onClose }: { visible
 
     setSaving(true);
     setProblem(null);
-    const err = await saveFieldDef({ id: draft.id, key, label, data_type: draft.data_type, enum_options: enumOptions });
+    const err = await saveFieldDef({ id: draft.id, key, label, data_type: draft.data_type, scope: draft.scope, enum_options: enumOptions });
     setSaving(false);
     if (err) { setProblem(err); return; }
     successToast(draft.id ? `${label} updated.` : `${label} added.`, 'Saved');
@@ -226,6 +247,46 @@ export default function ManageProjectFieldsPopup({ visible, onClose }: { visible
                   );
                 })}
               </View>
+            </View>
+
+            {/* #199 — what the field is ABOUT. Locked once it has values. */}
+            <View className="gap-1.5">
+              <Text className="text-typography-label text-[10px] font-bold uppercase tracking-wider">Scope</Text>
+              <Tooltip
+                label={
+                  draft.id && editingHasValues
+                    ? 'This field already has values. Changing its scope moves data between projects and clients — that will be a reviewed action (“Promote to client scope”), not an edit.'
+                    : ''
+                }
+                side="top"
+              >
+                <View className="flex-row flex-wrap gap-2">
+                  {SCOPE_OPTIONS.map(opt => {
+                    const active = draft.scope === opt.value;
+                    const locked = !!draft.id && editingHasValues;
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
+                        disabled={locked}
+                        onPress={() => setDraft(d => d && ({ ...d, scope: opt.value }))}
+                        className="flex-row items-center gap-1.5 rounded-lg border px-3"
+                        style={{
+                          height: 34,
+                          opacity: locked && !active ? 0.4 : 1,
+                          borderColor: active ? c.primary : c.border,
+                          backgroundColor: active ? c.primary + '1A' : 'transparent',
+                        }}
+                      >
+                        <FontAwesome name={opt.icon as any} size={11} color={active ? c.primary : c.textMuted} />
+                        <Text className={`text-xs font-semibold ${active ? 'text-brand-primary' : 'text-typography-main'}`}>{opt.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </Tooltip>
+              <Text className="text-typography-dim text-[10px]">
+                {SCOPE_OPTIONS.find(o => o.value === draft.scope)?.hint}
+              </Text>
             </View>
 
             {draft.data_type === 'enum' && (

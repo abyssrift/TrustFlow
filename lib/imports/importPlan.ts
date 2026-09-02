@@ -32,6 +32,15 @@ export type FieldDataType = 'text' | 'number' | 'date' | 'enum' | 'boolean';
  */
 export type FieldFormat = 'plain' | 'year' | 'money' | 'percent';
 
+/**
+ * What a custom field is ABOUT (issue #199). Mirrors
+ * project_field_defs.scope's CHECK constraint. `'project'` values live in
+ * project_field_values keyed by project; `'client'` values live in
+ * client_field_values keyed by client and are shared by every one of that
+ * client's engagements. A field is exactly one scope — never both.
+ */
+export type FieldScope = 'project' | 'client';
+
 export const FIELD_TYPE_LABELS: Record<FieldDataType, string> = {
   text: 'Text', number: 'Number', date: 'Date', enum: 'Choice', boolean: 'Yes / No',
 };
@@ -43,13 +52,15 @@ export type ExistingFieldDef = {
   data_type: FieldDataType;
   enum_options: string[] | null;
   source_column: string | null;
+  /** #199 — a matched column inherits the def's existing scope, never re-guesses it. */
+  scope: FieldScope;
 };
 
 export type ColumnTarget =
   /** one of the four concepts rpc_instantiate_template's p_projects actually carries */
   | { kind: 'field'; field: MappedField }
   /** project_field_defs — the §18.3 default for anything the product has no concept for */
-  | { kind: 'custom'; key: string; label: string; dataType: FieldDataType; enumOptions: string[] | null; defId: string | null }
+  | { kind: 'custom'; key: string; label: string; dataType: FieldDataType; enumOptions: string[] | null; defId: string | null; scope: FieldScope }
   /** the ONLY way data leaves the import, and it takes a deliberate click */
   | { kind: 'ignore' };
 
@@ -103,6 +114,18 @@ export function displayFormatForPrimitive(p: ColumnPrimitive): FieldFormat | nul
     case 'money': return 'money';
     default: return null;
   }
+}
+
+/**
+ * #199 — a NEW custom column's default scope. Email / phone / unique_id content
+ * is almost always the client's contact card (focal point, mobile, position),
+ * which the same person carries across every engagement — so it defaults to
+ * 'client'. Everything else is per-engagement ('project'). The user can flip it
+ * in the review step; a column matched to an EXISTING def inherits that def's
+ * scope instead and never comes through here.
+ */
+export function defaultScopeForPrimitive(p: ColumnPrimitive): FieldScope {
+  return p === 'email' || p === 'phone' || p === 'unique_id' ? 'client' : 'project';
 }
 
 /**
@@ -187,6 +210,7 @@ export function buildColumnDecisions(
         target: {
           kind: 'custom', defId: existing.id, key: existing.key, label: existing.label,
           dataType: existing.data_type, enumOptions: existing.enum_options,
+          scope: existing.scope,
         },
       };
     }
@@ -201,6 +225,7 @@ export function buildColumnDecisions(
         label: profile.header.trim() || `Column ${profile.index + 1}`,
         dataType,
         enumOptions: dataType === 'enum' ? (profile.enumValues ?? []).map(v => v.label) : null,
+        scope: defaultScopeForPrimitive(profile.primitive),
       },
     };
   });
@@ -393,6 +418,8 @@ export type CustomFieldPlan = {
   sourceColumn: string;
   columnIndex: number;
   defId: string | null;
+  /** #199 — 'client' writes one shared value per client; 'project' writes per project. */
+  scope: FieldScope;
 };
 
 /** Every column the user left pointed at a custom field, in source order. */
@@ -410,6 +437,7 @@ export function customFieldPlans(decisions: ColumnDecision[]): CustomFieldPlan[]
       sourceColumn: d.profile.header,
       columnIndex: d.index,
       defId: d.target.defId,
+      scope: d.target.scope,
     }));
 }
 
