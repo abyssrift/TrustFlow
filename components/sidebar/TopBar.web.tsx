@@ -154,6 +154,11 @@ export default function TopBar({
             className="flex-1 text-sm text-typography-main"
             style={{ paddingVertical: 0 }}
           />
+          {/* Visual cue only — the whole field opens the palette; this just
+              tells you the shortcut (matches the palette's own keycap chips). */}
+          <View className="px-1.5 py-0.5 rounded-md" style={{ borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ fontFamily: 'SpaceMono', fontSize: 10, color: colors.textDim }}>⌘K</Text>
+          </View>
         </Pressable>
 
         <PinnedShortcuts
