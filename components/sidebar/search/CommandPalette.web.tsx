@@ -19,17 +19,20 @@
 // escape nav while open.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions, type TextStyle } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModalDispatch } from '@/contexts/ModalDispatchContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/lib/supabase';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { resultRoute, useGlobalSearch, type ResultType, type SearchResult } from '@/hooks/useGlobalSearch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
 import { useRecentDestinations } from '@/hooks/useRecentDestinations';
 import { fuzzyMatch, matchDestinations, type DestinationMatch, type IconName } from '@/components/sidebar/constants';
+import { parseInputMode, PALETTE_COMMANDS, type PaletteCommand, type PaletteCommandCtx } from '@/components/sidebar/palette-commands';
 import { ENTITY_META, EntityGlyph, type EntityKind } from '@/components/entities/EntityUI';
 import { relTime, TYPE_ICON, TYPE_LABEL } from './SearchResultRow';
 import { highlightRuns } from './highlight';
@@ -49,6 +52,7 @@ const PER_GROUP = 3;
 // + natural-language dates). Surfaced, not re-implemented — tapping one just
 // seeds the input. Not nav targets, so they stay out of the arrow-key list.
 const SEARCH_TIPS: { token: string; hint: string; icon: IconName }[] = [
+  { token: '>', hint: 'Run a command', icon: 'terminal' },
   { token: 'task:', hint: 'Only tasks', icon: 'check-square-o' },
   { token: 'file:', hint: 'Only files', icon: 'file-o' },
   { token: 'report:', hint: 'Only reports', icon: 'bar-chart' },
@@ -60,7 +64,9 @@ type PaletteItem =
   | { kind: 'action'; run: () => void }
   | { kind: 'page'; dest: DestinationMatch }
   | { kind: 'result'; result: SearchResult }
-  | { kind: 'recent-search'; q: string };
+  | { kind: 'recent-search'; q: string }
+  // #347 — inline quick-create row (always flatItems[0] when present).
+  | { kind: 'create-inline'; entity: 'task' | 'project'; title: string };
 
 type CreateAction = {
   id: string;
@@ -254,7 +260,9 @@ export default function CommandPalette({
 }) {
   const colors = useThemeColors();
   const router = useRouter();
-  const { hasPermission, profile } = useAuth();
+  const pathname = usePathname();
+  const { hasPermission, profile, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const { summon } = useModalDispatch();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
@@ -266,13 +274,54 @@ export default function CommandPalette({
   const [mode, setMode] = useState<'list' | 'actions'>('list');
   const [actionTarget, setActionTarget] = useState<SearchResult | null>(null);
   const [actionSel, setActionSel] = useState(0);
-  const { successToast, errorToast } = useToast();
+  // #346 — command mode (`>` prefix). Its own selection cursor, mirroring
+  // #345's separate `actionSel`. Command mode itself isn't stored in `mode`:
+  // it's derived from the query (see `input`/`paletteMode` below), so
+  // backspacing past the `>` returns to the list with nothing to reset.
+  const [cmdSel, setCmdSel] = useState(0);
+  const { successToast, errorToast, showToast } = useToast();
 
   const { results, grouped, loading, searchError } = useGlobalSearch(query, { enabled: open, limit: 40 });
   const { recent, push: pushRecent } = useRecentSearches();
   const { recent: recentDests, record: recordDest } = useRecentDestinations();
 
   const q = query.trim().toLowerCase();
+
+  // #346/#347 — one parse of the query's leading string decides everything:
+  // `>` → command mode, `nt `/`new task:` etc → inline quick-create, else normal.
+  const input = useMemo(() => parseInputMode(query), [query]);
+  // `mode` (useState) stays 'list' | 'actions'. Command mode is a 3rd *derived*
+  // state layered on top — active whenever the query starts with `>`, so it
+  // resets itself the moment the `>` is gone. `list` and `actions` reset via
+  // the existing `backToList()` effect (open edge + every query change).
+  const paletteMode: 'list' | 'actions' | 'commands' =
+    input.mode === 'command' ? 'commands' : mode;
+
+  // #346 — permission-gated, then fuzzy-filtered by the text after `>`.
+  const commands = useMemo<PaletteCommand[]>(() => {
+    const avail = PALETTE_COMMANDS.filter((c) => !c.permission || hasPermission(c.permission));
+    const t = input.mode === 'command' ? input.text.toLowerCase() : '';
+    if (!t) return avail;
+    return avail
+      .map((c) => ({ c, m: fuzzyMatch(t, c.label) }))
+      .filter((x): x is { c: PaletteCommand; m: { hit: boolean; score: number } } => !!x.m)
+      .sort((x, y) => y.m.score - x.m.score)
+      .map((x) => x.c);
+  }, [hasPermission, input]);
+
+  // #347 — the inline quick-create target, permission-gated. Null unless a
+  // create prefix is active with non-empty trailing text and the caller may
+  // create that entity.
+  const createInline = useMemo<{ entity: 'task' | 'project'; title: string } | null>(() => {
+    if (input.mode === 'create-task' && input.text) {
+      return hasPermission('task.create') ? { entity: 'task', title: input.text } : null;
+    }
+    if (input.mode === 'create-project' && input.text) {
+      return hasPermission('project.create') ? { entity: 'project', title: input.text } : null;
+    }
+    return null;
+  }, [input, hasPermission]);
+
   // Highlighter pen, not a whisper: ~0x66 ≈ 40% accent behind the text, bold,
   // rounded so it reads as a marker stroke. 10% (the old 0x1A) was invisible.
   const tintStyle = useMemo<TextStyle>(
@@ -353,20 +402,27 @@ export default function CommandPalette({
   // ↑/↓ hop the grid↔list boundary in whole rows.
   const flatItems = useMemo<PaletteItem[]>(() => {
     const items: PaletteItem[] = [];
+    // #347 — the inline quick-create row is always first when present.
+    if (createInline) items.push({ kind: 'create-inline', entity: createInline.entity, title: createInline.title });
     for (const d of recentDestMatches) items.push({ kind: 'page', dest: d });
     for (const a of matchedActions) items.push({ kind: 'action', run: a.run });
     for (const d of destMatches) items.push({ kind: 'page', dest: d });
-    for (const t of groupRows) for (const r of grouped[t]!.slice(0, PER_GROUP)) items.push({ kind: 'result', result: r });
+    // #347: the result-search block is hidden while an inline-create prefix is
+    // active, so keep those rows out of the nav list too or `sel` drifts.
+    if (!createInline) for (const t of groupRows) for (const r of grouped[t]!.slice(0, PER_GROUP)) items.push({ kind: 'result', result: r });
     for (const s of recentSearchNav) items.push({ kind: 'recent-search', q: s });
     return items;
-  }, [recentDestMatches, matchedActions, destMatches, groupRows, grouped, recentSearchNav]);
+  }, [createInline, recentDestMatches, matchedActions, destMatches, groupRows, grouped, recentSearchNav]);
 
   // Nothing matched a non-empty query (and we're done loading) → offer to create
   // a task named after the query. Same predicate gates the row and the ⏎ handler.
+  // #347: suppressed when a create prefix is active — the inline create row
+  // (createInline / flatItems[0]) supersedes it so the two never both fire.
   const noHits = results.length === 0 && destMatches.length === 0 && matchedActions.length === 0;
-  const showCreateHint = !!q && !searchError && !(loading && results.length === 0) && noHits;
+  const showCreateHint =
+    !!q && input.mode === 'normal' && !searchError && !(loading && results.length === 0) && noHits;
 
-  const gridStart = recentDestMatches.length;
+  const gridStart = (createInline ? 1 : 0) + recentDestMatches.length;
   const tileCount = matchedActions.length;
   const gridEnd = gridStart + tileCount; // first flat index after the tile grid
   const inGrid = (i: number) => i >= gridStart && i < gridEnd;
@@ -396,6 +452,11 @@ export default function CommandPalette({
     setSel((i) => Math.max(0, Math.min(i, flatItems.length - 1)));
   }, [flatItems.length]);
 
+  // #346 — command cursor back to the top whenever the command filter changes.
+  useEffect(() => {
+    setCmdSel(0);
+  }, [input.mode, input.text]);
+
   // Keep the selected row visible in the scroll area. Web-only surface, so
   // scrollIntoView on the resolved DOM node is the whole implementation — no
   // measureLayout math, no library. Rebuilt every render (cheap); React nulls
@@ -419,11 +480,48 @@ export default function CommandPalette({
     router.push(`/search?q=${encodeURIComponent(raw)}` as any);
   }, [query, onClose, pushRecent, router]);
 
+  // #347 — create straight from the palette, no modal. Only p_title / p_name is
+  // required; every other rpc_create_task / rpc_create_project param defaults
+  // server-side (pipeline resolves to the project's or the company default).
+  const runInlineCreate = useCallback(
+    async (entity: 'task' | 'project', rawTitle: string) => {
+      const title = rawTitle.trim();
+      if (!title) return;
+      try {
+        if (entity === 'task') {
+          const { data, error } = await supabase.rpc('rpc_create_task', { p_title: title });
+          if (error) throw error;
+          showToast({
+            type: 'success', title: 'Task created', message: `"${title}"`,
+            actionLabel: 'Open', onPress: () => router.push(`/task/${data}` as any),
+          });
+        } else {
+          const { data, error } = await supabase.rpc('rpc_create_project', { p_name: title });
+          if (error) throw error;
+          const id = (data as { id?: string } | null)?.id;
+          showToast({
+            type: 'success', title: 'Project created', message: `"${title}"`,
+            actionLabel: id ? 'Open' : undefined,
+            onPress: id ? () => router.push(`/projects/${id}` as any) : undefined,
+          });
+        }
+        onClose();
+      } catch (e) {
+        errorToast(e instanceof Error ? e.message : `Could not create ${entity}`);
+      }
+    },
+    [showToast, errorToast, onClose, router]
+  );
+
   const activate = useCallback(
     (it: PaletteItem) => {
       if (it.kind === 'action') {
         it.run();
         onClose();
+        return;
+      }
+      if (it.kind === 'create-inline') {
+        void runInlineCreate(it.entity, it.title);
         return;
       }
       if (it.kind === 'recent-search') {
@@ -452,8 +550,15 @@ export default function CommandPalette({
         router.push(resultRoute(r) as any);
       }
     },
-    [onClose, router, query, pushRecent, recordDest]
+    [onClose, router, query, pushRecent, recordDest, runInlineCreate]
   );
+
+  // #346 — ctx the registry's `run(ctx)` closes over, plus the runner.
+  const cmdCtx = useMemo<PaletteCommandCtx>(
+    () => ({ theme, setTheme, pathname, signOut, successToast, errorToast, close: onClose }),
+    [theme, setTheme, pathname, signOut, successToast, errorToast, onClose]
+  );
+  const runCommand = useCallback((c: PaletteCommand) => void c.run(cmdCtx), [cmdCtx]);
 
   // #345 — enter/leave the per-result action panel.
   const backToList = useCallback(() => {
@@ -482,6 +587,27 @@ export default function CommandPalette({
     if (!open || Platform.OS !== 'web') return;
     const last = () => flatItems.length - 1;
     const onKey = (e: KeyboardEvent) => {
+      // #346 — command mode owns the keyboard. ↑↓ move, ⏎ runs, Esc clears the
+      // `>` (which drops back to the list). Backspacing past the `>` needs no
+      // handler — the query change re-derives paletteMode on its own.
+      if (paletteMode === 'commands') {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setCmdSel((i) => Math.min(i + 1, commands.length - 1));
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setCmdSel((i) => Math.max(i - 1, 0));
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const c = commands[cmdSel];
+          if (c) runCommand(c);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setQuery('');
+          setSel(0);
+        }
+        return;
+      }
       // #345 — action panel owns the keyboard while open. ← / Esc back out to
       // the list (Esc does NOT close the palette here); ↑↓ move; ⏎ runs.
       if (mode === 'actions') {
@@ -566,7 +692,7 @@ export default function CommandPalette({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, flatItems, sel, gridStart, gridEnd, tileCount, tileCols, query, activate, seeAll, onClose, summon, showCreateHint, mode, actions, actionSel, backToList, enterActions]);
+  }, [open, flatItems, sel, gridStart, gridEnd, tileCount, tileCols, query, activate, seeAll, onClose, summon, showCreateHint, mode, actions, actionSel, backToList, enterActions, paletteMode, commands, cmdSel, runCommand]);
 
   const seedTip = useCallback((token: string) => {
     setQuery(token + ' ');
@@ -606,10 +732,48 @@ export default function CommandPalette({
         </View>
 
         <ScrollView style={{ maxHeight: isMobile ? 360 : 440 }} keyboardShouldPersistTaps="handled">
+          {/* #346 — command mode (`>` prefix). Rows styled like GO TO: icon chip
+              + label + optional SpaceMono hint on the right. Own `cmdSel` cursor. */}
+          {paletteMode === 'commands' && (
+            <View className="mb-1">
+              <SectionHeader label="Commands" colors={colors} />
+              {commands.map((c, i) => {
+                const on = i === cmdSel;
+                return (
+                  <Pressable
+                    key={c.id}
+                    onHoverIn={() => setCmdSel(i)}
+                    onPress={() => runCommand(c)}
+                    className="flex-row items-center gap-3 rounded-xl px-3 py-2.5 mx-1"
+                    style={on ? { backgroundColor: selBg } : undefined}
+                  >
+                    <View className="h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: colors.primary + '14' }}>
+                      <FontAwesome name={c.icon} size={13} color={colors.primary} />
+                    </View>
+                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, fontWeight: '600', color: colors.textMain }}>
+                      {c.label}
+                    </Text>
+                    {c.hint ? (
+                      <Text style={{ fontFamily: 'SpaceMono', fontSize: 11, color: colors.textMuted }}>{c.hint}</Text>
+                    ) : null}
+                    <View className="w-4 items-end">
+                      {on && <FontAwesome name="arrow-right" size={11} color={colors.textDim} />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+              {commands.length === 0 && (
+                <View className="items-center px-3 py-8">
+                  <Text style={{ color: colors.textMuted, fontSize: 12 }}>No matching command</Text>
+                </View>
+              )}
+            </View>
+          )}
+
           {/* #345 — per-result action panel: compact non-interactive target row
               (ResultRow style) + the action list, styled like GO TO rows. Panel
               swap inside the same Popup card — no nested Modal, no popover lib. */}
-          {mode === 'actions' && actionTarget && (
+          {paletteMode === 'actions' && actionTarget && (
             <View className="mb-1">
               <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border }} className="pb-1">
                 <ResultRow
@@ -653,8 +817,33 @@ export default function CommandPalette({
             </View>
           )}
 
-          {mode === 'list' && (
+          {paletteMode === 'list' && (
           <>
+          {/* #347 — inline quick-create row. flatItems[0] when present, so it
+              renders before everything else to keep `idx` aligned with `sel`. */}
+          {(createInline ? [createInline] : []).map((ci) => {
+            const i = idx++;
+            const on = i === sel;
+            return (
+              <Pressable
+                key="create-inline"
+                ref={setRowRef(i)}
+                onHoverIn={() => setSel(i)}
+                onPress={() => runInlineCreate(ci.entity, ci.title)}
+                className="flex-row items-center gap-3 rounded-xl px-3 py-4 mx-1"
+                style={on ? { backgroundColor: selBg } : undefined}
+              >
+                <View className="h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: colors.accent + '1A' }}>
+                  <FontAwesome name="plus" size={13} color={colors.accent} />
+                </View>
+                <Text numberOfLines={2} style={{ flex: 1, fontSize: 13, color: colors.textMain }}>
+                  <Text style={{ fontFamily: 'SpaceMono', color: colors.textMuted }}>⏎</Text>
+                  {'  '}Create {ci.entity} “{ci.title}”
+                </Text>
+              </Pressable>
+            );
+          })}
+
           {/* RECENT — frequent-first destinations opened from the palette before
               (#343). Empty query only, and walked FIRST in flatItems, so it
               renders first here to keep `idx` aligned with `sel`. */}
@@ -746,8 +935,10 @@ export default function CommandPalette({
           )}
 
           {/* !!q, not q: a bare falsy `''` renders as a stray text node and
-              RNW warns "text node cannot be a child of <View>". */}
-          {!!q &&
+              RNW warns "text node cannot be a child of <View>".
+              #347: with an inline-create prefix active the create row is the
+              answer — don't also spin or render results for "nt fix the bug". */}
+          {!!q && !createInline &&
             (searchError ? (
               <View className="items-center px-3 py-8">
                 <Text style={{ color: colors.textMuted, fontSize: 12 }}>Search failed — try again</Text>
@@ -894,7 +1085,13 @@ export default function CommandPalette({
           className="flex-row items-center gap-4 px-4 py-2.5"
           style={{ borderTopWidth: 1, borderTopColor: colors.border }}
         >
-          {mode === 'actions' ? (
+          {paletteMode === 'commands' ? (
+            <>
+              <HintKey combo="↑↓" label="navigate" colors={colors} />
+              <HintKey combo="⏎" label="run" colors={colors} />
+              <HintKey combo="esc" label="exit" colors={colors} />
+            </>
+          ) : paletteMode === 'actions' ? (
             <>
               <HintKey combo="↑↓" label="navigate" colors={colors} />
               <HintKey combo="⏎" label="run" colors={colors} />
