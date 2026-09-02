@@ -27,7 +27,8 @@ import { useModalDispatch } from '@/contexts/ModalDispatchContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { resultRoute, useGlobalSearch, type ResultType, type SearchResult } from '@/hooks/useGlobalSearch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
-import { matchDestinations, type DestinationMatch, type IconName } from '@/components/sidebar/constants';
+import { useRecentDestinations } from '@/hooks/useRecentDestinations';
+import { fuzzyMatch, matchDestinations, type DestinationMatch, type IconName } from '@/components/sidebar/constants';
 import { ENTITY_META, EntityGlyph, type EntityKind } from '@/components/entities/EntityUI';
 import { relTime, TYPE_ICON, TYPE_LABEL } from './SearchResultRow';
 import { highlightRuns } from './highlight';
@@ -57,7 +58,8 @@ const SEARCH_TIPS: { token: string; hint: string; icon: IconName }[] = [
 type PaletteItem =
   | { kind: 'action'; run: () => void }
   | { kind: 'page'; dest: DestinationMatch }
-  | { kind: 'result'; result: SearchResult };
+  | { kind: 'result'; result: SearchResult }
+  | { kind: 'recent-search'; q: string };
 
 type CreateAction = {
   id: string;
@@ -79,6 +81,10 @@ function renderHighlighted(text: string | null, tintStyle: TextStyle) {
 
 // Plain (non-<b>) substring highlighter for GO TO rows: tint the letters the
 // user actually typed, in the label or in the "Also known as:" synonym.
+// #344: matching is fuzzy now, so a row can match without any contiguous
+// substring — in that case indexOf misses and we render plain text rather than
+// tint the wrong span. (A per-char subsequence highlighter is a possible
+// follow-up; not worth it for the label lengths here.)
 function highlightSub(text: string, q: string, tintStyle: TextStyle): React.ReactNode {
   if (!q) return text;
   const at = text.toLowerCase().indexOf(q);
@@ -89,6 +95,63 @@ function highlightSub(text: string, q: string, tintStyle: TextStyle): React.Reac
       <Text style={tintStyle}>{text.slice(at, at + q.length)}</Text>
       {text.slice(at + q.length)}
     </>
+  );
+}
+
+// One row for both GO TO (query matches) and RECENT (frequent destinations on
+// an empty query) — identical style: icon chip + label + breadcrumb/"Also known
+// as" sub-line + trailing → on the active row. `q` is '' for RECENT, so
+// highlightSub is a no-op there.
+function PageRow({
+  d,
+  selected,
+  q,
+  tintStyle,
+  selBg,
+  colors,
+  onHoverIn,
+  onPress,
+  rowRef,
+}: {
+  d: DestinationMatch;
+  selected: boolean;
+  q: string;
+  tintStyle: TextStyle;
+  selBg: string;
+  colors: ReturnType<typeof useThemeColors>;
+  onHoverIn: () => void;
+  onPress: () => void;
+  rowRef: (node: any) => void;
+}) {
+  return (
+    <Pressable
+      ref={rowRef}
+      onHoverIn={onHoverIn}
+      onPress={onPress}
+      className="flex-row items-center gap-3 rounded-xl px-3 py-2.5 mx-1"
+      style={selected ? { backgroundColor: selBg } : undefined}
+    >
+      <View className="h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: colors.primary + '14' }}>
+        <FontAwesome name={d.icon} size={13} color={colors.primary} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '600', color: colors.textMain }}>
+          {highlightSub(d.label, q, tintStyle)}
+        </Text>
+        {d.matchedKeyword ? (
+          <Text numberOfLines={1} style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
+            Also known as: {highlightSub(d.matchedKeyword, q, tintStyle)}
+          </Text>
+        ) : d.parentLabel ? (
+          <Text numberOfLines={1} style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
+            {d.parentLabel} › {d.label}
+          </Text>
+        ) : null}
+      </View>
+      <View className="w-4 items-end">
+        {selected && <FontAwesome name="arrow-right" size={11} color={colors.textDim} />}
+      </View>
+    </Pressable>
   );
 }
 
@@ -136,6 +199,7 @@ export default function CommandPalette({
 
   const { results, grouped, loading, searchError } = useGlobalSearch(query, { enabled: open, limit: 40 });
   const { recent, push: pushRecent } = useRecentSearches();
+  const { recent: recentDests, record: recordDest } = useRecentDestinations();
 
   const q = query.trim().toLowerCase();
   // Highlighter pen, not a whisper: ~0x66 ≈ 40% accent behind the text, bold,
@@ -164,10 +228,15 @@ export default function CommandPalette({
     ];
     return all.filter((a) => hasPermission(a.permission));
   }, [hasPermission, summon]);
-  const matchedActions = useMemo(
-    () => (q ? createActions.filter((a) => a.label.toLowerCase().includes(q)) : createActions),
-    [createActions, q]
-  );
+  // Fuzzy tile filter — "nwtsk" still finds New Task — best score first.
+  const matchedActions = useMemo(() => {
+    if (!q) return createActions;
+    return createActions
+      .map((a) => ({ a, m: fuzzyMatch(q, a.label) }))
+      .filter((x): x is { a: CreateAction; m: { hit: boolean; score: number } } => !!x.m)
+      .sort((x, y) => y.m.score - x.m.score)
+      .map((x) => x.a);
+  }, [createActions, q]);
 
   // GO TO: top-level SHORTCUTS + keyword-indexed sub-destinations, one registry
   // (constants.ts). Empty query → top-level only; otherwise label + synonym
@@ -181,26 +250,61 @@ export default function CommandPalette({
     [q, grouped]
   );
 
-  // Flat, ordered nav list: create actions, then GO TO rows, then results by
-  // group — the render below walks the same order so `sel` lines up on screen.
+  // RECENT — frequent-first destinations opened from the palette before. Empty
+  // query only. Rendered as GO TO rows and reusing the `page` item kind (they
+  // route the same way), so they're keyboard-navigable for free.
+  const recentDestMatches = useMemo<DestinationMatch[]>(
+    () =>
+      q
+        ? []
+        : recentDests.map((d) => ({
+            id: d.id,
+            label: d.label,
+            href: d.href,
+            icon: d.icon,
+            parentLabel: d.parentLabel,
+            topLevel: false,
+          })),
+    [q, recentDests]
+  );
+  // RECENT SEARCHES — the query strings from useRecentSearches, now nav targets
+  // too (empty query only). ⏎ on one re-runs that search rather than closing.
+  const recentSearchNav = useMemo(() => (q ? [] : recent), [q, recent]);
+
+  // Flat, ordered nav list — the render below walks this exact order so `sel`
+  // lines up on screen:
+  //   recent destinations → CREATE tiles → GO TO → results → recent searches
   //
-  // 2D-within-1-D: the CREATE tiles are simply the first `tileCount` entries.
-  // ⏎ / `sel` work unchanged; the key handler adds ←/→ that only move inside
-  // [0, tileCount) and makes ↑/↓ hop the grid↔list boundary in whole rows.
+  // 2D-within-1-D: the CREATE tiles occupy [gridStart, gridStart+tileCount).
+  // `gridStart` is only non-zero on an empty query (the recent-destination rows
+  // that sit above the grid). The key handler's ←/→ stay inside that band and
+  // ↑/↓ hop the grid↔list boundary in whole rows.
   const flatItems = useMemo<PaletteItem[]>(() => {
-    const items: PaletteItem[] = matchedActions.map((a) => ({ kind: 'action', run: a.run }));
+    const items: PaletteItem[] = [];
+    for (const d of recentDestMatches) items.push({ kind: 'page', dest: d });
+    for (const a of matchedActions) items.push({ kind: 'action', run: a.run });
     for (const d of destMatches) items.push({ kind: 'page', dest: d });
     for (const t of groupRows) for (const r of grouped[t]!.slice(0, PER_GROUP)) items.push({ kind: 'result', result: r });
+    for (const s of recentSearchNav) items.push({ kind: 'recent-search', q: s });
     return items;
-  }, [matchedActions, destMatches, groupRows, grouped]);
+  }, [recentDestMatches, matchedActions, destMatches, groupRows, grouped, recentSearchNav]);
 
+  // Nothing matched a non-empty query (and we're done loading) → offer to create
+  // a task named after the query. Same predicate gates the row and the ⏎ handler.
+  const noHits = results.length === 0 && destMatches.length === 0 && matchedActions.length === 0;
+  const showCreateHint = !!q && !searchError && !(loading && results.length === 0) && noHits;
+
+  const gridStart = recentDestMatches.length;
   const tileCount = matchedActions.length;
+  const gridEnd = gridStart + tileCount; // first flat index after the tile grid
+  const inGrid = (i: number) => i >= gridStart && i < gridEnd;
   const tileCols = tileCount === 0 ? 1 : isMobile ? Math.min(2, tileCount) : tileCount;
   // Last tile the selection sat on — ↑ from the first non-tile row returns here.
-  const lastTile = useRef(0);
+  const lastTile = useRef(gridStart);
   useEffect(() => {
-    if (sel < tileCount) lastTile.current = sel;
-  }, [sel, tileCount]);
+    if (inGrid(sel)) lastTile.current = sel;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, gridStart, gridEnd]);
 
   useEffect(() => {
     if (!open) return;
@@ -218,6 +322,22 @@ export default function CommandPalette({
     setSel((i) => Math.max(0, Math.min(i, flatItems.length - 1)));
   }, [flatItems.length]);
 
+  // Keep the selected row visible in the scroll area. Web-only surface, so
+  // scrollIntoView on the resolved DOM node is the whole implementation — no
+  // measureLayout math, no library. Rebuilt every render (cheap); React nulls
+  // stale entries on unmount.
+  const rowRefs = useRef(new Map<number, any>());
+  const setRowRef = (i: number) => (node: any) => {
+    if (node) rowRefs.current.set(i, node);
+    else rowRefs.current.delete(i);
+  };
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const node = rowRefs.current.get(sel);
+    const dom = node instanceof Element ? node : node?.getDOMNode?.();
+    dom?.scrollIntoView?.({ block: 'nearest' });
+  }, [sel, flatItems.length]);
+
   const seeAll = useCallback(() => {
     const raw = query.trim();
     onClose();
@@ -232,16 +352,33 @@ export default function CommandPalette({
         onClose();
         return;
       }
+      if (it.kind === 'recent-search') {
+        // Re-run the search, don't leave the palette.
+        setQuery(it.q);
+        setSel(0);
+        return;
+      }
       onClose();
       if (it.kind === 'page') {
-        router.push(it.dest.href as any);
+        const d = it.dest;
+        recordDest({ id: d.id, label: d.label, href: d.href, icon: d.icon, parentLabel: d.parentLabel, kind: 'page' });
+        router.push(d.href as any);
       } else {
         const raw = query.trim();
         if (raw) pushRecent(raw);
-        router.push(resultRoute(it.result) as any);
+        const r = it.result;
+        recordDest({
+          id: `${r.type}-${r.id}`,
+          label: r.title || TYPE_LABEL[r.type] || 'Untitled',
+          href: resultRoute(r),
+          icon: TYPE_ICON[r.type] ?? 'circle-o',
+          parentLabel: GROUP_LABEL[r.type] ?? TYPE_LABEL[r.type],
+          kind: 'result',
+        });
+        router.push(resultRoute(r) as any);
       }
     },
-    [onClose, router, query, pushRecent]
+    [onClose, router, query, pushRecent, recordDest]
   );
 
   // Arrow / Enter / Escape while open. Web only.
@@ -249,27 +386,31 @@ export default function CommandPalette({
     if (!open || Platform.OS !== 'web') return;
     const last = () => flatItems.length - 1;
     const onKey = (e: KeyboardEvent) => {
-      const inGrid = sel < tileCount;
-      if (e.key === 'ArrowRight' && inGrid) {
+      if (e.key === 'ArrowRight' && inGrid(sel)) {
         e.preventDefault();
-        setSel((i) => Math.min(tileCount - 1, i + 1));
-      } else if (e.key === 'ArrowLeft' && inGrid) {
+        setSel((i) => Math.min(gridEnd - 1, i + 1));
+      } else if (e.key === 'ArrowLeft' && inGrid(sel)) {
         e.preventDefault();
-        setSel((i) => Math.max(0, i - 1));
+        setSel((i) => Math.max(gridStart, i - 1));
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSel((i) => {
-          if (i < tileCount) {
+          if (inGrid(i)) {
             const next = i + tileCols; // next tile row, or out of the grid
-            return next < tileCount ? next : Math.min(tileCount, last());
+            return next < gridEnd ? next : Math.min(gridEnd, last());
           }
-          return Math.min(i + 1, last());
+          return Math.min(i + 1, last()); // recent rows above the grid, or the list below it
         });
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSel((i) => {
-          if (i === tileCount && tileCount > 0) return Math.min(lastTile.current, tileCount - 1); // list → grid
-          if (i < tileCount) return Math.max(0, i - tileCols);
+          // First list row → back to the last tile the cursor sat on.
+          if (i === gridEnd && tileCount > 0) {
+            return Math.max(gridStart, Math.min(lastTile.current, gridEnd - 1));
+          }
+          // In the grid: up a tile row, or out the top onto a recent row.
+          if (inGrid(i)) return Math.max(0, i - tileCols);
+          // Recent rows above, or list below — plain step.
           return Math.max(i - 1, 0);
         });
       } else if (e.key === 'Enter') {
@@ -277,17 +418,31 @@ export default function CommandPalette({
         if (it) {
           e.preventDefault();
           activate(it);
+        } else if (showCreateHint) {
+          e.preventDefault();
+          // #347: seed the new task's title from query.trim() once create-task
+          // accepts a title-seed prop. Blank modal for now — don't block on it.
+          summon('create-task');
+          onClose();
         } else if (query.trim()) {
           e.preventDefault();
           seeAll();
         }
       } else if (e.key === 'Escape') {
-        onClose();
+        // First Esc with a query clears it (and stays open); a second closes.
+        if (query.trim() !== '') {
+          e.preventDefault();
+          setQuery('');
+          setSel(0);
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, flatItems, sel, tileCount, tileCols, query, activate, seeAll, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, flatItems, sel, gridStart, gridEnd, tileCount, tileCols, query, activate, seeAll, onClose, summon, showCreateHint]);
 
   const seedTip = useCallback((token: string) => {
     setQuery(token + ' ');
@@ -327,8 +482,34 @@ export default function CommandPalette({
         </View>
 
         <ScrollView style={{ maxHeight: isMobile ? 360 : 440 }} keyboardShouldPersistTaps="handled">
-          {/* CREATE — a wrapping tile grid (#342). Walked FIRST in flatItems, so
-              rendered first here to keep `idx` aligned with `sel`. */}
+          {/* RECENT — frequent-first destinations opened from the palette before
+              (#343). Empty query only, and walked FIRST in flatItems, so it
+              renders first here to keep `idx` aligned with `sel`. */}
+          {!q && recentDestMatches.length > 0 && (
+            <View className="mb-1">
+              <SectionHeader label="Recent" colors={colors} />
+              {recentDestMatches.map((d) => {
+                const i = idx++;
+                return (
+                  <PageRow
+                    key={`recent-${d.id}`}
+                    d={d}
+                    selected={i === sel}
+                    q=""
+                    tintStyle={tintStyle}
+                    selBg={selBg}
+                    colors={colors}
+                    onHoverIn={() => setSel(i)}
+                    onPress={() => activate({ kind: 'page', dest: d })}
+                    rowRef={setRowRef(i)}
+                  />
+                );
+              })}
+            </View>
+          )}
+
+          {/* CREATE — a wrapping tile grid (#342). Occupies flatItems
+              [gridStart, gridStart+tileCount). */}
           {matchedActions.length > 0 && (
             <View className="mb-1">
               <SectionHeader label="Create" colors={colors} />
@@ -339,6 +520,7 @@ export default function CommandPalette({
                   return (
                     <Pressable
                       key={a.id}
+                      ref={setRowRef(i)}
                       onHoverIn={() => setSel(i)}
                       onPress={() => activate({ kind: 'action', run: a.run })}
                       className="items-center justify-center gap-2 rounded-2xl px-3 py-3.5"
@@ -372,70 +554,131 @@ export default function CommandPalette({
               <SectionHeader label="Go to" colors={colors} />
               {destMatches.map((d) => {
                 const i = idx++;
+                return (
+                  <PageRow
+                    key={d.id}
+                    d={d}
+                    selected={i === sel}
+                    q={q}
+                    tintStyle={tintStyle}
+                    selBg={selBg}
+                    colors={colors}
+                    onHoverIn={() => setSel(i)}
+                    onPress={() => activate({ kind: 'page', dest: d })}
+                    rowRef={setRowRef(i)}
+                  />
+                );
+              })}
+            </View>
+          )}
+
+          {/* !!q, not q: a bare falsy `''` renders as a stray text node and
+              RNW warns "text node cannot be a child of <View>". */}
+          {!!q &&
+            (searchError ? (
+              <View className="items-center px-3 py-8">
+                <Text style={{ color: colors.textMuted, fontSize: 12 }}>Search failed — try again</Text>
+              </View>
+            ) : loading && results.length === 0 ? (
+              <View className="items-center py-8">
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : showCreateHint ? (
+              // Nothing matched — offer to make it. ⏎ (or a tap) does the same
+              // thing the key handler does for this state.
+              <Pressable
+                onPress={() => {
+                  summon('create-task');
+                  onClose();
+                }}
+                className="flex-row items-center gap-3 rounded-xl px-3 py-4 mx-1"
+              >
+                <View
+                  className="h-7 w-7 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: colors.accent + '1A' }}
+                >
+                  <FontAwesome name="plus" size={13} color={colors.accent} />
+                </View>
+                <Text numberOfLines={2} style={{ flex: 1, fontSize: 13, color: colors.textMain }}>
+                  No results — press{' '}
+                  <Text style={{ fontFamily: 'SpaceMono', color: colors.textMuted }}>⏎</Text> to create a task
+                  called “{query.trim()}”
+                </Text>
+              </Pressable>
+            ) : (
+              <>
+                {groupRows.map((t) => (
+                  <View key={t} className="mb-1">
+                    <Text
+                      className="text-[9px] font-black uppercase tracking-widest px-3 pt-3 pb-1.5"
+                      style={{ color: colors.textMuted }}
+                    >
+                      {GROUP_LABEL[t]} ({grouped[t]!.length})
+                    </Text>
+                    {grouped[t]!.slice(0, PER_GROUP).map((r) => {
+                      const i = idx++;
+                      return (
+                        <ResultRow
+                          key={`${r.type}-${r.id}`}
+                          r={r}
+                          selected={i === sel}
+                          selBg={selBg}
+                          tintStyle={tintStyle}
+                          colors={colors}
+                          onHoverIn={() => setSel(i)}
+                          onPress={() => activate({ kind: 'result', result: r })}
+                          rowRef={setRowRef(i)}
+                        />
+                      );
+                    })}
+                  </View>
+                ))}
+                {results.length > 0 && (
+                  <Pressable
+                    onPress={seeAll}
+                    className="flex-row items-center justify-center gap-2 rounded-xl py-3 mt-1"
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>
+                      See all {results.length} result{results.length === 1 ? '' : 's'}
+                    </Text>
+                    <FontAwesome name="arrow-right" size={11} color={colors.primary} />
+                  </Pressable>
+                )}
+              </>
+            ))}
+
+          {/* RECENT SEARCHES — the query strings from useRecentSearches. Sit
+              below RECENT destinations (#343) and are now keyboard-navigable:
+              ⏎ re-runs that search rather than closing. Empty query only. */}
+          {!q && recent.length > 0 && (
+            <View className="mb-1">
+              <View className="flex-row items-center gap-1 px-3 pt-3 pb-1.5">
+                <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
+                  Recent searches
+                </Text>
+              </View>
+              {recent.map((r) => {
+                const i = idx++;
                 const on = i === sel;
                 return (
                   <Pressable
-                    key={d.id}
+                    key={r}
+                    ref={setRowRef(i)}
                     onHoverIn={() => setSel(i)}
-                    onPress={() => activate({ kind: 'page', dest: d })}
-                    className="flex-row items-center gap-3 rounded-xl px-3 py-2.5 mx-1"
+                    onPress={() => activate({ kind: 'recent-search', q: r })}
+                    className="flex-row items-center gap-3 rounded-xl px-3 py-2 mx-1"
                     style={on ? { backgroundColor: selBg } : undefined}
                   >
-                    <View
-                      className="h-7 w-7 items-center justify-center rounded-lg"
-                      style={{ backgroundColor: colors.primary + '14' }}
-                    >
-                      <FontAwesome name={d.icon} size={13} color={colors.primary} />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '600', color: colors.textMain }}>
-                        {highlightSub(d.label, q, tintStyle)}
-                      </Text>
-                      {d.matchedKeyword ? (
-                        <Text numberOfLines={1} style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
-                          Also known as: {highlightSub(d.matchedKeyword, q, tintStyle)}
-                        </Text>
-                      ) : d.parentLabel ? (
-                        <Text numberOfLines={1} style={{ fontSize: 11, color: colors.textMuted, marginTop: 1 }}>
-                          {d.parentLabel} › {d.label}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {/* Trailing → only on the active row (Cloudflare) — fixed-width
-                        slot so selecting a row doesn't shift the label. */}
+                    <FontAwesome name="history" size={13} color={colors.textDim} />
+                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, color: colors.textMain }}>
+                      {r}
+                    </Text>
                     <View className="w-4 items-end">
                       {on && <FontAwesome name="arrow-right" size={11} color={colors.textDim} />}
                     </View>
                   </Pressable>
                 );
               })}
-            </View>
-          )}
-
-          {!q && recent.length > 0 && (
-            <View className="mb-1">
-              <View className="flex-row items-center gap-1 px-3 pt-3 pb-1.5">
-                <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
-                  Recent
-                </Text>
-              </View>
-              {/* ponytail: recent chips refill the box, they aren't nav targets —
-                  deliberately not in the arrow-key flat list. */}
-              {recent.map((r) => (
-                <Pressable
-                  key={r}
-                  onPress={() => {
-                    setQuery(r);
-                    setSel(0);
-                  }}
-                  className="flex-row items-center gap-3 rounded-xl px-3 py-2 mx-1"
-                >
-                  <FontAwesome name="history" size={13} color={colors.textDim} />
-                  <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, color: colors.textMain }}>
-                    {r}
-                  </Text>
-                </Pressable>
-              ))}
             </View>
           )}
 
@@ -466,62 +709,6 @@ export default function CommandPalette({
               ))}
             </View>
           )}
-
-          {/* !!q, not q: a bare falsy `''` renders as a stray text node and
-              RNW warns "text node cannot be a child of <View>". */}
-          {!!q &&
-            (searchError ? (
-              <View className="items-center px-3 py-8">
-                <Text style={{ color: colors.textMuted, fontSize: 12 }}>Search failed — try again</Text>
-              </View>
-            ) : loading && results.length === 0 ? (
-              <View className="items-center py-8">
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : results.length === 0 && destMatches.length === 0 && matchedActions.length === 0 ? (
-              <View className="items-center px-3 py-8">
-                <Text style={{ color: colors.textMuted, fontSize: 12 }}>No results for “{query.trim()}”</Text>
-              </View>
-            ) : (
-              <>
-                {groupRows.map((t) => (
-                  <View key={t} className="mb-1">
-                    <Text
-                      className="text-[9px] font-black uppercase tracking-widest px-3 pt-3 pb-1.5"
-                      style={{ color: colors.textMuted }}
-                    >
-                      {GROUP_LABEL[t]} ({grouped[t]!.length})
-                    </Text>
-                    {grouped[t]!.slice(0, PER_GROUP).map((r) => {
-                      const i = idx++;
-                      return (
-                        <ResultRow
-                          key={`${r.type}-${r.id}`}
-                          r={r}
-                          selected={i === sel}
-                          selBg={selBg}
-                          tintStyle={tintStyle}
-                          colors={colors}
-                          onHoverIn={() => setSel(i)}
-                          onPress={() => activate({ kind: 'result', result: r })}
-                        />
-                      );
-                    })}
-                  </View>
-                ))}
-                {results.length > 0 && (
-                  <Pressable
-                    onPress={seeAll}
-                    className="flex-row items-center justify-center gap-2 rounded-xl py-3 mt-1"
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>
-                      See all {results.length} result{results.length === 1 ? '' : 's'}
-                    </Text>
-                    <FontAwesome name="arrow-right" size={11} color={colors.primary} />
-                  </Pressable>
-                )}
-              </>
-            ))}
         </ScrollView>
 
         {/* Pinned hint bar (#342) — Cloudflare keeps this at the bottom; it's a
@@ -547,6 +734,7 @@ function ResultRow({
   colors,
   onHoverIn,
   onPress,
+  rowRef,
 }: {
   r: SearchResult;
   selected: boolean;
@@ -555,6 +743,7 @@ function ResultRow({
   colors: ReturnType<typeof useThemeColors>;
   onHoverIn: () => void;
   onPress: () => void;
+  rowRef: (node: any) => void;
 }) {
   const isEntity = r.type === 'project' || r.type === 'portfolio';
   const titleNode = renderHighlighted(r.title, tintStyle);
@@ -566,6 +755,7 @@ function ResultRow({
 
   return (
     <Pressable
+      ref={rowRef}
       onHoverIn={onHoverIn}
       onPress={onPress}
       className="flex-row items-center gap-3 rounded-xl px-3 py-2.5 mx-1"

@@ -161,6 +161,93 @@ export type DestinationMatch = {
   matchedKeyword?: string;
 };
 
+// --- Fuzzy matching -------------------------------------------------------
+// One tiny matcher for every "does this query touch this string" test in the
+// palette (GO TO labels + keywords here, CREATE tiles in CommandPalette). Two
+// passes: a subsequence scan (handles dropped/extra letters — "nwtsk" → "New
+// Task", "rols" → "Roles") and, only if that misses, a bounded edit-distance
+// fallback for single substitutions/transpositions ("analitics" → "Analytics").
+// ponytail: hand-rolled ~40 lines, no fuzzy-search dep. Swap in fzf/fuse only
+// if palette matching ever needs ranking across hundreds of items.
+
+const WORD_START = /[\s\-_/]/;
+
+function subseqScore(n: string, h: string): number | null {
+  let hi = 0;
+  let score = 0;
+  let streak = 0;
+  let prev = -2;
+  for (const c of n) {
+    let found = -1;
+    for (let k = hi; k < h.length; k++) {
+      if (h[k] === c) {
+        found = k;
+        break;
+      }
+    }
+    if (found === -1) return null;
+    if (found === prev + 1) {
+      streak++;
+      score += 6 + streak * 2; // contiguous run — the more of the query lands together, the better
+    } else {
+      streak = 0;
+      score += 1;
+    }
+    if (found === 0 || WORD_START.test(h[found - 1] ?? '')) score += 12; // matched a word start
+    prev = found;
+    hi = found + 1;
+  }
+  score += Math.max(0, 10 - (h.length - n.length)); // prefer tighter haystacks
+  if (h.includes(n)) score += 30; // exact substring is a decisive win
+  return score;
+}
+
+function editDistance(a: string, b: string, max: number): number {
+  const al = a.length;
+  const bl = b.length;
+  if (Math.abs(al - bl) > max) return max + 1;
+  let prev = Array.from({ length: bl + 1 }, (_, j) => j);
+  for (let i = 1; i <= al; i++) {
+    const cur = [i];
+    let rowMin = i;
+    for (let j = 1; j <= bl; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      if (cur[j] < rowMin) rowMin = cur[j];
+    }
+    if (rowMin > max) return max + 1; // whole row already past budget
+    prev = cur;
+  }
+  return prev[bl];
+}
+
+export function fuzzyMatch(needle: string, haystack: string): { hit: boolean; score: number } | null {
+  const n = (needle || '').toLowerCase().trim();
+  const h = (haystack || '').toLowerCase();
+  if (!n) return { hit: true, score: 0 };
+
+  const sub = subseqScore(n, h);
+  if (sub != null) return { hit: true, score: sub };
+
+  // Fallback only for needles long enough that a 1–2 char edit is signal, not
+  // noise. Compare against the whole string and each word; take the best.
+  if (n.length >= 4) {
+    const budget = Math.floor(n.length / 4) + 1;
+    let best = budget + 1;
+    for (const t of [h, ...h.split(/[\s\-_/]+/)]) {
+      if (!t) continue;
+      best = Math.min(best, editDistance(n, t, budget));
+      if (best === 0) break;
+    }
+    if (best <= budget) return { hit: true, score: 6 - best }; // deliberately below any subsequence hit
+  }
+  return null;
+}
+
+// Top-level shortcuts get a small nudge so an exact page name still leads its
+// own sub-destinations (e.g. "tasks" → the Tasks shortcut, not a sub-route).
+const TOP_LEVEL_BONUS = 4;
+
 // Unified GO-TO source for the command palette: top-level SHORTCUTS (gated by
 // shortcutVisible) + PALETTE_DESTINATIONS (gated by its own permission). Empty
 // query → only the top-level pages (don't dump every sub-route). Non-empty →
@@ -176,19 +263,28 @@ export function matchDestinations(
     return visibleTop.map((s) => ({ id: s.id, label: s.label, href: s.href, icon: s.icon, topLevel: true }));
   }
 
+  // Fuzzy: try the visible label first (breadcrumb stays); only if that misses
+  // do we scan keywords, and then the best-scoring synonym becomes matchedKeyword.
   const hit = (label: string, keywords: string[] | undefined) => {
-    if (label.toLowerCase().includes(q)) return { ok: true as const, kw: undefined };
-    const kw = (keywords ?? []).find((k) => k.toLowerCase().includes(q));
-    return kw ? { ok: true as const, kw } : { ok: false as const, kw: undefined };
+    const direct = fuzzyMatch(q, label);
+    if (direct) return { ok: true as const, kw: undefined as string | undefined, score: direct.score };
+    let best: { kw: string; score: number } | null = null;
+    for (const k of keywords ?? []) {
+      const m = fuzzyMatch(q, k);
+      if (m && (!best || m.score > best.score)) best = { kw: k, score: m.score };
+    }
+    return best ? { ok: true as const, kw: best.kw as string | undefined, score: best.score } : { ok: false as const };
   };
 
   const out: DestinationMatch[] = [];
+  const score = new Map<string, number>();
   const seen = new Set<string>();
 
   for (const s of visibleTop) {
     const m = hit(s.label, s.keywords);
     if (!m.ok) continue;
     out.push({ id: s.id, label: s.label, href: s.href, icon: s.icon, topLevel: true, matchedKeyword: m.kw });
+    score.set(s.href, m.score + TOP_LEVEL_BONUS);
     seen.add(s.href);
   }
 
@@ -203,9 +299,12 @@ export function matchDestinations(
     const m = hit(d.label, d.keywords);
     if (!m.ok) continue;
     out.push({ id: d.id, label: d.label, href: d.href, icon: d.icon, parentLabel: d.parentLabel, topLevel: false, matchedKeyword: m.kw });
+    score.set(d.href, m.score);
     seen.add(d.href);
   }
 
+  // Best match first. Array.sort is stable, so equal scores keep registry order.
+  out.sort((a, b) => (score.get(b.href) ?? 0) - (score.get(a.href) ?? 0));
   return out;
 }
 
