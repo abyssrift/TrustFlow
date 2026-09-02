@@ -225,6 +225,7 @@ export default function CommandPalette({
       { id: 'create-project', label: 'New Project', icon: 'folder-o', permission: 'project.create', run: () => summon('create-project') },
       { id: 'generate-report', label: 'Generate Report', icon: 'bar-chart', permission: 'report.view', run: () => summon('generate-report') },
       { id: 'new-role', label: 'New Role', icon: 'user-plus', permission: 'role.manage', run: () => summon('new-role') },
+      { id: 'upload', label: 'Upload File', icon: 'cloud-upload', permission: 'filehub:view', run: () => summon('upload') },
     ];
     return all.filter((a) => hasPermission(a.permission));
   }, [hasPermission, summon]);
@@ -298,7 +299,9 @@ export default function CommandPalette({
   const tileCount = matchedActions.length;
   const gridEnd = gridStart + tileCount; // first flat index after the tile grid
   const inGrid = (i: number) => i >= gridStart && i < gridEnd;
-  const tileCols = tileCount === 0 ? 1 : isMobile ? Math.min(2, tileCount) : tileCount;
+  // Desktop caps at 4/row: at maxWidth 640 with flexBasis 132 + gap, a 5th tile
+  // wraps — so ↑/↓ row-hopping must assume 4, not tileCount.
+  const tileCols = tileCount === 0 ? 1 : isMobile ? Math.min(2, tileCount) : Math.min(4, tileCount);
   // Last tile the selection sat on — ↑ from the first non-tile row returns here.
   const lastTile = useRef(gridStart);
   useEffect(() => {
