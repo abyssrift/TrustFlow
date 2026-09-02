@@ -24,6 +24,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Popup from '@/components/common/Popup';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModalDispatch } from '@/contexts/ModalDispatchContext';
+import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { resultRoute, useGlobalSearch, type ResultType, type SearchResult } from '@/hooks/useGlobalSearch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
@@ -68,6 +69,70 @@ type CreateAction = {
   permission: string;
   run: () => void;
 };
+
+// #345 — sub-actions for a selected search result (→ / Tab opens the panel).
+type PaletteAction = {
+  id: string;
+  label: string;
+  icon: React.ComponentProps<typeof FontAwesome>['name'];
+  run: () => void | Promise<void>;
+  permission?: string;
+};
+
+type ActionCtx = {
+  activate: (it: PaletteItem) => void;
+  successToast: (msg: string, title?: string) => void;
+  errorToast: (msg: string, title?: string) => void;
+  backToList: () => void;
+};
+
+// The action set for a result row. Same three actions for every result type:
+// Open reuses the palette's own `activate` (so recency + recent-search history
+// stay consistent), Open-in-new-tab and Copy-link build an absolute URL from
+// resultRoute() — web-only surface, so `window` is always there.
+//
+// #345 follow-up: task-only "Assign to me" / "Mark done" were specced but are
+// omitted — no clean standalone RPC exists. `rpc_update_task_assignments` is a
+// full-set delete-then-reinsert gated to the task manager only (destructive as a
+// one-tap action, and wrong permission model), `rpc_claim_task` only applies to
+// single-claimant teams, and marking a task done is a per-pipeline stage-machine
+// transition (`rpc_execute_stage_action` / `rpc_advance_stage`) that needs stage
+// + transition context a search result row doesn't carry. Add them here behind
+// `permission` once a sanctioned "add me / complete" RPC lands.
+function resultActions(r: SearchResult, ctx: ActionCtx): PaletteAction[] {
+  const url = window.location.origin + resultRoute(r);
+  const all: PaletteAction[] = [
+    {
+      id: 'open',
+      label: 'Open',
+      icon: 'arrow-right',
+      run: () => ctx.activate({ kind: 'result', result: r }),
+    },
+    {
+      id: 'open-new-tab',
+      label: 'Open in new tab',
+      icon: 'external-link',
+      run: () => {
+        window.open(url, '_blank');
+      },
+    },
+    {
+      id: 'copy-link',
+      label: 'Copy link',
+      icon: 'link',
+      run: async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+          ctx.successToast('Link copied');
+        } catch {
+          ctx.errorToast('Could not copy link');
+        }
+        ctx.backToList();
+      },
+    },
+  ];
+  return all;
+}
 
 // Render ts_headline's <b>…</b> spans as tinted runs — a real highlighter-pen
 // swipe (opaque-ish accent behind the text + bold), not just a bolder greyish
@@ -196,6 +261,12 @@ export default function CommandPalette({
   const inputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState('');
   const [sel, setSel] = useState(0);
+  // #345 — result row sub-actions. `actions` mode swaps the scroll body for a
+  // per-result action list; `actionTarget` holds the result it's acting on.
+  const [mode, setMode] = useState<'list' | 'actions'>('list');
+  const [actionTarget, setActionTarget] = useState<SearchResult | null>(null);
+  const [actionSel, setActionSel] = useState(0);
+  const { successToast, errorToast } = useToast();
 
   const { results, grouped, loading, searchError } = useGlobalSearch(query, { enabled: open, limit: 40 });
   const { recent, push: pushRecent } = useRecentSearches();
@@ -384,11 +455,61 @@ export default function CommandPalette({
     [onClose, router, query, pushRecent, recordDest]
   );
 
+  // #345 — enter/leave the per-result action panel.
+  const backToList = useCallback(() => {
+    setMode('list');
+    setActionTarget(null);
+    setActionSel(0);
+  }, []);
+  const enterActions = useCallback((r: SearchResult) => {
+    setActionTarget(r);
+    setActionSel(0);
+    setMode('actions');
+  }, []);
+  const actions = useMemo<PaletteAction[]>(
+    () => (actionTarget ? resultActions(actionTarget, { activate, successToast, errorToast, backToList }) : []),
+    [actionTarget, activate, successToast, errorToast, backToList]
+  );
+
+  // Leave actions mode whenever the palette reopens or the query changes — the
+  // captured target would be stale against the new result list.
+  useEffect(() => {
+    backToList();
+  }, [open, query, backToList]);
+
   // Arrow / Enter / Escape while open. Web only.
   useEffect(() => {
     if (!open || Platform.OS !== 'web') return;
     const last = () => flatItems.length - 1;
     const onKey = (e: KeyboardEvent) => {
+      // #345 — action panel owns the keyboard while open. ← / Esc back out to
+      // the list (Esc does NOT close the palette here); ↑↓ move; ⏎ runs.
+      if (mode === 'actions') {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setActionSel((i) => Math.min(i + 1, actions.length - 1));
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setActionSel((i) => Math.max(i - 1, 0));
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          void actions[actionSel]?.run();
+        } else if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+          e.preventDefault();
+          backToList();
+        }
+        return;
+      }
+      // → or Tab on a selected result row → open its action panel.
+      if (
+        (e.key === 'ArrowRight' || (e.key === 'Tab' && !e.shiftKey)) &&
+        flatItems[sel]?.kind === 'result'
+      ) {
+        e.preventDefault();
+        const it = flatItems[sel];
+        if (it.kind === 'result') enterActions(it.result);
+        return;
+      }
       if (e.key === 'ArrowRight' && inGrid(sel)) {
         e.preventDefault();
         setSel((i) => Math.min(gridEnd - 1, i + 1));
@@ -445,7 +566,7 @@ export default function CommandPalette({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, flatItems, sel, gridStart, gridEnd, tileCount, tileCols, query, activate, seeAll, onClose, summon, showCreateHint]);
+  }, [open, flatItems, sel, gridStart, gridEnd, tileCount, tileCols, query, activate, seeAll, onClose, summon, showCreateHint, mode, actions, actionSel, backToList, enterActions]);
 
   const seedTip = useCallback((token: string) => {
     setQuery(token + ' ');
@@ -485,6 +606,55 @@ export default function CommandPalette({
         </View>
 
         <ScrollView style={{ maxHeight: isMobile ? 360 : 440 }} keyboardShouldPersistTaps="handled">
+          {/* #345 — per-result action panel: compact non-interactive target row
+              (ResultRow style) + the action list, styled like GO TO rows. Panel
+              swap inside the same Popup card — no nested Modal, no popover lib. */}
+          {mode === 'actions' && actionTarget && (
+            <View className="mb-1">
+              <View style={{ borderBottomWidth: 1, borderBottomColor: colors.border }} className="pb-1">
+                <ResultRow
+                  r={actionTarget}
+                  selected={false}
+                  selBg={selBg}
+                  tintStyle={tintStyle}
+                  colors={colors}
+                  onHoverIn={() => {}}
+                  onPress={() => {}}
+                  rowRef={() => {}}
+                />
+              </View>
+              <View className="flex-row items-center gap-1 px-3 pt-3 pb-1.5">
+                <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
+                  Actions
+                </Text>
+              </View>
+              {actions.map((a, i) => {
+                const on = i === actionSel;
+                return (
+                  <Pressable
+                    key={a.id}
+                    onHoverIn={() => setActionSel(i)}
+                    onPress={() => void a.run()}
+                    className="flex-row items-center gap-3 rounded-xl px-3 py-2.5 mx-1"
+                    style={on ? { backgroundColor: selBg } : undefined}
+                  >
+                    <View className="h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: colors.primary + '14' }}>
+                      <FontAwesome name={a.icon} size={13} color={colors.primary} />
+                    </View>
+                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, fontWeight: '600', color: colors.textMain }}>
+                      {a.label}
+                    </Text>
+                    <View className="w-4 items-end">
+                      {on && <FontAwesome name="arrow-right" size={11} color={colors.textDim} />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
+          {mode === 'list' && (
+          <>
           {/* RECENT — frequent-first destinations opened from the palette before
               (#343). Empty query only, and walked FIRST in flatItems, so it
               renders first here to keep `idx` aligned with `sel`. */}
@@ -630,6 +800,7 @@ export default function CommandPalette({
                           colors={colors}
                           onHoverIn={() => setSel(i)}
                           onPress={() => activate({ kind: 'result', result: r })}
+                          onOpenActions={() => { setSel(i); enterActions(r); }}
                           rowRef={setRowRef(i)}
                         />
                       );
@@ -712,17 +883,30 @@ export default function CommandPalette({
               ))}
             </View>
           )}
+          </>
+          )}
         </ScrollView>
 
         {/* Pinned hint bar (#342) — Cloudflare keeps this at the bottom; it's a
-            lot of the "life" the redesign is after. */}
+            lot of the "life" the redesign is after. In actions mode the model
+            changes: ← backs out, ⏎ runs, Esc no longer closes. */}
         <View
           className="flex-row items-center gap-4 px-4 py-2.5"
           style={{ borderTopWidth: 1, borderTopColor: colors.border }}
         >
-          <HintKey combo="↑↓" label="navigate" colors={colors} />
-          <HintKey combo="⏎" label="select" colors={colors} />
-          <HintKey combo="esc" label="close" colors={colors} />
+          {mode === 'actions' ? (
+            <>
+              <HintKey combo="↑↓" label="navigate" colors={colors} />
+              <HintKey combo="⏎" label="run" colors={colors} />
+              <HintKey combo="←" label="back" colors={colors} />
+            </>
+          ) : (
+            <>
+              <HintKey combo="↑↓" label="navigate" colors={colors} />
+              <HintKey combo="⏎" label="select" colors={colors} />
+              <HintKey combo="esc" label="close" colors={colors} />
+            </>
+          )}
         </View>
       </View>
     </Popup>
@@ -737,6 +921,7 @@ function ResultRow({
   colors,
   onHoverIn,
   onPress,
+  onOpenActions,
   rowRef,
 }: {
   r: SearchResult;
@@ -746,6 +931,9 @@ function ResultRow({
   colors: ReturnType<typeof useThemeColors>;
   onHoverIn: () => void;
   onPress: () => void;
+  // #345 — mouse affordance: opens the sub-action panel for this result. Only
+  // shown on the selected row; keyboard users get → / Tab instead.
+  onOpenActions?: () => void;
   rowRef: (node: any) => void;
 }) {
   const isEntity = r.type === 'project' || r.type === 'portfolio';
@@ -786,6 +974,19 @@ function ResultRow({
         )}
       </View>
       <Text style={{ fontSize: 10, color: colors.textMuted, flexShrink: 0 }}>{relTime(r.created_at)}</Text>
+      {selected && onOpenActions && (
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation?.();
+            onOpenActions();
+          }}
+          hitSlop={8}
+          className="h-6 w-6 items-center justify-center rounded-md"
+          style={{ backgroundColor: colors.primary + '14', flexShrink: 0 }}
+        >
+          <FontAwesome name="ellipsis-h" size={12} color={colors.textDim} />
+        </Pressable>
+      )}
     </Pressable>
   );
 }
