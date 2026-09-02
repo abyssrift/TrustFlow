@@ -16,6 +16,7 @@ import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ReportGenerator from '@/components/intelligence/_ReportGenerator_adaptive';
 import RoleEditorContainer from '@/components/admin/RoleEditorContainer';
+import UploadComposerModal from '@/components/filehub/UploadComposerModal';
 
 const noop = () => {};
 
@@ -80,15 +81,21 @@ export default function ModalHost() {
     case 'create-portfolio':
       return null;
 
-    // #323 follow-up: upload has NO standalone modal. The FileHub UploadModal
-    // is a non-exported local function inside
-    // components/intelligence/_filehub_desktop.tsx, coupled to FileHubContext
-    // (folder tree), the active group, and screen-level drop/goo-morph state.
-    // The existing entry path is router.push('/filehub'). Wire this once the
-    // upload composer is lifted out of the screen, or a /filehub?upload=1
-    // param exists to trigger it.
+    // #340: the FileHub upload composer, lifted out of _filehub_desktop.tsx's
+    // screen-local UploadModal into components/filehub/UploadComposerModal.
+    // Web variant routes through UploadManagerContext (already an ancestor here
+    // via app/_layout.web.tsx) — no extra provider. Native variant is a stub
+    // that redirects to /filehub (no UploadManagerProvider on native; see the
+    // component's own #340 follow-up note).
     case 'upload':
-      return null;
+      return (
+        <UploadComposerModal
+          visible
+          onClose={dismiss}
+          folderId={active.payload.folderId}
+          taskId={active.payload.taskId}
+        />
+      );
 
     default: {
       // Compile-time totality guard: a new ModalType with no case above fails

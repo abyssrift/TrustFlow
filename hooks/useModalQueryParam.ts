@@ -18,18 +18,18 @@ import { useGlobalSearchParams, useRouter } from 'expo-router';
 
 import { useModalDispatch, type ActiveModal } from '@/contexts/ModalDispatchContext';
 
-// `type=` param value -> wired ModalType. Values not listed here (portfolio,
-// upload) is still unwired in ModalHost — ignored silently.
-// #324: unwired, see #339 (create-portfolio) / #340 (upload)
+// `type=` param value -> wired ModalType. `portfolio` is still unwired in
+// ModalHost — ignored silently. #324: unwired, see #339 (create-portfolio).
 const TYPE_TO_MODAL = {
   task: 'create-task',
   project: 'create-project',
   report: 'generate-report',
   role: 'new-role',
+  upload: 'upload',
 } as const;
 
 // Params this hook recognises — and therefore also strips once it has fired.
-export const SEED_PARAM_KEYS = ['new', 'type', 'projectId', 'pipelineId', 'portfolioId'] as const;
+export const SEED_PARAM_KEYS = ['new', 'type', 'projectId', 'pipelineId', 'portfolioId', 'folderId', 'taskId'] as const;
 
 type RawParams = Partial<Record<(typeof SEED_PARAM_KEYS)[number], string | string[]>>;
 
@@ -60,6 +60,14 @@ export function mapModalQueryParams(params: RawParams): ActiveModal | null {
     const portfolioId = first(params.portfolioId);
     if (portfolioId) payload.portfolioId = portfolioId;
     return { type: 'create-project', payload };
+  }
+  if (modalType === 'upload') {
+    const payload: { folderId?: string; taskId?: string } = {};
+    const folderId = first(params.folderId);
+    const taskId = first(params.taskId);
+    if (folderId) payload.folderId = folderId;
+    if (taskId) payload.taskId = taskId;
+    return { type: 'upload', payload };
   }
   // generate-report and new-role take no seed params.
   return { type: modalType, payload: {} };

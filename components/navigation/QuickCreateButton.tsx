@@ -79,13 +79,13 @@ export default function QuickCreateButton({
 
   // ponytail: flat list, one row each. Projects/portfolios are still in dev —
   // add a row + its permission key here when they ship.
-  // Task + report go through the global modal dispatcher (#323); ModalHost owns
-  // the actual modals. Upload has no summonable modal yet (see ModalHost), so it
-  // still navigates to the FileHub screen.
+  // Task, report and upload all go through the global modal dispatcher (#323 /
+  // #340); ModalHost owns the actual modals. (On native the upload modal is a
+  // stub that redirects to /filehub — see components/filehub/UploadComposerModal.tsx.)
   const actions: { id: string; icon: IconName; label: string; permission?: string; run: () => void }[] = [
     { id: 'task', icon: 'check-square-o', label: 'New Task', permission: 'task.create', run: () => summon('create-task') },
     { id: 'report', icon: 'file-text-o', label: 'New Report', permission: 'report.view', run: () => summon('generate-report') },
-    { id: 'upload', icon: 'cloud-upload', label: 'Upload File', permission: 'filehub:view', run: () => router.push('/filehub') },
+    { id: 'upload', icon: 'cloud-upload', label: 'Upload File', permission: 'filehub:view', run: () => summon('upload') },
     { id: 'search', icon: 'search', label: 'Search', run: () => router.push('/search') },
     { id: 'deadlines', icon: 'calendar-o', label: 'Deadlines', run: () => router.push('/deadlines') },
   ];
