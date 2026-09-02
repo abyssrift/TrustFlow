@@ -47,6 +47,13 @@ assert.deepStrictEqual(
   'role should map to new-role',
 );
 
+// 3c. upload + folderId -> upload carrying that seed (wired in #340)
+assert.deepStrictEqual(
+  mapModalQueryParams({ new: '1', type: 'upload', folderId: 'f1' }),
+  { type: 'upload', payload: { folderId: 'f1' } },
+  'upload + folderId should build an upload payload',
+);
+
 // 4. missing `new` -> null even with an otherwise-valid type
 assert.strictEqual(
   mapModalQueryParams({ type: 'task' }),
