@@ -12,7 +12,8 @@ import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
-import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
+import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, fetchLinkedTasks, type LinkedTask, type TaskSortKey } from '@/components/tabs/taskBoardCache';
+import LinkedTasksStrip from '@/components/tabs/LinkedTasksStrip';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal';
@@ -303,6 +304,7 @@ function TasksScreen() {
   // is what makes a cross-column move safe (see lib/taskBoardPage.ts). It is
   // now filled a bounded page per stage; `columns` is each stage's cursor.
   const [columns, setColumns] = useState<Record<string, ColumnPage>>(seed?.columns ?? {});
+  const [linkedTasks, setLinkedTasks] = useState<LinkedTask[]>(seed?.linkedTasks ?? []);
   const [loading, setLoading] = useState(!seed); // cache hit → skip the skeleton
   const [switchingBoard, setSwitchingBoard] = useState(false); // overlay while an uncached board loads
   const [refreshing, setRefreshing] = useState(false);
@@ -406,6 +408,7 @@ function TasksScreen() {
     setActiveSessions(snap.activeSessions);
     setMyTeamIds(snap.myTeamIds);
     setColumns(snap.columns ?? {});
+    setLinkedTasks(snap.linkedTasks ?? []);
     setLoading(false);
   }, []);
 
@@ -674,6 +677,11 @@ function TasksScreen() {
       console.log('[TasksScreen] Session map created');
       setActiveSessions(sessionMap);
 
+      // Tasks linked onto this board from elsewhere (#203) — read-only
+      // reference cards, shown separately from the real stage columns.
+      const linkedTasksData = await fetchLinkedTasks(supabase, targetPipelineId as string);
+      setLinkedTasks(linkedTasksData);
+
       // Snapshot into the module cache so the next mount paints instantly.
       taskCache.set(targetPipelineId as string, {
         pipeline: pipelineData,
@@ -685,6 +693,7 @@ function TasksScreen() {
         activeSessions: sessionMap,
         myTeamIds: resolvedTeamIds,
         columns: finalColumns,
+        linkedTasks: linkedTasksData,
       });
       boardCacheMeta.lastPipelineId = targetPipelineId as string;
 
@@ -732,6 +741,7 @@ function TasksScreen() {
       columns[s.id] = { offset: 0, hasMore: rows.length === TASK_PAGE_SIZE, loading: false };
       filteredTasks = filteredTasks.concat(rows);
     });
+    const linkedTasksData = await fetchLinkedTasks(supabase, boardId);
     return {
       pipeline: board,
       stages,
@@ -742,6 +752,7 @@ function TasksScreen() {
       activeSessions,
       myTeamIds,
       columns,
+      linkedTasks: linkedTasksData,
     };
   }, [availablePipelines, myTeamIds, activeSessions]);
 
@@ -889,6 +900,7 @@ function TasksScreen() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, () => fetchDataRef.current())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => fetchDataRef.current())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions' }, () => fetchDataRef.current())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_pipeline_links' }, () => fetchDataRef.current())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history' }, () => fetchDataRef.current())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -1702,6 +1714,10 @@ function TasksScreen() {
           </ScrollView>
         </View>
       </SlideDownPanel>
+
+      <View className="px-5">
+        <LinkedTasksStrip tasks={linkedTasks} />
+      </View>
 
       <HorizontalScroll
         className="flex-1 px-5"
