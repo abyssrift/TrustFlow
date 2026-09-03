@@ -59,6 +59,7 @@ Before writing new utility functions, hooks, or database RPCs, check this regist
 ## Frontend Hooks (`/hooks`)
 * **useAuth**: (Example) Returns the current Supabase session user and loading state.
 * **useDebounce**: Delays state updates (inputs: value, delay).
+* **useAttentionRibbonWindow**: Persisted (AsyncStorage) per-device look-ahead window, in days, for the attention ribbon / "Upcoming" surfaces; returns `{ windowDays, setWindow }` plus the exported `RIBBON_WINDOW_OPTIONS`/`DEFAULT_RIBBON_WINDOW_DAYS`.
 * **usePortfolioProjects**: (`hooks/usePortfolioProjects.ts`, issue #260) One portfolio's projects from `rpc_projects_table` with `p_portfolio_id` (the SAME reader /projects uses), `p_search` passed through for server-side filtering. Inputs: `portfolios id` (nullable — null returns empty), optional debounced search string. Returns `{ rows, loading, error, rpcMissing, refresh }`. Powers the open-portfolio Multi-View Modal.
 
 ## Frontend Utilities (`/lib`)

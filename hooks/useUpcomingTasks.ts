@@ -309,7 +309,10 @@ export function subscribeDeadlineChanges(onChange: () => void): () => void {
  * share ONE refresh cycle (poll, window focus, AppState, realtime) so the two
  * strata of the same picture can never be refreshed out of step with each other.
  */
-export function useUpcomingTasks({ withProjects = false }: { withProjects?: boolean } = {}) {
+export function useUpcomingTasks({
+  withProjects = false,
+  windowDays,
+}: { withProjects?: boolean; windowDays?: number } = {}) {
   const { user } = useAuth();
   const userId = user?.id;
   const [tasks, setTasks] = useState<UpcomingTask[]>([]);
@@ -324,11 +327,16 @@ export function useUpcomingTasks({ withProjects = false }: { withProjects?: bool
       // Overdue lookback is bounded so an old backlog can't fill the window
       // and crowd out actual upcoming deadlines.
       const lookback = new Date(Date.now() - 30 * 86400000).toISOString();
+      // Caller-customizable look-ahead (#67): how far into the future a task
+      // counts as "upcoming" at all, on top of the existing 10-item cap below.
+      // Left undefined the fetch stays open-ended — unchanged behavior for a
+      // caller (the dashboard widget) that doesn't opt in.
+      const lookahead = windowDays != null ? new Date(Date.now() + windowDays * 86400000).toISOString() : undefined;
       // Projects are the optional half: a projects-side failure (no access, RPC
       // missing on an older environment) must not zero out the task deadlines,
       // which are the part every user has.
       const [mine, mineProjects] = await Promise.all([
-        fetchDeadlineTasks(userId, { gte: lookback }),
+        fetchDeadlineTasks(userId, { gte: lookback, lt: lookahead }),
         withProjects ? fetchDeadlineProjects().catch(() => [] as ProjectDeadline[]) : Promise.resolve([]),
       ]);
       // NOT `mine.slice(0, 10)` — that is what shipped, and it emptied the
@@ -343,7 +351,7 @@ export function useUpcomingTasks({ withProjects = false }: { withProjects?: bool
       hasLoaded.current = true;
       setLoading(false);
     }
-  }, [userId, withProjects]);
+  }, [userId, withProjects, windowDays]);
 
   useEffect(() => {
     refetch();

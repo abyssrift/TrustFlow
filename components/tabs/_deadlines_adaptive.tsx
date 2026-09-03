@@ -8,6 +8,7 @@
 //    don't resemble it.
 import { BackButton } from '@/components/common/BackButton';
 import { useAuth } from '@/contexts/AuthContext';
+import { RIBBON_WINDOW_OPTIONS, useAttentionRibbonWindow } from '@/hooks/useAttentionRibbonWindow';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import {
   buildMonthGrid,
@@ -38,8 +39,10 @@ export default function DeadlinesScreen() {
   const { user } = useAuth();
   const userId = user?.id;
 
-  // "Upcoming" list — same nearest-10/30-day-lookback data as the topbar ribbon.
-  const { tasks: ribbonTasks, loading: ribbonLoading } = useUpcomingTasks();
+  // "Upcoming" list — same nearest-10/30-day-lookback data as the topbar ribbon,
+  // including its customizable look-ahead window (#67), persisted per-device.
+  const { windowDays, setWindow } = useAttentionRibbonWindow();
+  const { tasks: ribbonTasks, loading: ribbonLoading } = useUpcomingTasks({ windowDays });
 
   // Month grid — same month-bounded fetch the desktop calendar overlay uses,
   // independent of the ribbon's 10-item cap (a task due in 3 weeks can be on
@@ -165,9 +168,27 @@ export default function DeadlinesScreen() {
         </View>
 
         <View className="mt-6">
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3">
-            Upcoming ({ribbonTasks.length})
-          </Text>
+          <View className="flex-row items-center justify-between mb-3">
+            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+              Upcoming ({ribbonTasks.length})
+            </Text>
+            <View className="flex-row gap-1.5">
+              {RIBBON_WINDOW_OPTIONS.map((opt) => {
+                const active = opt.days === windowDays;
+                return (
+                  <TouchableOpacity
+                    key={opt.days}
+                    onPress={() => setWindow(opt.days)}
+                    className={active ? 'px-2.5 py-1 rounded-full bg-brand-primary' : 'px-2.5 py-1 rounded-full border border-surface-border bg-surface-card'}
+                  >
+                    <Text className={active ? 'text-white text-[10px] font-black' : 'text-typography-muted text-[10px] font-black'}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           {ribbonLoading ? (
             <ActivityIndicator size="small" color={colors.primary} className="mt-6" />
