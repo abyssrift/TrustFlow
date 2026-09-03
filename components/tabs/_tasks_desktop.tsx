@@ -7,9 +7,10 @@ import BoardSwitcherPopup from '@/components/kanban/BoardSwitcherPopup';
 import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import RightSidebar from '@/components/kanban/RightSidebar.web';
 import { IdleConveyor } from '@/components/tabs/IdleConveyor';
+import LinkedTasksStrip from '@/components/tabs/LinkedTasksStrip';
 import StageCountOdometer from '@/components/tabs/StageCountOdometer';
 import { StageTrailLayer, useStageTransitionFX } from '@/components/tabs/StageTransitionFX';
-import { boardCacheMeta, compareTasksBySortKey, prefetchOtherBoards, TASK_SORT_OPTIONS, taskCache, type BoardSnapshot, type TaskSortKey } from '@/components/tabs/taskBoardCache';
+import { boardCacheMeta, compareTasksBySortKey, fetchLinkedTasks, prefetchOtherBoards, TASK_SORT_OPTIONS, taskCache, type BoardSnapshot, type LinkedTask, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
@@ -317,6 +318,7 @@ export function TasksScreenWeb() {
   // lib/taskBoardPage.ts). What changed is that it is now filled a bounded page
   // per stage at a time; `columns` is each stage's paging cursor.
   const [columns, setColumns] = useState<Record<string, ColumnPage>>(seed?.columns ?? {});
+  const [linkedTasks, setLinkedTasks] = useState<LinkedTask[]>(seed?.linkedTasks ?? []);
   const [loading, setLoading] = useState(!seed);
   const [switchingBoard, setSwitchingBoard] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -735,6 +737,11 @@ export function TasksScreenWeb() {
       });
       setActiveSessions(sessionMap);
 
+      // 7. Tasks linked onto this board from elsewhere (#203) — read-only
+      // reference cards, shown separately from the real stage columns.
+      const linkedTasksData = await fetchLinkedTasks(supabase, targetPipelineId as string);
+      setLinkedTasks(linkedTasksData);
+
       // Snapshot into the shared cache so the next mount / board switch is instant.
       taskCache.set(targetPipelineId as string, {
         pipeline: pipelineData,
@@ -746,6 +753,7 @@ export function TasksScreenWeb() {
         activeSessions: sessionMap,
         myTeamIds,
         columns: finalColumns,
+        linkedTasks: linkedTasksData,
       });
       boardCacheMeta.lastPipelineId = targetPipelineId as string;
 
@@ -803,6 +811,7 @@ export function TasksScreenWeb() {
       total_seconds: timeMap[t.id]?.total_seconds || 0,
       my_seconds: timeMap[t.id]?.my_seconds || 0,
     }));
+    const linkedTasksData = await fetchLinkedTasks(supabase, boardId);
     return {
       pipeline: board,
       stages,
@@ -813,6 +822,7 @@ export function TasksScreenWeb() {
       activeSessions,
       myTeamIds,
       columns,
+      linkedTasks: linkedTasksData,
     };
   }, [availablePipelines, user?.id, myTeamIds, activeSessions]);
 
@@ -852,6 +862,7 @@ export function TasksScreenWeb() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_work_sessions' }, () => debouncedFetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_comments' }, () => debouncedFetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_submissions' }, () => debouncedFetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_pipeline_links' }, () => debouncedFetchData())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pipeline_stage_history' }, (payload: any) => {
         const row = payload?.new;
         console.log('[FXDBG] realtime stage_history', row?.task_id, '→', row?.to_stage_id, 'by', row?.transitioned_by, 'self?', row?.transitioned_by === user?.id);
@@ -970,6 +981,7 @@ export function TasksScreenWeb() {
     setActiveSessions(snap.activeSessions);
     setMyTeamIds(snap.myTeamIds);
     setColumns(snap.columns ?? {});
+    setLinkedTasks(snap.linkedTasks ?? []);
     setLoading(false);
   }, []);
 
@@ -1704,6 +1716,7 @@ export function TasksScreenWeb() {
               boardWidthRef.current = e.nativeEvent.layout.width;
               if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
             }}>
+            {!fullscreenStageId && <LinkedTasksStrip tasks={linkedTasks} />}
             <ScrollView
               ref={boardScrollRef}
               horizontal
