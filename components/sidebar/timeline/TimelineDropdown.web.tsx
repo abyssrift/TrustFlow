@@ -1,4 +1,5 @@
 import { entityColor } from '@/components/entities/EntityUI';
+import { RIBBON_WINDOW_OPTIONS } from '@/hooks/useAttentionRibbonWindow';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { formatRelativeDue, type ProjectDeadline, type UpcomingTask } from '@/hooks/useUpcomingTasks';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -44,6 +45,8 @@ export default function TimelineDropdown({
   visible,
   tasks,
   projects = [],
+  windowDays,
+  onChangeWindowDays,
   onNavigate,
   onExpand,
   containerRef,
@@ -51,6 +54,9 @@ export default function TimelineDropdown({
   visible: boolean;
   tasks: UpcomingTask[];
   projects?: ProjectDeadline[];
+  /** Look-ahead window for the task strata (#67), and its setter — the pill row below is skipped when either is omitted. */
+  windowDays?: number;
+  onChangeWindowDays?: (days: number) => void;
   onNavigate?: () => void;
   onExpand?: () => void;
   containerRef?: React.Ref<HTMLDivElement>;
@@ -135,6 +141,43 @@ export default function TimelineDropdown({
           [data-tf-dropdown] { animation: none !important; }
         }
       `}</style>
+
+      {/* ── Look-ahead window (#67) — how far the ribbon/task strata look
+          forward for non-overdue tasks. Own row, outside the month grid's
+          onClick-to-expand div below, so a pill tap never also opens the
+          calendar. */}
+      {windowDays != null && onChangeWindowDays && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px 0' }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: colors.textDim, letterSpacing: 0.3, textTransform: 'uppercase' }}>
+            Looking ahead
+          </span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {RIBBON_WINDOW_OPTIONS.map((opt) => {
+              const active = opt.days === windowDays;
+              return (
+                <button
+                  key={opt.days}
+                  onClick={() => onChangeWindowDays(opt.days)}
+                  title={`Show tasks due within ${opt.label}`}
+                  style={{
+                    border: 'none',
+                    borderRadius: 9999,
+                    padding: '3px 9px',
+                    fontSize: 10.5,
+                    fontWeight: 800,
+                    fontFamily: 'inherit',
+                    cursor: 'pointer',
+                    color: active ? colors.card : colors.textMuted,
+                    backgroundColor: active ? colors.primary : colors.background,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Mini month calendar ─────────────────────────────────────── */}
       <div onClick={() => onExpand?.()} style={{ padding: '12px 14px 8px', cursor: 'pointer' }}>
