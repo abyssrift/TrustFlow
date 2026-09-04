@@ -12,6 +12,11 @@ export type Shortcut = {
   icon: IconName;
   label: string;
   href: string;
+  // Synonyms the command palette matches on in addition to `label` — so a user
+  // who types the concept ("teams", "calendar") still lands the page whose
+  // title is something else ("Corporate", "Deadlines"). Top-level only; deeper
+  // destinations live in PALETTE_DESTINATIONS below.
+  keywords?: string[];
 };
 
 export const THEME_OPTIONS: { id: ThemeType; label: string; icon: IconName }[] = [
@@ -89,24 +94,237 @@ export const MAX_PORTFOLIO_CANDIDATES = 6;
 export const INTELLIGENCE_PERMISSIONS = ['analytics.view', 'analytics.compare', 'report.view', 'target.view', 'archive.view'];
 
 export const SHORTCUTS: Shortcut[] = [
-  { id: 'dashboard', permissionKey: 'dashboard', icon: 'th-large', label: 'Dashboard', href: '/' },
-  { id: 'tasks', permissionKey: '', icon: 'check-square-o', label: 'Tasks', href: '/tasks' },
-  { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search' },
-  { id: 'deadlines', permissionKey: '', icon: 'calendar-o', label: 'Deadlines', href: '/deadlines' },
+  { id: 'dashboard', permissionKey: 'dashboard', icon: 'th-large', label: 'Dashboard', href: '/', keywords: ['home', 'overview', 'widgets'] },
+  { id: 'tasks', permissionKey: '', icon: 'check-square-o', label: 'Tasks', href: '/tasks', keywords: ['todo', 'todos', 'work', 'board', 'kanban'] },
+  { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search', keywords: ['find', 'lookup'] },
+  { id: 'deadlines', permissionKey: '', icon: 'calendar-o', label: 'Deadlines', href: '/deadlines', keywords: ['calendar', 'due', 'timeline', 'schedule'] },
   // project.view, not project.edit: reading the projects list has never required
   // edit rights anywhere else. rpc_projects_table gates on project.view,
   // projects_select is fn_project_accessible, and app/(tabs)/menu.tsx already
   // used view — this entry was the outlier, and it meant a view-only user saw
   // Portfolios (correctly gated on view) but not the Projects inside them.
-  { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects' },
+  { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects', keywords: ['clients', 'engagements'] },
   // Icon/kind match components/entities/EntityUI.tsx's canonical portfolio
   // glyph (ENTITY_META.portfolio.icon === 'cubes') — same glyph the
   // /portfolios screen itself headers with. Gated on project.view: the same
   // permission rpc_portfolios_table and fn_project_accessible enforce
   // server-side, so a user without it never sees the entry point.
-  { id: 'portfolios', permissionKey: 'project.view', icon: 'cubes', label: 'Portfolios', href: '/portfolios' },
-  { id: 'radar', permissionKey: '', anyPermissions: INTELLIGENCE_PERMISSIONS, icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
-  { id: 'filehub', permissionKey: 'filehub:view', icon: 'folder-open-o', label: 'File Hub', href: '/filehub' },
-  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'briefcase', label: 'Corporate', href: '/people?section=teams' },
-  { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'code-fork', label: 'Pipelines', href: '/admin/pipelines' },
+  { id: 'portfolios', permissionKey: 'project.view', icon: 'cubes', label: 'Portfolios', href: '/portfolios', keywords: ['batch', 'batches', 'programs'] },
+  { id: 'radar', permissionKey: '', anyPermissions: INTELLIGENCE_PERMISSIONS, icon: 'bullseye', label: 'Intelligence', href: '/intelligence', keywords: ['analytics', 'insights', 'radar', 'metrics', 'hub'] },
+  { id: 'filehub', permissionKey: 'filehub:view', icon: 'folder-open-o', label: 'File Hub', href: '/filehub', keywords: ['files', 'documents', 'attachments', 'storage', 'uploads'] },
+  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'briefcase', label: 'Corporate', href: '/people?section=teams', keywords: ['teams', 'org', 'members', 'staff', 'people', 'directory'] },
+  { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'code-fork', label: 'Pipelines', href: '/admin/pipelines', keywords: ['workflow', 'stages', 'automation', 'admin'] },
 ];
+
+// Deeper, keyword-indexed jump targets — the sub-features that live *inside* a
+// top-level page, so a search for the concept ("compare", "rbac", "pdf") lands
+// the right screen even though it has no rail entry of its own. This is the ONE
+// place sub-destinations are declared for the palette.
+//
+// ponytail: `_IntelligenceDesktopLayout.tsx` NAV and `app/(tabs)/menu.tsx`
+// MENU_ITEMS still keep their own copies of these routes. They should
+// eventually import label/href/icon/permission from here — not refactored now,
+// just flagged so the next person touching either one folds them in.
+export type PaletteDestination = {
+  id: string;
+  label: string;
+  href: string;
+  icon: IconName;
+  keywords: string[];
+  parentLabel?: string;
+  permission?: string;
+  anyPermissions?: string[];
+};
+
+export const PALETTE_DESTINATIONS: PaletteDestination[] = [
+  // Intelligence hub sub-nav (source: components/intelligence/_IntelligenceDesktopLayout.tsx NAV).
+  // Overview is omitted on purpose — its href is the `radar` shortcut above.
+  { id: 'intel-performance', parentLabel: 'Intelligence', label: 'Performance', href: '/intelligence/graphs', icon: 'line-chart', permission: 'analytics.view', keywords: ['graphs', 'trends', 'throughput', 'velocity', 'charts'] },
+  { id: 'intel-targets', parentLabel: 'Intelligence', label: 'Targets', href: '/intelligence/targets', icon: 'bullseye', permission: 'target.view', keywords: ['goals', 'okr', 'objectives', 'kpi', 'quota'] },
+  { id: 'intel-reports', parentLabel: 'Intelligence', label: 'Reports', href: '/intelligence/reports', icon: 'file-pdf-o', permission: 'report.view', keywords: ['pdf', 'export', 'architect', 'generate', 'summary'] },
+  { id: 'intel-analytics', parentLabel: 'Intelligence', label: 'Analytics', href: '/intelligence/analytics', icon: 'bar-chart', permission: 'analytics.view', keywords: ['compare', 'comparison', 'worker', 'team', 'versus', 'benchmark'] },
+  { id: 'intel-archives', parentLabel: 'Intelligence', label: 'Cold Storage', href: '/intelligence/archives', icon: 'archive', permission: 'archive.view', keywords: ['archive', 'archived', 'storage', 'deleted', 'old'] },
+  // Admin (source: grep of app/admin/* permission gates).
+  { id: 'admin-roles', parentLabel: 'Admin', label: 'Roles & Permissions', href: '/admin/roles', icon: 'shield', permission: 'role.manage', keywords: ['roles', 'permissions', 'rbac', 'access', 'mandate'] },
+  { id: 'admin-notifications', parentLabel: 'Admin', label: 'Notifications', href: '/admin/notifications', icon: 'bell-o', permission: 'manage_notifications', keywords: ['alerts', 'notify', 'rules', 'ping', 'email'] },
+];
+
+export type DestinationMatch = {
+  id: string;
+  label: string;
+  href: string;
+  icon: IconName;
+  parentLabel?: string;
+  topLevel: boolean;
+  // The synonym that matched when the visible label itself did not — lets the
+  // palette show "Also known as: <matchedKeyword>" on the row.
+  matchedKeyword?: string;
+};
+
+// --- Fuzzy matching -------------------------------------------------------
+// One tiny matcher for every "does this query touch this string" test in the
+// palette (GO TO labels + keywords here, CREATE tiles in CommandPalette). Two
+// passes: a subsequence scan (handles dropped/extra letters — "nwtsk" → "New
+// Task", "rols" → "Roles") and, only if that misses, a bounded edit-distance
+// fallback for single substitutions/transpositions ("analitics" → "Analytics").
+// ponytail: hand-rolled ~40 lines, no fuzzy-search dep. Swap in fzf/fuse only
+// if palette matching ever needs ranking across hundreds of items.
+
+const WORD_START = /[\s\-_/]/;
+
+function subseqScore(n: string, h: string): number | null {
+  let hi = 0;
+  let score = 0;
+  let streak = 0;
+  let prev = -2;
+  for (const c of n) {
+    let found = -1;
+    for (let k = hi; k < h.length; k++) {
+      if (h[k] === c) {
+        found = k;
+        break;
+      }
+    }
+    if (found === -1) return null;
+    if (found === prev + 1) {
+      streak++;
+      score += 6 + streak * 2; // contiguous run — the more of the query lands together, the better
+    } else {
+      streak = 0;
+      score += 1;
+    }
+    if (found === 0 || WORD_START.test(h[found - 1] ?? '')) score += 12; // matched a word start
+    prev = found;
+    hi = found + 1;
+  }
+  score += Math.max(0, 10 - (h.length - n.length)); // prefer tighter haystacks
+  if (h.includes(n)) score += 30; // exact substring is a decisive win
+  return score;
+}
+
+function editDistance(a: string, b: string, max: number): number {
+  const al = a.length;
+  const bl = b.length;
+  if (Math.abs(al - bl) > max) return max + 1;
+  let prev = Array.from({ length: bl + 1 }, (_, j) => j);
+  for (let i = 1; i <= al; i++) {
+    const cur = [i];
+    let rowMin = i;
+    for (let j = 1; j <= bl; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      if (cur[j] < rowMin) rowMin = cur[j];
+    }
+    if (rowMin > max) return max + 1; // whole row already past budget
+    prev = cur;
+  }
+  return prev[bl];
+}
+
+export function fuzzyMatch(needle: string, haystack: string): { hit: boolean; score: number } | null {
+  const n = (needle || '').toLowerCase().trim();
+  const h = (haystack || '').toLowerCase();
+  if (!n) return { hit: true, score: 0 };
+
+  const sub = subseqScore(n, h);
+  if (sub != null) return { hit: true, score: sub };
+
+  // Fallback only for needles long enough that a 1–2 char edit is signal, not
+  // noise. Compare against the whole string and each word; take the best.
+  if (n.length >= 4) {
+    const budget = Math.floor(n.length / 4) + 1;
+    let best = budget + 1;
+    for (const t of [h, ...h.split(/[\s\-_/]+/)]) {
+      if (!t) continue;
+      best = Math.min(best, editDistance(n, t, budget));
+      if (best === 0) break;
+    }
+    if (best <= budget) return { hit: true, score: 6 - best }; // deliberately below any subsequence hit
+  }
+  return null;
+}
+
+// Top-level shortcuts get a small nudge so an exact page name still leads its
+// own sub-destinations (e.g. "tasks" → the Tasks shortcut, not a sub-route).
+const TOP_LEVEL_BONUS = 4;
+
+// Unified GO-TO source for the command palette: top-level SHORTCUTS (gated by
+// shortcutVisible) + PALETTE_DESTINATIONS (gated by its own permission). Empty
+// query → only the top-level pages (don't dump every sub-route). Non-empty →
+// match `label` + `keywords` across both, deduped by href (top-level wins).
+export function matchDestinations(
+  rawQuery: string,
+  ctx: { hasPermission: (key: string) => boolean; isOwner: boolean; isMobile: boolean }
+): DestinationMatch[] {
+  const q = (rawQuery || '').trim().toLowerCase();
+  const visibleTop = SHORTCUTS.filter((s) => shortcutVisible(s, ctx));
+
+  if (!q) {
+    return visibleTop.map((s) => ({ id: s.id, label: s.label, href: s.href, icon: s.icon, topLevel: true }));
+  }
+
+  // Fuzzy: try the visible label first (breadcrumb stays); only if that misses
+  // do we scan keywords, and then the best-scoring synonym becomes matchedKeyword.
+  const hit = (label: string, keywords: string[] | undefined) => {
+    const direct = fuzzyMatch(q, label);
+    if (direct) return { ok: true as const, kw: undefined as string | undefined, score: direct.score };
+    let best: { kw: string; score: number } | null = null;
+    for (const k of keywords ?? []) {
+      const m = fuzzyMatch(q, k);
+      if (m && (!best || m.score > best.score)) best = { kw: k, score: m.score };
+    }
+    return best ? { ok: true as const, kw: best.kw as string | undefined, score: best.score } : { ok: false as const };
+  };
+
+  const out: DestinationMatch[] = [];
+  const score = new Map<string, number>();
+  const seen = new Set<string>();
+
+  for (const s of visibleTop) {
+    const m = hit(s.label, s.keywords);
+    if (!m.ok) continue;
+    out.push({ id: s.id, label: s.label, href: s.href, icon: s.icon, topLevel: true, matchedKeyword: m.kw });
+    score.set(s.href, m.score + TOP_LEVEL_BONUS);
+    seen.add(s.href);
+  }
+
+  for (const d of PALETTE_DESTINATIONS) {
+    if (seen.has(d.href)) continue; // top-level already covers this href
+    const gated = d.permission
+      ? ctx.hasPermission(d.permission)
+      : d.anyPermissions
+      ? d.anyPermissions.some((p) => ctx.hasPermission(p))
+      : true;
+    if (!gated) continue;
+    const m = hit(d.label, d.keywords);
+    if (!m.ok) continue;
+    out.push({ id: d.id, label: d.label, href: d.href, icon: d.icon, parentLabel: d.parentLabel, topLevel: false, matchedKeyword: m.kw });
+    score.set(d.href, m.score);
+    seen.add(d.href);
+  }
+
+  // Best match first. Array.sort is stable, so equal scores keep registry order.
+  out.sort((a, b) => (score.get(b.href) ?? 0) - (score.get(a.href) ?? 0));
+  return out;
+}
+
+// "Can this user see this shortcut?" — the desktop nav rail (Sidebar.web.tsx)
+// and the command palette (CommandPalette.web.tsx) both need this exact test.
+// One predicate, two callers: don't inline the boolean in a third place.
+export function shortcutVisible(
+  s: Shortcut,
+  ctx: { hasPermission: (key: string) => boolean; isOwner: boolean; isMobile: boolean }
+): boolean {
+  const { hasPermission, isOwner, isMobile } = ctx;
+  return (
+    s.id === 'dashboard' ||
+    s.id === 'tasks' ||
+    // Search/Deadlines already have a desktop entry point (topbar search,
+    // topbar calendar strip) — only surface these as shortcuts on mobile web.
+    (isMobile && (s.id === 'search' || s.id === 'deadlines')) ||
+    (isOwner && (s.id === 'team' || s.id === 'pipelines-admin')) ||
+    (s.anyPermissions ? s.anyPermissions.some((p) => hasPermission(p)) : false) ||
+    (!!s.permissionKey && hasPermission(s.permissionKey)) ||
+    (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
+  );
+}

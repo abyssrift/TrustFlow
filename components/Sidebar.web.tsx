@@ -9,10 +9,11 @@ import { useAutoCollapseSubNav } from '@/hooks/useAutoCollapseSubNav';
 import { usePortfolios } from '@/hooks/usePortfolios';
 import { supabase } from '@/lib/supabase';
 import { useLocalSearchParams, usePathname } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View, useWindowDimensions } from 'react-native';
 import NavRail from './sidebar/NavRail.web';
-import { SHORTCUTS } from './sidebar/constants';
+import { SHORTCUTS, shortcutVisible } from './sidebar/constants';
+import CommandPalette from './sidebar/search/CommandPalette.web';
 import RetractableTopBar from './sidebar/RetractableTopBar.web';
 import { useSidebarProfile } from './sidebar/useSidebarProfile';
 
@@ -96,22 +97,49 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
   }, []);
 
   const visibleShortcuts = useMemo(
-    () =>
-      SHORTCUTS.filter(
-        (s) =>
-          s.id === 'dashboard' ||
-          s.id === 'tasks' ||
-          // Search/Deadlines already have a desktop entry point (topbar search,
-          // topbar calendar strip) — only surface these mobile-only shortcuts
-          // in the mobile-web drawer, not the desktop sidebar rail.
-          (isMobile && (s.id === 'search' || s.id === 'deadlines')) ||
-          (profile?.is_owner && (s.id === 'team' || s.id === 'pipelines-admin')) ||
-          (s.anyPermissions ? s.anyPermissions.some((p) => hasPermission(p)) : false) ||
-          (!!s.permissionKey && hasPermission(s.permissionKey)) ||
-          (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
-      ),
+    () => SHORTCUTS.filter((s) => shortcutVisible(s, { hasPermission, isOwner: !!profile?.is_owner, isMobile })),
     [hasPermission, profile?.is_owner, isMobile]
   );
+
+  // Command palette (⌘K / Ctrl+K / Ctrl+F) — web-only additive overlay. Hotkeys
+  // live here because the palette can't listen for its own open key while
+  // unmounted; it owns arrow/enter/escape nav once open.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  // #341: the top-bar search field opens the palette carrying whatever's typed.
+  // `paletteSeed` is that hand-off text, applied once on the palette's open edge.
+  const [paletteSeed, setPaletteSeed] = useState('');
+  const openPalette = useCallback((seed: string) => {
+    setPaletteSeed(seed);
+    setPaletteOpen(true);
+  }, []);
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    setPaletteSeed('');
+    setTopSearch('');
+  }, []);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const toggle = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    // Ctrl+F: capture phase + preventDefault to beat the browser's native find.
+    // ⌘F on mac stays native — only Ctrl+F is intercepted.
+    const openOnFind = (e: KeyboardEvent) => {
+      if (e.ctrlKey && !e.metaKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener('keydown', toggle);
+    window.addEventListener('keydown', openOnFind, true);
+    return () => {
+      window.removeEventListener('keydown', toggle);
+      window.removeEventListener('keydown', openOnFind, true);
+    };
+  }, []);
 
   const { profileAvatarUrl, profileLabel } = useSidebarProfile(session);
 
@@ -168,6 +196,7 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
           position={navPosition}
           onLongPressToggle={toggleNavPosition}
         />
+        <CommandPalette open={paletteOpen} onClose={closePalette} initialQuery={paletteSeed} />
       </View>
     );
   }
@@ -202,12 +231,15 @@ export default function Sidebar({ children }: { children: React.ReactNode }) {
           pipelines={pipelines}
           portfolios={portfolios}
           portfoliosLoading={portfoliosLoading}
+          onRequestPalette={openPalette}
         />
 
         <View className="flex-1 bg-surface-background">
           {children}
         </View>
       </View>
+
+      <CommandPalette open={paletteOpen} onClose={closePalette} initialQuery={paletteSeed} />
     </View>
   );
 }

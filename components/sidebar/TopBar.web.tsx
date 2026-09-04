@@ -1,13 +1,8 @@
-import { useAuth } from '@/contexts/AuthContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useDropdownTrigger } from '@/hooks/useDropdownTrigger';
-import { useGlobalSearch } from '@/hooks/useGlobalSearch';
-import { useRecentSearches } from '@/hooks/useRecentSearches';
-import { useSavedSearches } from '@/hooks/useSavedSearches';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useUpcomingTasks } from '@/hooks/useUpcomingTasks';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
@@ -18,7 +13,6 @@ import NotificationsDropdown from './notifications/NotificationsDropdown.web';
 import PinnedShortcuts from './PinnedShortcuts.web';
 import ProfilePill from './ProfilePill.web';
 import ThemeButton from './ThemeButton.web';
-import SearchDropdown from './search/SearchDropdown.web';
 import TimelineDropdown from './timeline/TimelineDropdown.web';
 import TimelineStrip from './timeline/TimelineStrip.web';
 
@@ -43,7 +37,7 @@ export default function TopBar({
   portfolios,
   portfoliosLoading,
   onPickerOpenChange,
-  onSearchFocusChange,
+  onRequestPalette,
 }: {
   topSearch: string;
   setTopSearch: (value: string) => void;
@@ -55,26 +49,11 @@ export default function TopBar({
   portfolios: { id: string; name: string }[];
   portfoliosLoading: boolean;
   onPickerOpenChange?: (open: boolean) => void;
-  onSearchFocusChange?: (focused: boolean) => void;
+  onRequestPalette?: (seed: string) => void;
 }) {
   const colors = useThemeColors();
-  const router = useRouter();
-  const { hasPermission } = useAuth();
   const { notifications } = useNotifications();
-  const canViewArchives = hasPermission('archive.view');
-  const [focused, setFocused] = React.useState(false);
-  const [hovered, setHovered] = React.useState(false);
-  const [includeArchived, setIncludeArchived] = React.useState(false);
-  const searchWrapRef = React.useRef<any>(null);
-  const blurTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Open the dropdown on hover too (matching the + / theme buttons), not just focus.
-  const searchOpen = focused || hovered;
-  const { grouped, results, archives, loading, parsed, searchError } = useGlobalSearch(topSearch, {
-    enabled: searchOpen,
-    includeArchived: includeArchived && canViewArchives,
-  });
-  const { recent, push: pushRecent, remove: removeRecent, clear: clearRecent } = useRecentSearches();
-  const { saved, isSaved, toggle: toggleSaved } = useSavedSearches();
+  const searchInputRef = React.useRef<TextInput>(null);
   // The ribbon draws three levels, so it asks for the project half too. The
   // mobile Deadlines screen calls the same hook without it and spends no query.
   const { tasks: upcomingTasks, projects: upcomingProjects } = useUpcomingTasks({ withProjects: true });
@@ -87,11 +66,13 @@ export default function TopBar({
   const { open: notifOpen, setClickedOpen: setNotifOpen, toggle: toggleNotif, wrapperRef: notifWrapRef, closeNow: closeNotifRaw } = useDropdownTrigger(150);
   const notifPeekTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const setFocus = (v: boolean) => { setFocused(v); onSearchFocusChange?.(v); };
-  // Delay blur so a click inside the dropdown lands before it unmounts.
-  const onBlur = () => { blurTimer.current = setTimeout(() => setFocus(false), 150); };
-  const onFocus = () => { if (blurTimer.current) clearTimeout(blurTimer.current); setFocus(true); };
-  const closeNow = () => { if (blurTimer.current) clearTimeout(blurTimer.current); setFocus(false); };
+  // Search field is now a pure trigger for the command palette (#341) — focusing
+  // or clicking it opens the palette carrying whatever's typed, and the palette
+  // owns the actual query. No hover dropdown here anymore.
+  const openPalette = () => {
+    onRequestPalette?.(topSearch);
+    searchInputRef.current?.blur();
+  };
 
   // Same hover-open pattern as the search bar above, but simpler: the strip
   // and its dropdown are both raw DOM, so a single plain <div> wrapper with
@@ -155,72 +136,30 @@ export default function TopBar({
     setCalendarOpen(true);
   };
 
-  // Hover-open, covering the input row, the 8px gap (bridged below), and the
-  // dropdown itself so moving between them doesn't flicker-close it.
-  React.useEffect(() => {
-    const el = searchWrapRef.current;
-    const domNode = el instanceof Element ? el : (el as any)?.getDOMNode?.() ?? null;
-    if (!domNode) return;
-    const onEnter = () => setHovered(true);
-    const onLeave = () => setHovered(false);
-    domNode.addEventListener('mouseenter', onEnter);
-    domNode.addEventListener('mouseleave', onLeave);
-    return () => {
-      domNode.removeEventListener('mouseenter', onEnter);
-      domNode.removeEventListener('mouseleave', onLeave);
-    };
-  }, []);
-
-  const goToResults = () => {
-    const q = topSearch.trim();
-    if (!q) return;
-    pushRecent(q);
-    closeNow();
-    router.push(`/search?q=${encodeURIComponent(q)}` as any);
-  };
-
   return (
       <View className="h-16 flex-row items-center gap-3 border-b border-surface-border bg-surface-background px-5">
-        <View ref={searchWrapRef} className="h-9 flex-1 max-w-md flex-row items-center gap-2 rounded-xl bg-surface-card px-3" style={{ position: 'relative' }}>
-          {/* Transparent bridge over the 8px gap to the dropdown (top: 44) so a
-              hover trip between input and dropdown never fires mouseleave. */}
-          {searchOpen && <View style={{ position: 'absolute', top: 36, left: 0, right: 0, height: 10 }} />}
+        <Pressable
+          onPress={openPalette}
+          className="h-9 flex-1 max-w-md flex-row items-center gap-2 rounded-xl bg-surface-card px-3"
+        >
           <FontAwesome name="search" size={12} color={colors.textDim} />
           <TextInput
+            ref={searchInputRef}
             value={topSearch}
-            onChangeText={setTopSearch}
-            onFocus={onFocus}
-            onBlur={onBlur}
-            onSubmitEditing={goToResults}
+            onChangeText={(t) => { setTopSearch(t); onRequestPalette?.(t); }}
+            onFocus={openPalette}
             returnKeyType="search"
             placeholder="Search projects, tasks, files…"
             placeholderTextColor={colors.textDim}
             className="flex-1 text-sm text-typography-main"
             style={{ paddingVertical: 0 }}
           />
-          <SearchDropdown
-            visible={searchOpen}
-            query={topSearch}
-            parsed={parsed}
-            grouped={grouped}
-            results={results}
-            archives={archives}
-            loading={loading}
-            searchError={searchError}
-            recent={recent}
-            saved={saved}
-            querySaved={isSaved(topSearch)}
-            onToggleSave={() => toggleSaved(topSearch)}
-            canViewArchives={canViewArchives}
-            includeArchived={includeArchived}
-            onToggleArchived={() => setIncludeArchived((v) => !v)}
-            onPickRecent={(q) => { setTopSearch(q); }}
-            onRemoveRecent={removeRecent}
-            onClearRecent={clearRecent}
-            onSubmit={goToResults}
-            onNavigate={() => { pushRecent(topSearch.trim()); closeNow(); }}
-          />
-        </View>
+          {/* Visual cue only — the whole field opens the palette; this just
+              tells you the shortcut (matches the palette's own keycap chips). */}
+          <View className="px-1.5 py-0.5 rounded-md" style={{ borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ fontFamily: 'SpaceMono', fontSize: 10, color: colors.textDim }}>⌘K</Text>
+          </View>
+        </Pressable>
 
         <PinnedShortcuts
           visibleShortcuts={visibleShortcuts}

@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { TaskCreationProvider } from '@/contexts/TaskCreationContext';
+import { useModalDispatch } from '@/contexts/ModalDispatchContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
@@ -12,7 +12,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import CreateTaskModal from '../tasks/CreateTaskModal';
 
 export const FAB_SIZE = 52;
 const MENU_WIDTH = 210;
@@ -51,7 +50,7 @@ export default function QuickCreateButton({
   const colors = useThemeColors();
   const router = useRouter();
   const { hasPermission } = useAuth();
-  const [showTaskWizard, setShowTaskWizard] = useState(false);
+  const { summon } = useModalDispatch();
   // Kept mounted through the closing animation, then dropped.
   const [rendered, setRendered] = useState(open);
 
@@ -80,21 +79,23 @@ export default function QuickCreateButton({
 
   // ponytail: flat list, one row each. Projects/portfolios are still in dev —
   // add a row + its permission key here when they ship.
+  // Task, report and upload all go through the global modal dispatcher (#323 /
+  // #340); ModalHost owns the actual modals. (On native the upload modal is a
+  // stub that redirects to /filehub — see components/filehub/UploadComposerModal.tsx.)
   const actions: { id: string; icon: IconName; label: string; permission?: string; run: () => void }[] = [
-    { id: 'task', icon: 'check-square-o', label: 'New Task', permission: 'task.create', run: () => setShowTaskWizard(true) },
-    { id: 'report', icon: 'file-text-o', label: 'New Report', permission: 'report.view', run: () => router.push('/intelligence/reports') },
-    { id: 'upload', icon: 'cloud-upload', label: 'Upload File', permission: 'filehub:view', run: () => router.push('/filehub') },
+    { id: 'task', icon: 'check-square-o', label: 'New Task', permission: 'task.create', run: () => summon('create-task') },
+    { id: 'report', icon: 'file-text-o', label: 'New Report', permission: 'report.view', run: () => summon('generate-report') },
+    { id: 'upload', icon: 'cloud-upload', label: 'Upload File', permission: 'filehub:view', run: () => summon('upload') },
     { id: 'search', icon: 'search', label: 'Search', run: () => router.push('/search') },
     { id: 'deadlines', icon: 'calendar-o', label: 'Deadlines', run: () => router.push('/deadlines') },
   ];
 
   const items = actions.filter((a) => !a.permission || hasPermission(a.permission));
 
+  // Relative wrapper sized exactly to the FAB — the menu is absolutely
+  // positioned off of it, so it never participates in the tab bar's row layout
+  // or shifts the pill next to it.
   return (
-    <>
-      {/* Relative wrapper sized exactly to the FAB — the menu is absolutely
-          positioned off of it, so it never participates in the tab bar's row
-          layout or shifts the pill next to it. */}
       <View style={{ position: 'relative', width: FAB_SIZE, height: FAB_SIZE }}>
         {/* Shadow on the outer view, clipping on the inner — iOS drops the
             shadow when the same view has `overflow: hidden`. */}
@@ -148,15 +149,5 @@ export default function QuickCreateButton({
           </Animated.View>
         </Pressable>
       </View>
-
-      {/* Own TaskCreationProvider: this button lives in the tab bar, outside the
-          Tasks screen's provider, so CreateTaskModal has no ancestor otherwise.
-          ponytail: no pipeline seed — the wizard keeps the last-used board. The
-          Tasks screen picks new tasks up on focus / its 60s poll; wire a shared
-          refresh if that lag ever bites. */}
-      <TaskCreationProvider>
-        <CreateTaskModal visible={showTaskWizard} onClose={() => setShowTaskWizard(false)} />
-      </TaskCreationProvider>
-    </>
   );
 }

@@ -103,6 +103,38 @@ export async function getConnection(provider: string): Promise<{ instance_url: s
   return data ?? null;
 }
 
+export type ConnectionMeta = {
+  connected: boolean;
+  instanceUrl?: string | null;
+  db?: string | null;
+  username?: string | null;
+  displayName?: string | null;
+  updatedAt?: string | null;
+};
+
+// Non-secret connection detail (db/username/instanceUrl) for prefilling the
+// connect form on reconnect — the API key / OAuth token is decrypted
+// server-side only and never included in the response.
+export async function readConnectionMeta(provider: string): Promise<ConnectionMeta> {
+  const { data, error } = await supabase.functions.invoke('import-proxy', {
+    body: { provider, resource: 'read', params: {} },
+  });
+  if (error) return { connected: false };
+  return (data as ConnectionMeta) ?? { connected: false };
+}
+
+export type StoredConnection = { provider: string; instance_url: string | null; updated_at: string };
+
+// Every provider the caller has connected, most-recently-used first — powers
+// the "Recently imported from" quick-launch list.
+export async function listConnections(): Promise<StoredConnection[]> {
+  const { data } = await supabase
+    .from('import_connections')
+    .select('provider, instance_url, updated_at')
+    .order('updated_at', { ascending: false });
+  return data ?? [];
+}
+
 export async function deleteConnection(provider: string): Promise<void> {
   const { error } = await supabase
     .from('import_connections')
