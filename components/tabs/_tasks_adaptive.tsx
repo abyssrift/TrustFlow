@@ -15,6 +15,7 @@ import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detai
 import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
+import BulkTaskActionBar from '@/components/tasks/BulkTaskActionBar';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
 import { useBoardPicker } from '@/hooks/useBoardPicker';
@@ -26,6 +27,7 @@ import { TaskCreationProvider, type StagedBriefFile } from '@/contexts/TaskCreat
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useNavBarPosition } from '@/hooks/useNavBarPosition';
+import { useTaskMultiSelect } from '@/hooks/useTaskMultiSelect';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
@@ -370,6 +372,10 @@ function TasksScreen() {
    const { position: navPosition } = useNavBarPosition();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
+
+  // #216: batch/multi-select. Entry is a long-press on a card or the toolbar
+  // toggle — no marquee/Ctrl+click here (touch has neither).
+  const multiSelect = useTaskMultiSelect();
 
   // Board peek (hover on web / long-press on native): preview neighbouring boards.
   const [showBoardPeek, setShowBoardPeek] = useState(false);
@@ -1018,12 +1024,18 @@ function TasksScreen() {
       <AnimatedTaskCard key={task.id}>
       <TouchableOpacity
         onPress={() => {
+          // #216: in select mode, tapping toggles the card instead of navigating.
+          if (multiSelect.active) { multiSelect.toggle(task.id); return; }
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
         }}
+        onLongPress={() => { if (!multiSelect.active) multiSelect.enter(task.id); }}
         activeOpacity={0.7}
         className="bg-surface-card p-4 rounded-2xl mb-3 premium-shadow relative hover:z-50"
-        style={isPinged ? {
+        style={multiSelect.isSelected(task.id) ? {
+          borderWidth: 1.5,
+          borderColor: colors.primary,
+        } : isPinged ? {
           borderWidth: 1.5,
           borderColor: 'rgba(255, 140, 0, 0.6)',
         } : {
@@ -1031,6 +1043,19 @@ function TasksScreen() {
           borderColor: 'rgba(128,128,128,0.15)',
         }}
       >
+        {multiSelect.active && (
+          <View
+            pointerEvents="none"
+            className="absolute top-2.5 left-2.5 w-6 h-6 rounded-full items-center justify-center z-[70]"
+            style={{
+              backgroundColor: multiSelect.isSelected(task.id) ? colors.primary : colors.background,
+              borderWidth: 1.5,
+              borderColor: multiSelect.isSelected(task.id) ? colors.primary : colors.border,
+            }}
+          >
+            {multiSelect.isSelected(task.id) && <FontAwesome name="check" size={10} color="#fff" />}
+          </View>
+        )}
         {isPinged && (
           <>
             <View
@@ -1134,7 +1159,7 @@ function TasksScreen() {
       </TouchableOpacity>
       </AnimatedTaskCard>
     );
-  }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, stageTransitions, user?.id, handleOpenAssignments, silentRefresh, colors, pingedTasks, removePingedTask]);
+  }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, stageTransitions, user?.id, handleOpenAssignments, silentRefresh, colors, pingedTasks, removePingedTask, multiSelect.active, multiSelect.isSelected, multiSelect.toggle, multiSelect.enter]);
 
   const renderStageColumn = (stage: Stage) => {
     const stageTasks = tasks.filter(t => {
@@ -1485,6 +1510,14 @@ function TasksScreen() {
                 )}
               </TouchableOpacity>
             </Tooltip>
+            <Tooltip label={multiSelect.active ? 'Exit batch select' : 'Batch select'}>
+              <TouchableOpacity
+                onPress={() => (multiSelect.active ? multiSelect.exit() : multiSelect.enter())}
+                className={`p-2.5 rounded-xl border ${multiSelect.active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+              >
+                <FontAwesome name="check-square-o" size={15} className="text-brand-primary" />
+              </TouchableOpacity>
+            </Tooltip>
             <Tooltip label="Customize board">
               <TouchableOpacity
                 onPress={() => setShowPersonalizer(true)}
@@ -1746,6 +1779,16 @@ function TasksScreen() {
         onImported={fetchData}
         pipelineId={pipeline?.id}
       />
+
+      {multiSelect.active && (
+        <BulkTaskActionBar
+          taskIds={multiSelect.selectedIds}
+          stages={stages}
+          availablePipelines={availablePipelines}
+          onClose={multiSelect.exit}
+          onDone={fetchData}
+        />
+      )}
     </View>
   );
 }
