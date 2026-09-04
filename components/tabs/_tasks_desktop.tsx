@@ -14,6 +14,7 @@ import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars'
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
+import BulkTaskActionBar from '@/components/tasks/BulkTaskActionBar';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
 import { useAlert } from '@/contexts/AlertContext';
@@ -24,7 +25,9 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { BOARD_PICKER_KEYS, useBoardPicker } from '@/hooks/useBoardPicker';
-import { useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
+import { useTaskMultiSelect } from '@/hooks/useTaskMultiSelect';
+import { useFileDrop, useMarqueeSelect, useSmartPaste } from '@/hooks/useWebDnd';
+import { isMultiSelectModifierActive } from '@/lib/webModifierKeys';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { fileToStaged } from '@/lib/pasteImage';
 import { supabase } from '@/lib/supabase';
@@ -423,6 +426,15 @@ export function TasksScreenWeb() {
   const { showConfirm } = useAlert();
 
   const { pingedTasks, removePingedTask } = usePingHighlight();
+
+  // #216: batch/multi-select. Marquee only arms once select mode is active
+  // (same choice FileHub's desktop grid made) — Ctrl/Cmd+click is the direct
+  // entry point that skips the toolbar toggle.
+  const multiSelect = useTaskMultiSelect();
+  const { containerRef: marqueeContainerRef, marqueeRect } = useMarqueeSelect(
+    (ids) => multiSelect.replaceFromMarquee(ids),
+    multiSelect.active,
+  );
 
   // Optimistic local patch so a card jumps columns the instant its own action
   // succeeds, instead of waiting on the realtime round-trip / fetchData reload.
@@ -1179,13 +1191,22 @@ export function TasksScreenWeb() {
       >
       <TouchableOpacity
         onPress={() => {
+          // #216: in select mode, tapping a card toggles it instead of
+          // navigating. Outside select mode, Ctrl/Cmd+click starts a batch
+          // straight from the normal board (webModifierKeys recovers the
+          // modifier RN-web drops from onPress's own nativeEvent).
+          if (multiSelect.active) { multiSelect.toggle(task.id); return; }
+          if (Platform.OS === 'web' && isMultiSelectModifierActive()) { multiSelect.addFromModifierClick(task.id); return; }
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
         }}
-        // @ts-ignore - web-only hook for StageTransitionFX to find/measure this card
-        dataSet={Platform.OS === 'web' ? { stageCardId: task.id } : undefined}
+        // @ts-ignore - web-only hooks for StageTransitionFX + marquee selection to find this card
+        dataSet={Platform.OS === 'web' ? { stageCardId: task.id, marqueeId: task.id } : undefined}
         className="bg-surface-card p-5 rounded-2xl mb-4 premium-shadow hover:border-brand-primary/50 hover:z-50 transition-all relative"
-        style={isPinged ? {
+        style={multiSelect.isSelected(task.id) ? {
+          borderWidth: 1.5,
+          borderColor: colors.primary,
+        } : isPinged ? {
           borderWidth: 1.5,
           borderColor: 'rgba(255, 140, 0, 0.6)',
         } : {
@@ -1193,6 +1214,19 @@ export function TasksScreenWeb() {
           borderColor: 'rgba(128,128,128,0.15)',
         }}
       >
+        {multiSelect.active && (
+          <View
+            pointerEvents="none"
+            className="absolute top-3 left-3 w-6 h-6 rounded-full items-center justify-center z-[70]"
+            style={{
+              backgroundColor: multiSelect.isSelected(task.id) ? colors.primary : colors.background,
+              borderWidth: 1.5,
+              borderColor: multiSelect.isSelected(task.id) ? colors.primary : colors.border,
+            }}
+          >
+            {multiSelect.isSelected(task.id) && <FontAwesome name="check" size={10} color="#fff" />}
+          </View>
+        )}
         {isPinged && (
           <>
             <View
@@ -1505,6 +1539,14 @@ export function TasksScreenWeb() {
                </Tooltip>
                {/* Utility group — icon-only squares, tighter than the labeled primary actions */}
                <View className="flex-row items-center gap-2">
+                 <Tooltip label={multiSelect.active ? 'Exit batch select' : 'Batch select'}>
+                   <TouchableOpacity
+                     onPress={() => (multiSelect.active ? multiSelect.exit() : multiSelect.enter())}
+                     className={`h-14 w-14 items-center justify-center border rounded-2xl premium-shadow transition-all ${multiSelect.active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+                   >
+                     <FontAwesome name="check-square-o" size={16} className={multiSelect.active ? 'text-brand-primary' : 'text-typography-muted'} />
+                   </TouchableOpacity>
+                 </Tooltip>
                  <Tooltip label="Refresh board">
                    <TouchableOpacity
                      onPress={onRefresh}
@@ -1698,12 +1740,16 @@ export function TasksScreenWeb() {
               </View>
             </View>
           ) : (
-            <View ref={boardContainerRef} style={{ flex: 1 }} onLayout={(e) => {
-              // Re-rendering the whole board per layout frame is only worth it
-              // while a column is actually sized off boardWidth (fullscreen).
-              boardWidthRef.current = e.nativeEvent.layout.width;
-              if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
-            }}>
+            <View
+              ref={(el: any) => { (boardContainerRef as any).current = el; marqueeContainerRef.current = el; }}
+              style={{ flex: 1 }}
+              onLayout={(e) => {
+                // Re-rendering the whole board per layout frame is only worth it
+                // while a column is actually sized off boardWidth (fullscreen).
+                boardWidthRef.current = e.nativeEvent.layout.width;
+                if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
+              }}
+            >
             <ScrollView
               ref={boardScrollRef}
               horizontal
@@ -1834,6 +1880,12 @@ export function TasksScreenWeb() {
               })}
             </ScrollView>
             <StageTrailLayer trails={stageFX.trails} color={stageFX.glowColor} actorInfo={stageFX.actorInfo} />
+            {marqueeRect && (
+              <View
+                pointerEvents="none"
+                style={{ position: 'absolute', left: marqueeRect.x, top: marqueeRect.y, width: marqueeRect.w, height: marqueeRect.h, backgroundColor: 'rgba(99,102,241,0.15)', borderWidth: 1, borderColor: 'rgba(99,102,241,0.6)' }}
+              />
+            )}
             </View>
           )}
         </View>
@@ -1889,6 +1941,16 @@ export function TasksScreenWeb() {
         onImported={fetchData}
         pipelineId={pipeline?.id}
       />
+
+      {multiSelect.active && (
+        <BulkTaskActionBar
+          taskIds={multiSelect.selectedIds}
+          stages={stages}
+          availablePipelines={availablePipelines}
+          onClose={multiSelect.exit}
+          onDone={fetchData}
+        />
+      )}
 
 
       <ConfirmModal
