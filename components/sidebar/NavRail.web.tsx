@@ -127,13 +127,20 @@ export default function NavRail({
               <Tooltip label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} side="right" className={isExpanded ? 'w-11' : 'w-full'}>
                 <Pressable
                   onPress={toggleCollapse}
+                  accessibilityLabel={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                   className={`h-11 w-full items-center justify-center rounded-xl border border-surface-border bg-surface-card hover:bg-surface-overlay`}
                 >
-                  <FontAwesome
-                    name={isCollapsed ? 'indent' : 'outdent'}
-                    size={16}
-                    color={colors.primary}
-                  />
+                  {isExpanded ? (
+                    <FontAwesome name="outdent" size={16} color={colors.primary} />
+                  ) : (
+                    // Collapsed rail: the logo itself is the toggle anchor
+                    // (issue #312) instead of a generic arrow icon.
+                    <Image
+                      source={require('../../assets/images/logo-mark.png')}
+                      style={{ width: 26, height: 26 }}
+                      resizeMode="contain"
+                    />
+                  )}
                 </Pressable>
               </Tooltip>
             </View>
