@@ -88,9 +88,10 @@ function MemberRow({ member, work, onOpen }: { member: Member; work?: WorkInfo; 
 // and private Notes. Membership is the real access list (rpc_get_pipeline_members) —
 // role-gated, never derived from task assignments.
 //
-// Thin outer wrapper: mounts the collapse SharedValue so the People-tab
-// member-list ScrollView can drive the scroll-linked header collapse (same
-// split as components/intelligence/_index_desktop.tsx).
+// Thin outer wrapper: mounts the collapse SharedValue so each tab's own
+// ScrollView (People's member list, Activity, Notes) can drive the
+// scroll-linked header collapse (same split as
+// components/intelligence/_index_desktop.tsx).
 export default function RightSidebar(props: React.ComponentProps<typeof RightSidebarInner>) {
   return (
     <CollapsibleHeaderProvider>
