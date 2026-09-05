@@ -4,6 +4,8 @@ import { FontAwesome } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import { Platform, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { FilePreviewModal, getPreviewKind, type PreviewKind } from './FilePreview';
+import ImageLightbox from './ImageLightbox';
 
 // Make sure you have these accessible in scope, or pass them as props
 // getMimeIcon, formatFileSize
@@ -23,6 +25,8 @@ function AdaptiveFileGrid({
 }) {
   const { width: screenWidth } = useWindowDimensions();
   const [containerWidth, setContainerWidth] = useState(0);
+  const [lightboxFile, setLightboxFile] = useState<{ uri: string; name: string } | null>(null);
+  const [preview, setPreview] = useState<{ uri: string; name: string; kind: PreviewKind; sizeBytes?: number } | null>(null);
 
   // --- 1. Adaptive Padding Strategy ---
   // Large desktop (>1024px): 100px padding
@@ -104,30 +108,45 @@ function AdaptiveFileGrid({
             // Create a temporary browser-readable URL for the image
             imageSource = URL.createObjectURL(pf.webFile);
             }
+            const kind = !isImage ? getPreviewKind(pf.type ?? null, pf.name) : null;
+            const canPreview = isImage || !!kind;
             return (
-              <View 
-                key={`${pf.name}-${idx}`} 
+              <View
+                key={`${pf.name}-${idx}`}
                 style={{ width: exactSquareSize, height: exactSquareSize }}
                 className="rounded-2xl overflow-hidden border border-surface-border bg-surface-background relative"
               >
-                {/* Visual Preview */}
-                {isImage ? (
-                 <Image 
-                    source={{ uri: imageSource }} 
-                    style={{ flex: 1, width: '100%', height: '100%' }} 
-                    contentFit="cover" // Note: expo-image uses contentFit instead of resizeMode
-                    cachePolicy="memory" // Keeps it snappy
-                    />
-                ) : (
-                  <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '12' }}>
-                    <FontAwesome name={icon as any} size={exactSquareSize > 120 ? 36 : 28} color={color} />
-                    <View className="mt-3 bg-surface-background px-2 py-1 rounded-lg border border-surface-border shadow-sm">
-                      <Text className="text-[10px] font-black uppercase text-typography-muted" numberOfLines={1}>
-                        {pf.name.split('.').pop() || 'FILE'}
-                      </Text>
+                {/* Visual Preview — press target is an absolute-fill touchable; the
+                    overlay buttons below are SIBLINGS, not children — nested
+                    touchables silently swallow presses on react-native-web. */}
+                <TouchableOpacity
+                  activeOpacity={canPreview ? 0.7 : 1}
+                  disabled={!canPreview}
+                  onPress={() => {
+                    if (isImage) setLightboxFile({ uri: imageSource, name: pf.name });
+                    else if (kind) setPreview({ uri: imageSource, name: pf.name, kind, sizeBytes: pf.size });
+                  }}
+                  style={Platform.OS === 'web' && canPreview ? ({ cursor: 'pointer' } as any) : undefined}
+                  className="absolute inset-0"
+                >
+                  {isImage ? (
+                   <Image
+                      source={{ uri: imageSource }}
+                      style={{ flex: 1, width: '100%', height: '100%' }}
+                      contentFit="cover" // Note: expo-image uses contentFit instead of resizeMode
+                      cachePolicy="memory" // Keeps it snappy
+                      />
+                  ) : (
+                    <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '12' }}>
+                      <FontAwesome name={icon as any} size={exactSquareSize > 120 ? 36 : 28} color={color} />
+                      <View className="mt-3 bg-surface-background px-2 py-1 rounded-lg border border-surface-border shadow-sm">
+                        <Text className="text-[10px] font-black uppercase text-typography-muted" numberOfLines={1}>
+                          {pf.name.split('.').pop() || 'FILE'}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                )}
+                  )}
+                </TouchableOpacity>
 
                 {/* Delete Button */}
                 <Tooltip label="Remove file">
@@ -141,7 +160,7 @@ function AdaptiveFileGrid({
                 </Tooltip>
 
                 {/* File Size Bar */}
-                <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1.5 backdrop-blur-md">
+                <View pointerEvents="none" className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1.5 backdrop-blur-md">
                   <Text className="text-white text-[10px] font-bold text-center" numberOfLines={1}>
                     {formatFileSize(pf.size)}
                   </Text>
@@ -151,8 +170,8 @@ function AdaptiveFileGrid({
           })}
 
           {/* Add More Button */}
-          <TouchableOpacity 
-            onPress={onAddMore} 
+          <TouchableOpacity
+            onPress={onAddMore}
             style={{ width: exactSquareSize, height: exactSquareSize }}
             className="rounded-2xl border-2 border-dashed border-surface-border bg-surface-background items-center justify-center"
           >
@@ -162,6 +181,24 @@ function AdaptiveFileGrid({
 
         </View>
       </View>
+      {lightboxFile && (
+        <ImageLightbox
+          visible
+          uri={lightboxFile.uri}
+          fileName={lightboxFile.name}
+          onClose={() => setLightboxFile(null)}
+        />
+      )}
+      {preview && (
+        <FilePreviewModal
+          visible
+          uri={preview.uri}
+          fileName={preview.name}
+          kind={preview.kind}
+          onClose={() => setPreview(null)}
+          sizeBytes={preview.sizeBytes}
+        />
+      )}
     </View>
   );
 }
