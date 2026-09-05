@@ -3,6 +3,7 @@ import { formatCompact, formatRelative } from '@/lib/time';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import UserLink from '@/components/common/UserLink';
 
 type Item = {
@@ -43,6 +44,10 @@ export default function KanbanActivity({
   onOpen: (taskId: string) => void;
 }) {
   const colors = useThemeColors();
+  // Drives the RightSidebar header collapse when this tab is scrolled — same
+  // SharedValue as the People tab's member list (both siblings under the same
+  // <CollapsibleHeaderProvider> in RightSidebar). Null-safe outside a provider.
+  const headerScroll = useCollapsibleHeaderScroll();
   const [items, setItems] = useState<Item[]>([]);
   const [actors, setActors] = useState<Record<string, { name: string; avatar?: string | null }>>({});
   const [loading, setLoading] = useState(true);
@@ -127,7 +132,7 @@ export default function KanbanActivity({
   }
 
   return (
-    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+    <ScrollView className="flex-1" showsVerticalScrollIndicator={false} {...headerScroll}>
       {items.map(it => {
         const actor = actorOf(it.actorId);
         return (
