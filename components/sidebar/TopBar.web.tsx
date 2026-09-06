@@ -1,4 +1,5 @@
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useAttentionRibbonWindow } from '@/hooks/useAttentionRibbonWindow';
 import { useDropdownTrigger } from '@/hooks/useDropdownTrigger';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useUpcomingTasks } from '@/hooks/useUpcomingTasks';
@@ -56,7 +57,10 @@ export default function TopBar({
   const searchInputRef = React.useRef<TextInput>(null);
   // The ribbon draws three levels, so it asks for the project half too. The
   // mobile Deadlines screen calls the same hook without it and spends no query.
-  const { tasks: upcomingTasks, projects: upcomingProjects } = useUpcomingTasks({ withProjects: true });
+  // windowDays (#67) — customizable look-ahead, persisted per-device, changed
+  // from the pill row in TimelineDropdown.
+  const { windowDays, setWindow } = useAttentionRibbonWindow();
+  const { tasks: upcomingTasks, projects: upcomingProjects } = useUpcomingTasks({ withProjects: true, windowDays });
   const [timelineOpen, setTimelineOpen] = React.useState(false);
   const timelineCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const timelineDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -186,6 +190,8 @@ export default function TopBar({
               visible={timelineOpen}
               tasks={upcomingTasks}
               projects={upcomingProjects}
+              windowDays={windowDays}
+              onChangeWindowDays={setWindow}
               onNavigate={closeTimelineNow}
               onExpand={expandCalendar}
               containerRef={timelineDropdownRef}

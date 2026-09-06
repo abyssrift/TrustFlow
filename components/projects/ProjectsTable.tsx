@@ -23,11 +23,20 @@ import {
 } from '@/components/entities/EntityUI';
 import { SkeletonList } from '@/components/Skeleton';
 import { useDebounce } from '@/hooks/useDebounce';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import {
+  fieldSortValue,
+  formatFieldValue,
+  useProjectFieldDefs,
+  type ProjectFieldDef,
+  type ProjectFieldValue,
+} from '@/hooks/useProjectFields';
 import { ageColor, dueColor, fmtDate, fmtDue } from '@/lib/projectPresentation';
 import { supabase } from '@/lib/supabase';
 import { formatCompact } from '@/lib/time';
 import { InlineRename, ProjectActionsButton, useProjectActions } from './ProjectActionsMenu';
+import { CustomColumnsControl, CustomFieldFilterControl, type CustomFieldFilter } from './ProjectsTableCustomFields';
 
 // Mirrors the rpc_projects_table contract (issue #173, Phase 3).
 type ProjectRow = {
@@ -43,18 +52,39 @@ type ProjectRow = {
   tracked_seconds: number;
   estimated_hours: number | null;
   updated_at: string;
+  /** #197: keyed by project_field_defs.key, typed per field's data_type. '{}' when the project has none. */
+  custom_fields: Record<string, ProjectFieldValue> | null;
 };
 
-type SortKey = 'name' | 'stage' | 'age' | 'due' | 'progress' | 'owner' | 'blocked' | 'hours';
+type BaseSortKey = 'name' | 'stage' | 'age' | 'due' | 'progress' | 'owner' | 'blocked' | 'hours';
+/** #197: a selected custom-field column sorts too, keyed the same way p_field_filters is. */
+type SortKey = BaseSortKey | `field:${string}`;
 
 const LIMIT = 25;
 
-const SORT_LABELS: Record<SortKey, string> = {
+const SORT_LABELS: Record<BaseSortKey, string> = {
   name: 'Name', stage: 'Stage', age: 'Days in stage', due: 'Due',
   progress: 'Completion', owner: 'Owner', blocked: 'Health', hours: 'Tracked',
 };
 
-function sortValue(row: ProjectRow, key: SortKey): number | string {
+function isFieldSortKey(key: SortKey): key is `field:${string}` {
+  return key.startsWith('field:');
+}
+
+function sortLabel(key: SortKey, fieldDefsByKey: Map<string, ProjectFieldDef>): string {
+  if (isFieldSortKey(key)) return fieldDefsByKey.get(key.slice(6))?.label ?? key.slice(6);
+  return SORT_LABELS[key];
+}
+
+function isStringArray(raw: unknown): raw is string[] {
+  return Array.isArray(raw) && raw.every(v => typeof v === 'string');
+}
+
+function sortValue(row: ProjectRow, key: SortKey, fieldDefsByKey: Map<string, ProjectFieldDef>): number | string {
+  if (isFieldSortKey(key)) {
+    const def = fieldDefsByKey.get(key.slice(6));
+    return def ? fieldSortValue(def, row.custom_fields?.[def.key]) : '';
+  }
   switch (key) {
     case 'name': return row.name?.toLowerCase() ?? '';
     case 'stage': return row.stage_name?.toLowerCase() ?? '';
@@ -153,12 +183,33 @@ export default function ProjectsTable({
   const [sortKey, setSortKey] = useState<SortKey>('age');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
+  // #197 items 2+3 — opt-in custom-field columns (a per-device display
+  // preference) and the one active custom-field filter condition (sent to
+  // the server, not applied to the fetched page — see sortValue/fetch below).
+  const { defs: fieldDefs } = useProjectFieldDefs();
+  const fieldDefsByKey = useMemo(() => new Map(fieldDefs.map(d => [d.key, d])), [fieldDefs]);
+  const [selectedColumnKeys, setSelectedColumnKeys] = usePersistedState<string[]>(
+    'projects-table:custom-columns', [], isStringArray,
+  );
+  const visibleColumnDefs = useMemo(
+    () => selectedColumnKeys.map(k => fieldDefsByKey.get(k)).filter((d): d is ProjectFieldDef => !!d),
+    [selectedColumnKeys, fieldDefsByKey],
+  );
+  const [customFilter, setCustomFilter] = useState<CustomFieldFilter | null>(null);
+
+  // A deselected/deleted custom column can't stay the active sort.
+  useEffect(() => {
+    if (isFieldSortKey(sortKey) && !fieldDefsByKey.has(sortKey.slice(6))) {
+      setSortKey('age'); setSortDir('desc');
+    }
+  }, [fieldDefsByKey, sortKey]);
+
   const actions = useProjectActions({
     onChanged: () => setLocalRefresh(k => k + 1),
     onOpenProject,
   });
 
-  useEffect(() => { setPage(0); }, [debouncedSearch, stageId, blockedOnly, portfolioId]);
+  useEffect(() => { setPage(0); }, [debouncedSearch, stageId, blockedOnly, portfolioId, customFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,6 +221,7 @@ export default function ProjectsTable({
         p_blocked: blockedOnly ? true : null,
         p_limit: LIMIT,
         p_offset: page * LIMIT,
+        p_field_filters: customFilter ? [{ key: customFilter.key, op: customFilter.op, value: customFilter.value }] : null,
         p_portfolio_id: portfolioId,
       });
       if (cancelled) return;
@@ -190,18 +242,18 @@ export default function ProjectsTable({
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [debouncedSearch, stageId, blockedOnly, page, refreshKey, localRefresh, portfolioId]);
+  }, [debouncedSearch, stageId, blockedOnly, page, refreshKey, localRefresh, portfolioId, customFilter]);
 
   const sortedRows = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
     return [...rows].sort((a, b) => {
-      const va = sortValue(a, sortKey);
-      const vb = sortValue(b, sortKey);
+      const va = sortValue(a, sortKey, fieldDefsByKey);
+      const vb = sortValue(b, sortKey, fieldDefsByKey);
       if (va < vb) return -1 * dir;
       if (va > vb) return 1 * dir;
       return 0;
     });
-  }, [rows, sortKey, sortDir]);
+  }, [rows, sortKey, sortDir, fieldDefsByKey]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -209,7 +261,7 @@ export default function ProjectsTable({
   };
 
   const hasMore = rows.length === LIMIT;
-  const activeFilters = (stageId ? 1 : 0) + (blockedOnly ? 1 : 0);
+  const activeFilters = (stageId ? 1 : 0) + (blockedOnly ? 1 : 0) + (customFilter ? 1 : 0);
 
   // One row of quiet controls, not a search box + a chip rail + a red Switch
   // all competing. "Blocked only" is now the same chip shape as the stage
@@ -265,11 +317,33 @@ export default function ProjectsTable({
           onPress={() => setBlockedOnly(v => !v)}
           touchTarget={!isDesktop}
         />
+        {fieldDefs.length > 0 && (
+          <>
+            <View className="w-px h-5 bg-surface-border mx-1" />
+            <CustomFieldFilterControl
+              defs={fieldDefs}
+              value={customFilter}
+              onChange={setCustomFilter}
+              touchTarget={!isDesktop}
+            />
+          </>
+        )}
       </ScrollView>
+
+      {fieldDefs.length > 0 && (
+        <View style={isDesktop ? undefined : { marginBottom: 12 }}>
+          <CustomColumnsControl
+            defs={fieldDefs}
+            selectedKeys={selectedColumnKeys}
+            onChange={setSelectedColumnKeys}
+            touchTarget={!isDesktop}
+          />
+        </View>
+      )}
 
       {isDesktop && activeFilters > 0 && (
         <TouchableOpacity
-          onPress={() => { setStageId(null); setBlockedOnly(false); }}
+          onPress={() => { setStageId(null); setBlockedOnly(false); setCustomFilter(null); }}
           className="flex-row items-center gap-1.5 px-2 py-1.5"
         >
           <FontAwesome name="times" size={10} color={c.textMuted} />
@@ -280,13 +354,18 @@ export default function ProjectsTable({
   );
 
   // Mobile has no clickable column headers, so sort is a chip row instead.
+  // Opt-in custom columns join the same row, keyed `field:<key>` (sortValue).
+  const sortableKeys: SortKey[] = [
+    ...(Object.keys(SORT_LABELS) as BaseSortKey[]),
+    ...visibleColumnDefs.map(d => `field:${d.key}` as SortKey),
+  ];
   const mobileSortRow = !isDesktop && (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} className="px-4 mb-3" contentContainerStyle={{ gap: 8 }}>
       <Text className="text-typography-dim text-[10px] font-black uppercase tracking-[0.15em] self-center mr-1">Sort</Text>
-      {(Object.keys(SORT_LABELS) as SortKey[]).map(key => (
+      {sortableKeys.map(key => (
         <FilterChip
           key={key}
-          label={SORT_LABELS[key]}
+          label={sortLabel(key, fieldDefsByKey)}
           icon={sortKey === key ? (sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : undefined}
           active={sortKey === key}
           onPress={() => toggleSort(key)}
@@ -346,7 +425,7 @@ export default function ProjectsTable({
       }
       onSecondary={
         debouncedSearch || activeFilters
-          ? () => { setSearch(''); setStageId(null); setBlockedOnly(false); }
+          ? () => { setSearch(''); setStageId(null); setBlockedOnly(false); setCustomFilter(null); }
           : onBrowseStarters
       }
     />
@@ -430,6 +509,14 @@ export default function ProjectsTable({
           ) : <Text className="text-typography-dim text-xs">Nobody yet</Text>}
         </View>
 
+        {visibleColumnDefs.map(def => (
+          <View key={def.id} style={{ flex: 0.9 }} className="pr-3">
+            <Text numberOfLines={1} className="text-typography-main text-xs font-semibold">
+              {formatFieldValue(def, row.custom_fields?.[def.key])}
+            </Text>
+          </View>
+        ))}
+
         <View style={{ flex: 1.05 }} className="items-end pr-2">
           <Text className="text-typography-main text-xs font-bold">{formatCompact(row.tracked_seconds)}</Text>
           <Text className="text-typography-dim text-[10px] mt-0.5">
@@ -461,9 +548,20 @@ export default function ProjectsTable({
                 />
               </View>
             ) : (
-              <Text className="text-typography-dim text-[10px] mt-2">
-                Tracked {formatCompact(row.tracked_seconds)}{row.estimated_hours != null ? ` of ${row.estimated_hours}h est.` : ''}
-              </Text>
+              <View className="mt-2">
+                <Text className="text-typography-dim text-[10px]">
+                  Tracked {formatCompact(row.tracked_seconds)}{row.estimated_hours != null ? ` of ${row.estimated_hours}h est.` : ''}
+                </Text>
+                {visibleColumnDefs.length > 0 && (
+                  <View className="flex-row flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                    {visibleColumnDefs.map(def => (
+                      <Text key={def.id} numberOfLines={1} className="text-typography-dim text-[10px]">
+                        {def.label}: <Text className="text-typography-muted font-semibold">{formatFieldValue(def, row.custom_fields?.[def.key])}</Text>
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
             )
           }
         />
@@ -494,6 +592,9 @@ export default function ProjectsTable({
         <SortHeader label="Completion" sortK="progress" flex={1.5} />
         <SortHeader label="Health" sortK="blocked" flex={1.05} />
         <SortHeader label="Owner" sortK="owner" flex={1.2} />
+        {visibleColumnDefs.map(def => (
+          <SortHeader key={def.id} label={def.label} sortK={`field:${def.key}`} flex={0.9} />
+        ))}
         <SortHeader label="Tracked" sortK="hours" flex={1.05} align="right" />
         <View style={{ width: 32 }} />
       </View>

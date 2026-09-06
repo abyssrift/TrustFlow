@@ -11,6 +11,16 @@ import type { ColumnPage } from '@/lib/taskBoardPage';
 // stages/tasks are `any[]` on purpose: the two boards store slightly different
 // task shapes (desktop carries time metrics + mention flags). Each consumer
 // casts back to its local type on read.
+// #203: a task can additionally be linked (read-only) onto other task-kind
+// pipelines' boards via task_pipeline_links, without leaving its real home.
+export type LinkedTask = {
+  id: string;
+  title: string;
+  priority: string;
+  pipeline_id: string;
+  pipeline_name: string | null;
+};
+
 export type BoardSnapshot = {
   pipeline: { id: string; name: string; task_visibility_mode: 'all' | 'assigned_only'; is_default?: boolean } | null;
   stages: any[];
@@ -27,7 +37,38 @@ export type BoardSnapshot = {
    * its background refetch lands.
    */
   columns?: Record<string, ColumnPage>;
+  /**
+   * #203: tasks linked onto this board from elsewhere (task_pipeline_links),
+   * shown as a read-only reference strip above the stage columns. Optional —
+   * a snapshot written before this existed just shows no strip until its
+   * background refetch lands.
+   */
+  linkedTasks?: LinkedTask[];
 };
+
+// Shared query for the read-only "linked from other pipelines" strip — both
+// boards fetch it the same way (fetchData for the live board, loadBoardSnapshot
+// for warmed ones), keyed by the board being viewed (task_pipeline_links.pipeline_id),
+// not the task's real home pipeline.
+export async function fetchLinkedTasks(
+  supabase: { from: (table: string) => any },
+  pipelineId: string,
+): Promise<LinkedTask[]> {
+  const { data } = await supabase
+    .from('task_pipeline_links')
+    .select('task:task_id(id, title, priority, deleted_at, pipeline_id, pipeline:pipeline_id(name))')
+    .eq('pipeline_id', pipelineId);
+  return ((data || []) as any[])
+    .map((row) => row.task)
+    .filter((t): t is NonNullable<typeof t> => !!t && !t.deleted_at)
+    .map((t) => ({
+      id: t.id,
+      title: t.title,
+      priority: t.priority,
+      pipeline_id: t.pipeline_id,
+      pipeline_name: t.pipeline?.name ?? null,
+    }));
+}
 
 export const taskCache = new Map<string, BoardSnapshot>();
 
