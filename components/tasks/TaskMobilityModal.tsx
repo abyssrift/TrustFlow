@@ -23,16 +23,17 @@ import { isJiraExport, mapJiraRow } from '@/lib/jiraImport';
 import {
   listImporters, startOAuthFlow, connectViaProxy, guessStageMapping, getConnection,
   readConnectionMeta, listConnections, getLastUsedImport, setLastUsedImport,
+  buildPipelineImportPlan,
 } from '@/lib/imports';
-import type { ImporterAdapter, ImportedTask, AuthPayload, ConnectionMeta, StoredConnection } from '@/lib/imports';
+import type {
+  ImporterAdapter, ImportedTask, AuthPayload, ConnectionMeta, StoredConnection, PipelineImportPlan,
+} from '@/lib/imports';
 import { formatRelative } from '@/lib/time';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   onImported?: () => void;
-  // The board this modal was opened from — imported tasks land here.
-  pipelineId?: string;
 };
 
 type Tab = 'export' | 'import';
@@ -51,7 +52,7 @@ const MIME: Record<SpreadsheetFormat, string> = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 };
 
-export default function TaskMobilityModal({ visible, onClose, onImported, pipelineId }: Props) {
+export default function TaskMobilityModal({ visible, onClose, onImported }: Props) {
   const colors = useThemeColors();
   const { hasPermission, user } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
@@ -68,6 +69,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [importedTasks, setImportedTasks] = useState<ImportedTask[] | null>(null);
+  const [pipelinePlan, setPipelinePlan] = useState<PipelineImportPlan | null>(null);
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [connectionMeta, setConnectionMeta] = useState<ConnectionMeta | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
@@ -87,6 +89,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
     setProjects([]);
     setSelectedProjectId(null);
     setImportedTasks(null);
+    setPipelinePlan(null);
     setParsed(null);
     setParsedFileName('');
     setSkipped(0);
@@ -151,6 +154,7 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
     setProjects([]);
     setSelectedProjectId(null);
     setImportedTasks(null);
+    setPipelinePlan(null);
     setParsed(null);
     setConnectionMeta(null);
     setReconnecting(false);
@@ -274,6 +278,12 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
       const auth = buildAuthPayload();
       const tasks = await selectedAdapter.fetchTasks(auth!, projectId);
       const mapped = selectedAdapter.mapToCanonical(tasks);
+      // One pipeline per imported board (issue #100): reuse an existing
+      // pipeline of the same name, else plan to create one with stages
+      // named after the source board's distinct columns/statuses.
+      const { data: pipes } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);
+      const boardName = (projectName || projectId).trim();
+      setPipelinePlan(buildPipelineImportPlan(boardName, mapped, pipes || []));
       setImportedTasks(mapped);
       setImportStep('preview');
       const providerId = selectedAdapter.manifest.providerId || selectedAdapter.manifest.id;
@@ -341,19 +351,19 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
 
   const handleConfirmImport = async () => {
     let rows = parsed;
-    // targetStageId per row (API path only); file rows land in the initial stage.
+    // targetStageId / external-id per row (API path only); file rows land in
+    // the initial stage and carry no external id (CSV has no dedup source).
     let stageForRow: (string | null)[] = [];
+    let externalForRow: { id: string | null; url: string | null }[] = [];
 
     if (!rows && importedTasks) {
       // API-sourced tasks arrive as emails/names + source stage names — resolve
       // both against this company before creating, so assignees and status stick.
-      const [usersRes, pipesRes] = await Promise.all([
-        supabase.from('users').select('id, email, full_name, display_name').is('deleted_at', null),
-        supabase.from('pipelines').select('id, is_default').is('deleted_at', null).order('created_at'),
-      ]);
+      const { data: usersData } = await supabase
+        .from('users').select('id, email, full_name, display_name').is('deleted_at', null);
       const byEmail = new Map<string, string>();
       const byName = new Map<string, string>();
-      (usersRes.data || []).forEach((u: any) => {
+      (usersData || []).forEach((u: any) => {
         if (u.email) byEmail.set(String(u.email).toLowerCase(), u.id);
         if (u.full_name) byName.set(String(u.full_name).toLowerCase(), u.id);
         if (u.display_name) byName.set(String(u.display_name).toLowerCase(), u.id);
@@ -361,19 +371,56 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
       // Jira gives emails; Odoo gives display names — try email, then name.
       const resolveUser = (s: string) => byEmail.get(s.toLowerCase()) || byName.get(s.toLowerCase()) || null;
 
-      // Target the board this modal was opened from; else the default, else the
-      // oldest pipeline. Passed explicitly to rpc_create_task — relying on null
-      // (→ server-side default lookup) orphans tasks when there's no is_default.
-      const pipes = pipesRes.data || [];
-      const targetPipeId = pipelineId || (pipes.find((p: any) => p.is_default) || pipes[0])?.id;
-      if (!targetPipeId) { errorToast('No pipeline exists to import into. Create one first.'); return; }
+      // One pipeline per imported board (issue #100): reuse the existing
+      // pipeline the plan matched by name, or create it (+ its stages, no
+      // transitions/actions — automations are explicitly out of scope) now.
+      // Pipeline creation is a direct client insert, not an RPC — this
+      // mirrors contexts/PipelineEditorContext.tsx's createPipeline(), which
+      // is this codebase's documented pattern for pipeline writes.
+      let targetPipeId: string | null = pipelinePlan?.existingPipelineId ?? null;
+      const stageIdByName = new Map<string, string>();
 
-      // Stages must come from the SAME pipeline the tasks are created in, or
-      // rpc_import_place_task_stage rejects them as not belonging to it.
-      const { data: st } = await supabase.from('pipeline_stages').select('id, name').eq('pipeline_id', targetPipeId);
-      const existingStages = (st || []).map((s: any) => ({ id: s.id, name: s.name }));
-      const sourceStages = Array.from(new Set(importedTasks.map(t => t.stageName).filter(Boolean))) as string[];
-      const stageMap = new Map(guessStageMapping(sourceStages, existingStages).map(m => [m.sourceName, m.targetStageId]));
+      if (targetPipeId) {
+        // Stages must come from the SAME pipeline the tasks are created in,
+        // or rpc_import_place_task_stage rejects them as not belonging to it.
+        const { data: st } = await supabase.from('pipeline_stages').select('id, name').eq('pipeline_id', targetPipeId);
+        const existingStages = (st || []).map((s: any) => ({ id: s.id, name: s.name }));
+        guessStageMapping(pipelinePlan?.stageNames || [], existingStages).forEach(m => {
+          if (m.targetStageId) stageIdByName.set(m.sourceName, m.targetStageId);
+        });
+      } else if (pipelinePlan) {
+        try {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (!authUser) throw new Error('Not authenticated');
+          const { data: userProfile } = await supabase.from('users').select('company_id').eq('id', authUser.id).single();
+          if (!userProfile?.company_id) throw new Error('Company not found');
+
+          const { data: pipelineData, error: pipeErr } = await supabase
+            .from('pipelines')
+            .insert({ company_id: userProfile.company_id, name: pipelinePlan.boardName, is_default: false, deleted_at: null })
+            .select('id').single();
+          if (pipeErr) throw pipeErr;
+          targetPipeId = pipelineData.id;
+
+          if (pipelinePlan.stageNames.length > 0) {
+            const stageInserts = pipelinePlan.stageNames.map((name, idx) => ({
+              pipeline_id: targetPipeId,
+              name,
+              position: idx + 1,
+              is_initial: idx === 0,
+              is_terminal: idx === pipelinePlan.stageNames.length - 1,
+            }));
+            const { data: stagesData, error: stagesErr } = await supabase
+              .from('pipeline_stages').insert(stageInserts).select('id, name');
+            if (stagesErr) throw stagesErr;
+            (stagesData || []).forEach((s: any) => stageIdByName.set(s.name, s.id));
+          }
+        } catch (e: any) {
+          errorToast(e?.message || 'Could not create the import pipeline.');
+          return;
+        }
+      }
+      if (!targetPipeId) { errorToast('No pipeline exists to import into. Create one first.'); return; }
 
       rows = importedTasks.map(t => ({
         rowNumber: 0,
@@ -393,7 +440,8 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
         assigneeUserIds: t.assigneeEmails.map(resolveUser).filter(Boolean) as string[],
         warnings: [],
       }));
-      stageForRow = importedTasks.map(t => (t.stageName ? stageMap.get(t.stageName) ?? null : null));
+      stageForRow = importedTasks.map(t => (t.stageName ? stageIdByName.get(t.stageName) ?? null : null));
+      externalForRow = importedTasks.map(t => ({ id: t.externalId || null, url: t.externalUrl || null }));
     }
     if (!rows || rows.length === 0) return;
 
@@ -414,6 +462,8 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
           p_project_id: r.projectId,
           p_start_date: r.startDate,
           p_estimated_hours: r.estimatedHours,
+          p_external_id: externalForRow[i]?.id ?? null,
+          p_external_url: externalForRow[i]?.url ?? null,
         });
         if (error) { console.error('[TaskMobility] row import failed', r.rowNumber || i, error); }
         else {
@@ -673,6 +723,24 @@ export default function TaskMobilityModal({ visible, onClose, onImported, pipeli
             </TouchableOpacity>
             <Text style={{ color: colors.textDim, fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>{CONNECTOR_STEP_LABELS.preview}</Text>
           </View>
+
+          {pipelinePlan && (
+            <View style={{ backgroundColor: colors.background, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: pipelinePlan.stageNames.length > 0 ? 6 : 0 }}>
+                <FontAwesome name={pipelinePlan.existingPipelineId ? 'refresh' : 'plus-circle'} size={13} color={colors.primary} style={{ marginRight: 8 }} />
+                <Text style={{ color: colors.textMain, fontWeight: '900', fontSize: 12, flex: 1 }}>
+                  {pipelinePlan.existingPipelineId
+                    ? `Will import into existing pipeline "${pipelinePlan.boardName}"`
+                    : `Will create pipeline "${pipelinePlan.boardName}"`}
+                </Text>
+              </View>
+              {pipelinePlan.stageNames.length > 0 && (
+                <Text style={{ color: colors.textMuted, fontSize: 11, lineHeight: 16 }}>
+                  Stages: {pipelinePlan.stageNames.join(' · ')}
+                </Text>
+              )}
+            </View>
+          )}
 
           <View style={{ backgroundColor: colors.background, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 16 }}>
             <Text style={{ color: colors.primary, fontWeight: '900', fontSize: 22 }}>{importedTasks.length}</Text>

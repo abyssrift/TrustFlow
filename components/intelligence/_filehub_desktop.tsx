@@ -2555,6 +2555,7 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [expiryHours, setExpiryHours] = useState(168);
+  const [downloadAllowed, setDownloadAllowed] = useState(true);
   const isFolder = !!folderId;
 
   const load = useCallback(() => {
@@ -2570,8 +2571,8 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
   const handleCreate = async () => {
     setCreating(true);
     try {
-      if (isFolder) await createFolderShareLink(folderId!, expiryHours);
-      else await createShareLink(fileId!, expiryHours);
+      if (isFolder) await createFolderShareLink(folderId!, expiryHours, downloadAllowed);
+      else await createShareLink(fileId!, expiryHours, downloadAllowed);
       await load();
     } catch { /* alerted in context */ } finally {
       setCreating(false);
@@ -2623,6 +2624,25 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
             </View>
 
             <TouchableOpacity
+              onPress={() => setDownloadAllowed(v => !v)}
+              className="flex-row items-center justify-between rounded-xl border px-4 py-3 mb-5"
+              style={{ backgroundColor: colors.background, borderColor: colors.border }}
+            >
+              <View className="flex-1 min-w-0 pr-3">
+                <Text className="text-xs font-black" style={{ color: colors.textMain }}>Allow Downloads</Text>
+                <Text className="text-[10px] mt-0.5" style={{ color: colors.textDim }}>
+                  {downloadAllowed ? 'Visitors can download the file.' : 'Visitors cannot download — link carries no file bytes.'}
+                </Text>
+              </View>
+              <View
+                className="w-10 h-6 rounded-full justify-center px-0.5"
+                style={{ backgroundColor: downloadAllowed ? colors.primary : colors.border }}
+              >
+                <View className="w-5 h-5 rounded-full bg-white" style={{ marginLeft: downloadAllowed ? 16 : 0 }} />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               onPress={handleCreate}
               disabled={creating}
               className="flex-row items-center justify-center rounded-xl py-3 gap-2 mb-5"
@@ -2643,6 +2663,7 @@ function ShareLinkModal({ visible, fileId, folderId, fileName, onClose }: {
                   <Text className="text-xs font-bold mb-1" style={{ color: colors.textMain }} numberOfLines={1}>{shareLinkUrl(link.token)}</Text>
                   <Text className="text-[10px] mb-2" style={{ color: colors.textDim }}>
                     Expires {new Date(link.expires_at).toLocaleDateString()} · {link.view_count} view{link.view_count === 1 ? '' : 's'}
+                    {link.download_allowed === false ? ' · downloads off' : ''}
                     {/* The list now includes other people's links, so say whose. */}
                     {link.created_by && link.created_by !== userId && link.creator_name ? ` · by ${link.creator_name}` : ''}
                   </Text>

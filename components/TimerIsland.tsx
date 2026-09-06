@@ -232,6 +232,7 @@ const IdleWarning = ({ smartTimer, stopWork, colors }: any) => (
     visible={smartTimer.showIdleModal}
     onClose={() => smartTimer.setShowIdleModal(false)}
     presentation="centered"
+    forceCenteredOnNative
     dismissible={false}
     maxWidth={384}
     containerClassName="rounded-2xl p-6 shadow-2xl"

@@ -2,6 +2,8 @@ import ClipboardControls from '@/components/common/ClipboardControls';
 import Popup from '@/components/common/Popup';
 import Tooltip from '@/components/common/Tooltip';
 import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
+import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
+import ImageLightbox from '@/components/common/ImageLightbox';
 import { useShareFile } from '@/components/common/ShareFile';
 import LinkifiedText from '@/components/common/LinkifiedText';
 import ManualTimeApprovalsModal from '@/components/common/ManualTimeApprovalsModal';
@@ -246,21 +248,24 @@ function AdaptiveFileGrid({
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const colors = useThemeColors();
-  
+  const [lightboxFile, setLightboxFile] = useState<{ uri: string; name: string } | null>(null);
+  const [preview, setPreview] = useState<{ uri: string; name: string; kind: PreviewKind; sizeBytes?: number } | null>(null);
+
   const gap = 12;
   const minSquareSize = 90; // Slightly smaller for the submission panel
 
   // Fallback width before layout calculation fires
   const availableWidth = containerWidth > 0 ? containerWidth : 300;
-  
+
   let numCols = Math.floor((availableWidth + gap) / (minSquareSize + gap));
-  if (numCols < 2) numCols = 2; 
+  if (numCols < 2) numCols = 2;
   const exactSquareSize = Math.floor((availableWidth - (gap * (numCols - 1))) / numCols);
 
   if (files.length === 0) return null;
 
   return (
-    <View 
+    <>
+    <View
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
       className="flex-row flex-wrap w-full bg-surface-background border border-surface-border rounded-xl p-3 mb-3"
       style={{ gap }}
@@ -268,36 +273,52 @@ function AdaptiveFileGrid({
       {files.map((pf) => {
         const isImage = pf.type?.toLowerCase().includes('image');
         const { name: icon, color } = getFileIcon(pf.type || null, colors);
+        const kind = !isImage ? getPreviewKind(pf.type || null, pf.name) : null;
+        const canPreview = isImage || !!kind;
 
         return (
-          <View 
-            key={pf.id} 
+          <View
+            key={pf.id}
             style={{ width: exactSquareSize, height: exactSquareSize }}
             className="rounded-xl overflow-hidden border border-surface-border bg-surface-card relative"
           >
-            {isImage ? (
-              <Image 
-                source={{ uri: pf.uri }} 
-                style={{ flex: 1, width: '100%', height: '100%', position: 'absolute' }} 
-                resizeMode="cover" 
-              />
-            ) : (
-              <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '15' }}>
-                <FontAwesome name={icon as any} size={exactSquareSize > 80 ? 32 : 24} color={color} />
-                <View className="mt-2 bg-surface-background px-2 py-0.5 rounded-md border border-surface-border shadow-sm">
-                  <Text className="text-[9px] font-black uppercase text-typography-muted" numberOfLines={1}>
-                    {pf.name.split('.').pop() || 'FILE'}
-                  </Text>
+            {/* Press target is an absolute-fill touchable; the overlay buttons
+                below are SIBLINGS, not children — nested touchables silently
+                swallow presses on react-native-web. */}
+            <TouchableOpacity
+              activeOpacity={canPreview ? 0.7 : 1}
+              disabled={!canPreview}
+              onPress={() => {
+                if (isImage) setLightboxFile({ uri: pf.uri, name: pf.name });
+                else if (kind) setPreview({ uri: pf.uri, name: pf.name, kind, sizeBytes: pf.size });
+              }}
+              style={Platform.OS === 'web' && canPreview ? ({ cursor: 'pointer' } as any) : undefined}
+              className="absolute inset-0"
+            >
+              {isImage ? (
+                <Image
+                  source={{ uri: pf.uri }}
+                  style={{ flex: 1, width: '100%', height: '100%' }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '15' }}>
+                  <FontAwesome name={icon as any} size={exactSquareSize > 80 ? 32 : 24} color={color} />
+                  <View className="mt-2 bg-surface-background px-2 py-0.5 rounded-md border border-surface-border shadow-sm">
+                    <Text className="text-[9px] font-black uppercase text-typography-muted" numberOfLines={1}>
+                      {pf.name.split('.').pop() || 'FILE'}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
+            </TouchableOpacity>
 
             {isUploading ? (
               <View className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center">
                 <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.6 }] }} />
               </View>
             ) : (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => onRemove(pf.id)}
                 className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 rounded-full items-center justify-center hover:bg-black/80 transition-colors"
                 style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : {}}
@@ -306,7 +327,7 @@ function AdaptiveFileGrid({
               </TouchableOpacity>
             )}
 
-            <View className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 backdrop-blur-md">
+            <View pointerEvents="none" className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 backdrop-blur-md">
               <Text className="text-white text-[9px] font-bold text-center" numberOfLines={1}>
                 {formatFileSize(pf.size)}
               </Text>
@@ -315,6 +336,25 @@ function AdaptiveFileGrid({
         );
       })}
     </View>
+    {lightboxFile && (
+      <ImageLightbox
+        visible
+        uri={lightboxFile.uri}
+        fileName={lightboxFile.name}
+        onClose={() => setLightboxFile(null)}
+      />
+    )}
+    {preview && (
+      <FilePreviewModal
+        visible
+        uri={preview.uri}
+        fileName={preview.name}
+        kind={preview.kind}
+        onClose={() => setPreview(null)}
+        sizeBytes={preview.sizeBytes}
+      />
+    )}
+    </>
   );
 }
 

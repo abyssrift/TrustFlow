@@ -93,19 +93,19 @@ function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
   const chartData = data.map(d => ({ ...d, period_label: bucketLabel(d.bucket_start, d.bucket_end) }));
 
   return (
-    <View style={{ height: 280, width: '100%' }}>
+    <View style={{ height: 220, width: '100%' }}>
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: -20, bottom: 0 }}>
+        <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} opacity={0.4} />
           <XAxis
             dataKey="period_label"
-            tick={{ fill: colors.textDim, fontSize: 11 }}
+            tick={{ fill: colors.textDim, fontSize: 10 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             yAxisId="tasks"
-            tick={{ fill: colors.textDim, fontSize: 11 }}
+            tick={{ fill: colors.textDim, fontSize: 10 }}
             axisLine={false}
             tickLine={false}
           />
@@ -113,15 +113,15 @@ function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
             yAxisId="rate"
             orientation="right"
             domain={[0, 100]}
-            tick={{ fill: colors.textDim, fontSize: 11 }}
+            tick={{ fill: colors.textDim, fontSize: 10 }}
             axisLine={false}
             tickLine={false}
             tickFormatter={v => `${v}%`}
           />
           <Tooltip content={<ThroughputTooltip />} />
-          <Legend wrapperStyle={{ fontSize: 11, color: colors.textDim }} />
-          <Bar yAxisId="tasks" dataKey="tasks_succeeded" name="Succeeded" fill={colors.success} radius={[4, 4, 0, 0]} maxBarSize={32} />
-          <Bar yAxisId="tasks" dataKey="tasks_failed" name="Failed" fill={colors.danger} radius={[4, 4, 0, 0]} maxBarSize={32} />
+          <Legend wrapperStyle={{ fontSize: 10, color: colors.textDim }} />
+          <Bar yAxisId="tasks" dataKey="tasks_succeeded" name="Succeeded" fill={colors.success} radius={[4, 4, 0, 0]} maxBarSize={28} />
+          <Bar yAxisId="tasks" dataKey="tasks_failed" name="Failed" fill={colors.danger} radius={[4, 4, 0, 0]} maxBarSize={28} />
           <Line
             yAxisId="rate"
             type="monotone"
@@ -129,7 +129,7 @@ function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
             name="Success Rate %"
             stroke={colors.primary}
             strokeWidth={2}
-            dot={{ r: 3, fill: colors.primary, strokeWidth: 0 }}
+            dot={{ r: 2.5, fill: colors.primary, strokeWidth: 0 }}
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -202,18 +202,18 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
 
 
   return (
-    <View className="gap-8">
+    <View className="gap-5">
       {/* Controls */}
-      <View className="flex-row gap-4 flex-wrap">
+      <View className="flex-row gap-3 flex-wrap">
         {/* Pipeline selector */}
         <View className="flex-1 min-w-[200px]">
-          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest mb-2">Pipeline</Text>
-          <View className="flex-row flex-wrap gap-2">
+          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest mb-1.5">Pipeline</Text>
+          <View className="flex-row flex-wrap gap-1.5">
             {pipelines.map(p => (
               <TouchableOpacity
                 key={p.id}
                 onPress={() => setSelectedPipeline(p.id)}
-                className={`px-4 py-2 rounded-xl border transition-all ${
+                className={`px-3 py-1.5 rounded-lg border transition-all ${
                   selectedPipeline === p.id
                     ? 'bg-brand-primary border-brand-primary'
                     : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
@@ -228,11 +228,11 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
         </View>
 
         {/* Date range */}
-        <View className="gap-2">
+        <View className="gap-1.5">
           <View className="flex-row items-center gap-2">
             <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Date Range</Text>
             {limits.maxDays && (
-              <View className="px-2 py-0.5 bg-surface-card border border-surface-border rounded-lg">
+              <View className="px-1.5 py-0.5 bg-surface-card border border-surface-border rounded-lg">
                 <Text className="text-typography-muted text-[9px] font-bold">Max {limits.maxDays}d · {planCode.charAt(0).toUpperCase() + planCode.slice(1)}</Text>
               </View>
             )}
@@ -243,25 +243,25 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
       </View>
 
       {loading && !loaded ? (
-        <View className="py-16 items-center">
+        <View className="py-10 items-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : pipelines.length === 0 ? (
-        <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
-          <Text className="text-typography-main font-black text-lg">No Pipelines Found</Text>
-          <Text className="text-typography-muted text-sm">Create a pipeline to see analytics.</Text>
+        <View className="bg-surface-card border border-surface-border rounded-2xl p-6 items-center gap-2">
+          <Text className="text-typography-main font-black text-base">No Pipelines Found</Text>
+          <Text className="text-typography-muted text-xs">Create a pipeline to see analytics.</Text>
         </View>
       ) : (
-        <View className="gap-8">
+        <View className="gap-5">
           {/* Stage Dwell — always available */}
           <StageDwellChartWeb data={dwell} />
 
           {/* Throughput — Pro+ */}
           <PlanGate feature="throughput" limits={limits}>
-            <View className="bg-surface-card border border-surface-border rounded-2xl p-6">
-              <View className="flex-row items-center justify-between mb-6">
-                <Text className="text-typography-main font-black text-lg">Throughput Trend</Text>
-                <View className="px-3 py-1 bg-surface-background border border-surface-border rounded-lg">
+            <View className="bg-surface-card border border-surface-border rounded-2xl p-4">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-typography-main font-black text-sm">Throughput Trend</Text>
+                <View className="px-2 py-0.5 bg-surface-background border border-surface-border rounded-lg">
                   <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">Pipeline-Specific Analytics</Text>
                 </View>
               </View>
@@ -882,45 +882,45 @@ export default function AdminAnalyticsWeb() {
     <View className="flex-1 bg-surface-background">
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="max-w-[1400px] mx-auto w-full px-8 py-10">
+        <View className="max-w-[1400px] mx-auto w-full px-6 py-6">
 
           {/* Header */}
-          <View className="mb-10 flex-row items-start justify-between flex-wrap gap-4">
+          <View className="mb-6 flex-row items-start justify-between flex-wrap gap-3">
             <View>
-              <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[10px] mb-2">
+              <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[10px] mb-1">
                 Operations Intelligence
               </Text>
-              <Text className="text-typography-main text-5xl font-black tracking-tighter">Analytics Hub</Text>
-              <Text className="text-typography-muted text-lg font-medium mt-2">
+              <Text className="text-typography-main text-2xl font-black tracking-tighter">Analytics Hub</Text>
+              <Text className="text-typography-muted text-xs font-medium mt-1">
                 Pipeline health, stage dwell times, and personnel benchmarking.
               </Text>
             </View>
-            <View className="px-3 py-1.5 bg-surface-card border border-surface-border rounded-xl flex-row items-center gap-2 self-start mt-2">
-              <FontAwesome name="bar-chart" size={11} color={colors.muted} />
-              <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
+            <View className="px-2.5 py-1 bg-surface-card border border-surface-border rounded-lg flex-row items-center gap-1.5 self-start">
+              <FontAwesome name="bar-chart" size={9} color={colors.muted} />
+              <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest">
                 {maxDayLabel} lookback · {planCode.charAt(0).toUpperCase() + planCode.slice(1)} Plan
               </Text>
             </View>
           </View>
 
           {/* Tabs */}
-          <View className="flex-row gap-2 mb-10 border-b border-surface-border pb-0">
+          <View className="flex-row gap-2 mb-6 border-b border-surface-border pb-0">
             <TouchableOpacity
               onPress={() => setActiveTab('pipeline')}
-              className={`px-6 py-3 -mb-px border-b-2 transition-all ${
+              className={`px-4 py-2 -mb-px border-b-2 transition-all ${
                 activeTab === 'pipeline'
                   ? 'border-brand-primary'
                   : 'border-transparent hover:border-surface-border'
               }`}
             >
-              <Text className={`font-black text-sm ${activeTab === 'pipeline' ? 'text-brand-primary' : 'text-typography-muted'}`}>
+              <Text className={`font-black text-xs ${activeTab === 'pipeline' ? 'text-brand-primary' : 'text-typography-muted'}`}>
                 Pipeline Analytics
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => canPersonnel && setActiveTab('personnel')}
-              className={`px-6 py-3 -mb-px border-b-2 transition-all ${
+              className={`px-4 py-2 -mb-px border-b-2 transition-all ${
                 activeTab === 'personnel'
                   ? 'border-brand-primary'
                   : !canPersonnel
@@ -928,23 +928,23 @@ export default function AdminAnalyticsWeb() {
                   : 'border-transparent hover:border-surface-border'
               }`}
             >
-              <View className="flex-row items-center gap-2">
-                <Text className={`font-black text-sm ${activeTab === 'personnel' ? 'text-brand-primary' : 'text-typography-muted'}`}>
+              <View className="flex-row items-center gap-1.5">
+                <Text className={`font-black text-xs ${activeTab === 'personnel' ? 'text-brand-primary' : 'text-typography-muted'}`}>
                   Personnel Comparison
                 </Text>
-                {!canPersonnel && <FontAwesome name="lock" size={10} color="rgb(100,116,139)" />}
+                {!canPersonnel && <FontAwesome name="lock" size={9} color="rgb(100,116,139)" />}
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => setActiveTab('portfolio')}
-              className={`px-6 py-3 -mb-px border-b-2 transition-all ${
+              className={`px-4 py-2 -mb-px border-b-2 transition-all ${
                 activeTab === 'portfolio'
                   ? 'border-brand-primary'
                   : 'border-transparent hover:border-surface-border'
               }`}
             >
-              <Text className={`font-black text-sm ${activeTab === 'portfolio' ? 'text-brand-primary' : 'text-typography-muted'}`}>
+              <Text className={`font-black text-xs ${activeTab === 'portfolio' ? 'text-brand-primary' : 'text-typography-muted'}`}>
                 Portfolio Flow
               </Text>
             </TouchableOpacity>

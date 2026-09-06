@@ -26,6 +26,8 @@ interface ProjectFolderModalProps {
     expiry_date: string | null;
     status: 'active' | 'closed' | 'archived';
   };
+  /** Attach a newly created project to this portfolio (ignored on edit). */
+  portfolioId?: string;
 }
 
 export default function ProjectFolderModal({
@@ -33,6 +35,7 @@ export default function ProjectFolderModal({
   onClose,
   onSuccess,
   project,
+  portfolioId,
 }: ProjectFolderModalProps) {
   const c = useThemeColors();
   const {
@@ -44,7 +47,7 @@ export default function ProjectFolderModal({
     showArchiveConfirm, setShowArchiveConfirm,
     showCalendar, setShowCalendar,
     handleSave, handleArchiveProject,
-  } = useProjectFolderForm({ visible, project, onSuccess, onClose });
+  } = useProjectFolderForm({ visible, project, onSuccess, onClose, portfolioId });
 
   const nameMissing = !name.trim();
 

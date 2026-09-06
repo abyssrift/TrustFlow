@@ -14,6 +14,7 @@ type TopBarProps = {
   pipelines: { id: string; name: string }[];
   portfolios: { id: string; name: string }[];
   portfoliosLoading: boolean;
+  onRequestPalette?: (seed: string) => void;
 };
 
 const LEAVE_GRACE_MS = 160; // brief exits (overshoot, crossing a gap) don't collapse

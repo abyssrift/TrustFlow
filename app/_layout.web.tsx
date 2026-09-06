@@ -10,6 +10,7 @@ import 'react-native-reanimated';
 import '../global.css';
 
 import BrandSplash from '@/components/BrandSplash';
+import ModalHost from '@/components/common/ModalHost';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Sidebar from '@/components/Sidebar.web';
 import IslandTimeApprovalsBridge from '@/components/island/IslandTimeApprovalsBridge.web';
@@ -28,6 +29,7 @@ import { TimerProvider } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
 import { PingHighlightProvider } from '@/contexts/PingHighlightContext';
+import { ModalDispatchProvider } from '@/contexts/ModalDispatchContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
@@ -126,6 +128,7 @@ function RootLayoutNav() {
       <AnalyticsProvider>
         <NotificationsProvider>
           <PingHighlightProvider>
+          <ModalDispatchProvider>
           {/* 100dvh, not 100vh: on mobile browsers `vh` is the *large* viewport and
               includes the space behind the retracting address bar, so a 100vh root
               overflows the (overflow:hidden) body and clips whatever sits at its
@@ -139,6 +142,7 @@ function RootLayoutNav() {
                 IslandTimerBridge), so only draw the floating pill on mobile web
                 (< 768). The bridge mirrors the running timer into the island. */}
             <TimerIsland floating={width < 768} />
+            <ModalHost />
             {session && width >= 768 && <IslandTimerBridge />}
             {session && width >= 768 && <IslandTimeApprovalsBridge />}
             <View className="absolute top-0 left-0 right-0 z-[999]">
@@ -152,6 +156,7 @@ function RootLayoutNav() {
               <Slot />
             )}
           </View>
+          </ModalDispatchProvider>
           </PingHighlightProvider>
         </NotificationsProvider>
       </AnalyticsProvider>
