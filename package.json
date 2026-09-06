@@ -10,7 +10,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "build:web": "npx expo export -p web && find public -type f ! -name 'index.html' -exec cp --parents {} dist/ \\;",
+    "build:web": "node scripts/build-web.mjs",
+    "verify:agent": "node scripts/verify-agent.mjs",
     "seed": "tsx seed_acme_corp.ts",
     "seed:full": "tsx seed_comprehensive.ts",
     "postinstall": "npx patch-package"

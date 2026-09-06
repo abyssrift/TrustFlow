@@ -1,0 +1,12 @@
+{
+  "components/common/DraggableSheet.web.tsx#TS2769": 1,
+  "components/pipeline-editor/StageBuilder.web.tsx#TS2345": 1,
+  "components/tabs/_tasks_desktop.tsx#TS2322": 1,
+  "components/tabs/_tasks_desktop.tsx#TS2769": 1,
+  "hooks/useMemberLimit.ts#TS2339": 1,
+  "hooks/usePipelineLimit.ts#TS2339": 1,
+  "supabase/_archive/generate-pdf-report-v8/index.ts#TS18046": 3,
+  "supabase/_archive/generate-pdf-report-v8/index.ts#TS2304": 2,
+  "supabase/_archive/generate-pdf-report-v8/index.ts#TS2307": 3,
+  "supabase/_archive/generate-pdf-report-v8/index.ts#TS7006": 149
+}

@@ -11,7 +11,7 @@ The universal overlay. Default choice for any popup/modal/sheet unless you have 
 - **`presentation="auto"`** (recommended) — centered card on desktop (>= 768px), bottom sheet on mobile. Native always renders as sheet.
 - **`presentation="centered"`** — always centered, even on mobile.
 - **`presentation="sheet"`** — always a bottom sheet.
-- **`maxWidth`** — centered card width cap in px (default 420). Use `sheetMaxWidth` to cap sheet width on wide viewports while keeping it a sheet.
+- **`maxWidth`** — required centered-card width cap in px. Use `sheetMaxWidth` to cap sheet width on wide viewports while keeping it a sheet.
 - **`sideMenu`** — renders a fixed-width column to the left of children for two-pane layouts. Centered-presentation only. Always used with `<SidebarLayout>`.
 - **`backdropBlur`** — frosted blur instead of solid dim backdrop. Centered only.
 - **`overlays`** — position-fixed content (dropdowns, date pickers) that escape the card's `overflow: hidden`. Centered only.

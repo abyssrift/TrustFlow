@@ -1,0 +1,7 @@
+# TrustFlow project-scoped Codex configuration.
+# Hooks are intentionally kept in hooks.json; do not duplicate them inline here.
+[features]
+hooks = true
+
+[agents]
+max_concurrent_threads_per_session = 4

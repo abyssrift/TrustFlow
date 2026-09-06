@@ -13,8 +13,8 @@ When designing, building, or modifying UI components or styling for the NewTrust
 
 All design tokens must exist in:
 
-* `frontend/global.css` (CSS variables)
-* `frontend/tailwind.config.js` (mapped utilities)
+* `global.css` (CSS variables)
+* `tailwind.config.js` (mapped utilities)
 
 **Never invent classes or values inside components.**
 

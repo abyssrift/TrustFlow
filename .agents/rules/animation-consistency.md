@@ -75,14 +75,15 @@ Ask in this order:
 
 ## 2. Verification standard (do this every time, not just for big changes)
 
-1. `npx tsc --noEmit` → expect exactly the pre-existing baseline error count
-   (10 as of 2026-07-25: `DraggableSheet.web.tsx`, `StageBuilder.web.tsx`,
-   `_tasks_desktop.tsx` ×5, `useMemberLimit.ts`, `usePipelineLimit.ts`).
-   Anything beyond that is new and yours to fix.
-2. `node _babelcheck.js <files>` (untracked scratch helper at repo root —
-   deliberately kept, do not delete) — runs the real Metro/Babel caller
-   config. `tsc` does not catch bundle-fatal parse errors, and this app
-   ships as a single web bundle, so one bad file can 500 the entire app.
+1. Run `npx tsc --noEmit` (or `npm run verify:agent`, which includes it) →
+   expect diagnostics to match the checked-in baseline at
+   `.agents/skills/trustflow-verify/tsc-baseline.json` exactly (normalized
+   path/code counts). Any additional diagnostic is new and yours to fix;
+   additions, removals, or count drift from the baseline fail verification.
+2. `node scripts/babelcheck.mjs <files>` (the tracked helper) — runs the real
+   Metro/Babel caller config. `tsc` does not catch bundle-fatal parse errors,
+   and this app ships as a single web bundle, so one bad file can 500 the
+   entire app.
 3. For anything gated on `Platform.OS === 'web'` or a width breakpoint:
    **actually load it in a browser at both a desktop width and a mobile-web
    width (<768px)**, per the popup/modal rule in `ui-consistency.md` — a

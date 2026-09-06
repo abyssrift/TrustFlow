@@ -8,17 +8,19 @@ Before doing any work, read every existing Markdown file in `.agents/rules/` com
 
 The rule files currently use `trigger: always_on`, so they must all be read for every task. Then reread the task-specific files when `CLAUDE.md` tells you to—for example, before UI-visible or animation work. If rule files appear to conflict, stop and report the conflict instead of choosing the less restrictive interpretation.
 
-## Substantial-change orchestration is mandatory
+## Planning and implementation orchestration is mandatory
 
-For any substantial change, use the repository skill at `.agents/skills/sol-architect-orchestration/SKILL.md`. Read it completely and follow it before exploring broadly or editing code.
+For **any planning related to a feature, refactor, or code change**, use the
+repository skill at `.agents/skills/sol-architect-orchestration/SKILL.md`.
+The default architect is `gpt-5.6-sol` with `medium` reasoning effort. Sol
+owns planning, decomposition, integration, and the final review; bounded
+implementation packages are assigned to `gpt-5.6-luna` workers with `medium`
+reasoning effort. This hierarchy applies in every context, including local,
+remote, worktree, subagent, and scheduled runs.
 
-A change is substantial when any of these is true:
-
-- the user calls it big, major, broad, architectural, or cross-cutting;
-- it is expected to touch more than three production files or about 150 non-generated lines;
-- it spans multiple subsystems or platforms;
-- it changes architecture, data models, migrations, authentication, authorization, security boundaries, or shared infrastructure; or
-- its risk or ambiguity makes architectural decomposition and independent review prudent.
-
-When uncertain whether a change is substantial, treat it as substantial.
-
+The only exception is an explicit model/workflow override stated by the user
+in the current chat or task. Direct work remains appropriate for a trivial,
+non-planning factual inspection or a tiny mechanical action that requires no
+feature, refactor, or code-change plan. Do not treat size, file count, or a
+judgment that a change is "small" as permission to bypass the hierarchy when
+planning a feature, refactor, or code change.

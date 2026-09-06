@@ -1,0 +1,28 @@
+name: Verify
+
+on:
+  push:
+    branches: [main, experimental]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      # Lets verify:agent inspect changed files on push events as well as PRs.
+      # The all-zero initial-push SHA is handled safely by the verifier.
+      VERIFY_GIT_BASE: ${{ github.event_name == 'push' && github.event.before || '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run verify:agent
