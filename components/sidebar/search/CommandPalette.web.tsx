@@ -47,6 +47,7 @@ const GROUP_LABEL: Record<string, string> = {
 // Tighter than #325's 5 — with GO TO synonyms now feeding the same list, 3 per
 // group keeps the palette from becoming a wall; "See all" carries the rest.
 const PER_GROUP = 3;
+const RECENT_LIMIT = 8;
 
 // Scoped-search prefixes hooks/useSearchQuery.ts already parses (type: prefixes
 // + natural-language dates). Surfaced, not re-implemented — tapping one just
@@ -385,16 +386,19 @@ export default function CommandPalette({
             icon: d.icon,
             parentLabel: d.parentLabel,
             topLevel: false,
-          })),
+          })).slice(0, RECENT_LIMIT),
     [q, recentDests]
   );
   // RECENT SEARCHES — the query strings from useRecentSearches, now nav targets
   // too (empty query only). ⏎ on one re-runs that search rather than closing.
-  const recentSearchNav = useMemo(() => (q ? [] : recent), [q, recent]);
+  const recentSearchNav = useMemo(
+    () => (q ? [] : recent.slice(0, Math.max(0, RECENT_LIMIT - recentDestMatches.length))),
+    [q, recent, recentDestMatches.length]
+  );
 
   // Flat, ordered nav list — the render below walks this exact order so `sel`
   // lines up on screen:
-  //   recent destinations → CREATE tiles → GO TO → results → recent searches
+  //   recent destinations → recent searches → CREATE tiles → GO TO → results
   //
   // 2D-within-1-D: the CREATE tiles occupy [gridStart, gridStart+tileCount).
   // `gridStart` is only non-zero on an empty query (the recent-destination rows
@@ -405,12 +409,12 @@ export default function CommandPalette({
     // #347 — the inline quick-create row is always first when present.
     if (createInline) items.push({ kind: 'create-inline', entity: createInline.entity, title: createInline.title });
     for (const d of recentDestMatches) items.push({ kind: 'page', dest: d });
+    for (const s of recentSearchNav) items.push({ kind: 'recent-search', q: s });
     for (const a of matchedActions) items.push({ kind: 'action', run: a.run });
     for (const d of destMatches) items.push({ kind: 'page', dest: d });
     // #347: the result-search block is hidden while an inline-create prefix is
     // active, so keep those rows out of the nav list too or `sel` drifts.
     if (!createInline) for (const t of groupRows) for (const r of grouped[t]!.slice(0, PER_GROUP)) items.push({ kind: 'result', result: r });
-    for (const s of recentSearchNav) items.push({ kind: 'recent-search', q: s });
     return items;
   }, [createInline, recentDestMatches, matchedActions, destMatches, groupRows, grouped, recentSearchNav]);
 
@@ -422,7 +426,7 @@ export default function CommandPalette({
   const showCreateHint =
     !!q && input.mode === 'normal' && !searchError && !(loading && results.length === 0) && noHits;
 
-  const gridStart = (createInline ? 1 : 0) + recentDestMatches.length;
+  const gridStart = (createInline ? 1 : 0) + recentDestMatches.length + recentSearchNav.length;
   const tileCount = matchedActions.length;
   const gridEnd = gridStart + tileCount; // first flat index after the tile grid
   const inGrid = (i: number) => i >= gridStart && i < gridEnd;
@@ -844,10 +848,9 @@ export default function CommandPalette({
             );
           })}
 
-          {/* RECENT — frequent-first destinations opened from the palette before
-              (#343). Empty query only, and walked FIRST in flatItems, so it
-              renders first here to keep `idx` aligned with `sel`. */}
-          {!q && recentDestMatches.length > 0 && (
+          {/* RECENT — frequent-first destinations followed by recent search
+              queries, capped as one contiguous keyboard-navigable list. */}
+          {!q && (recentDestMatches.length > 0 || recentSearchNav.length > 0) && (
             <View className="mb-1">
               <SectionHeader label="Recent" colors={colors} />
               {recentDestMatches.map((d) => {
@@ -865,6 +868,28 @@ export default function CommandPalette({
                     onPress={() => activate({ kind: 'page', dest: d })}
                     rowRef={setRowRef(i)}
                   />
+                );
+              })}
+              {recentSearchNav.map((r) => {
+                const i = idx++;
+                const on = i === sel;
+                return (
+                  <Pressable
+                    key={r}
+                    ref={setRowRef(i)}
+                    onHoverIn={() => setSel(i)}
+                    onPress={() => activate({ kind: 'recent-search', q: r })}
+                    className="flex-row items-center gap-3 rounded-xl px-3 py-2 mx-1"
+                    style={on ? { backgroundColor: selBg } : undefined}
+                  >
+                    <FontAwesome name="history" size={13} color={colors.textDim} />
+                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, color: colors.textMain }}>
+                      {r}
+                    </Text>
+                    <View className="w-4 items-end">
+                      {on && <FontAwesome name="arrow-right" size={11} color={colors.textDim} />}
+                    </View>
+                  </Pressable>
                 );
               })}
             </View>
@@ -1011,41 +1036,6 @@ export default function CommandPalette({
                 )}
               </>
             ))}
-
-          {/* RECENT SEARCHES — the query strings from useRecentSearches. Sit
-              below RECENT destinations (#343) and are now keyboard-navigable:
-              ⏎ re-runs that search rather than closing. Empty query only. */}
-          {!q && recent.length > 0 && (
-            <View className="mb-1">
-              <View className="flex-row items-center gap-1 px-3 pt-3 pb-1.5">
-                <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>
-                  Recent searches
-                </Text>
-              </View>
-              {recent.map((r) => {
-                const i = idx++;
-                const on = i === sel;
-                return (
-                  <Pressable
-                    key={r}
-                    ref={setRowRef(i)}
-                    onHoverIn={() => setSel(i)}
-                    onPress={() => activate({ kind: 'recent-search', q: r })}
-                    className="flex-row items-center gap-3 rounded-xl px-3 py-2 mx-1"
-                    style={on ? { backgroundColor: selBg } : undefined}
-                  >
-                    <FontAwesome name="history" size={13} color={colors.textDim} />
-                    <Text numberOfLines={1} style={{ flex: 1, fontSize: 14, color: colors.textMain }}>
-                      {r}
-                    </Text>
-                    <View className="w-4 items-end">
-                      {on && <FontAwesome name="arrow-right" size={11} color={colors.textDim} />}
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
 
           {!q && (
             <View className="mb-1">
