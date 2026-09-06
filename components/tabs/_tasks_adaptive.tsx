@@ -1085,8 +1085,8 @@ function TasksScreen() {
             )}
           </View>
           <View className="flex-row items-center gap-1.5 shrink-0">
-            <TaskPingButton task={task} userId={user?.id || ''} />
-            {hasPermission('task.assign') && (
+            {!multiSelect.active && <TaskPingButton task={task} userId={user?.id || ''} />}
+            {!multiSelect.active && hasPermission('task.assign') && (
               <Tooltip label="Manage assignments">
                 <TouchableOpacity
                   onPress={() => handleOpenAssignments(task)}
@@ -1096,7 +1096,7 @@ function TasksScreen() {
                 </TouchableOpacity>
               </Tooltip>
             )}
-            {(profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
+            {!multiSelect.active && (profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
               <Tooltip label="Archive task">
                 <TouchableOpacity
                   onPress={() => setArchiveModal({ visible: true, taskId: task.id })}
@@ -1137,7 +1137,7 @@ function TasksScreen() {
         )}
         
         <View className="pt-3 border-t border-surface-border/50">
-          <TaskCardActions
+          {!multiSelect.active && (<TaskCardActions
             task={task}
             stages={stages}
             stageActions={stageActions}
@@ -1154,7 +1154,7 @@ function TasksScreen() {
               pinTask(taskId);
               setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, current_stage_id: toStageId } : t)));
             }}
-          />
+          />)}
         </View>
       </TouchableOpacity>
       </AnimatedTaskCard>
