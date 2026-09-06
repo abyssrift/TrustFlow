@@ -13,3 +13,4 @@ export { guessStageMapping, type StageMapping } from './statusMapper';
 export {
   getLastUsedImport, setLastUsedImport, type LastUsedImport,
 } from './importPreferences';
+export { buildPipelineImportPlan, type PipelineImportPlan } from './pipelinePlan';
