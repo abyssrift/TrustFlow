@@ -217,7 +217,7 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   );
 
   const Results = (
-    <ScrollView className="flex-1 no-scrollbar" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
+    <ScrollView className="flex-1 no-scrollbar" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: compact ? 100 : 48 }}>
       {Filters}
 
       {/* Selection toolbar */}

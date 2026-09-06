@@ -229,7 +229,7 @@ export default function FileHubOverview({
 
   return (
     <View className="flex-1">
-    <ScrollView className="flex-1 no-scrollbar" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView className="flex-1 no-scrollbar" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: compact ? 100 : 40 }}>
       {/* Unread strip */}
       {(stats.inbox_unread ?? 0) > 0 && (
         <View className={`${px} pt-3`}>
@@ -258,11 +258,16 @@ export default function FileHubOverview({
 
       {/* Bento */}
       <View className={`${px} pt-4 ${compact ? 'flex-col' : 'flex-row'} gap-5`} style={{ alignItems: 'flex-start' }}>
-        <View style={{ flexGrow: 1.6, flexBasis: 0, minWidth: 0 }} className="w-full gap-5">
+        {/* flexBasis: 0 + flexGrow only makes sense when this row has a definite
+            width to distribute (desktop's flex-row). In the compact/mobile
+            flex-col stack there's no bounded main-axis size to grow into inside
+            a ScrollView, so it's dropped there to avoid the two columns
+            collapsing/overlapping instead of stacking by content height. */}
+        <View style={compact ? undefined : { flexGrow: 1.6, flexBasis: 0, minWidth: 0 }} className="w-full gap-5">
           {RecentlyOpened}
           {RecentlyAssigned}
         </View>
-        <View style={{ flexGrow: 1, flexBasis: 0, minWidth: 0 }} className="w-full gap-5">
+        <View style={compact ? undefined : { flexGrow: 1, flexBasis: 0, minWidth: 0 }} className="w-full gap-5">
           {Channels}
           {SharedWithYou}
         </View>
