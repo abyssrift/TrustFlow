@@ -1,4 +1,5 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -36,6 +37,10 @@ function load(userId?: string): Note[] {
 // localStorage only — never leaves the device, so no RLS/table needed.
 export default function KanbanNotes({ userId }: { userId?: string }) {
   const colors = useThemeColors();
+  // Drives the RightSidebar header collapse when the notes list is scrolled —
+  // same SharedValue as the People tab's member list (siblings under the same
+  // <CollapsibleHeaderProvider> in RightSidebar). Null-safe outside a provider.
+  const headerScroll = useCollapsibleHeaderScroll();
   const [notes, setNotes] = useState<Note[]>(() => load(userId));
   const [activeId, setActiveId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -151,7 +156,7 @@ export default function KanbanNotes({ userId }: { userId?: string }) {
           <Text className="text-typography-muted text-xs font-bold">No notes match "{search}"</Text>
         </View>
       ) : (
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} {...headerScroll}>
           {filtered.map(n => {
             const preview = notePreview(n.body);
             return (
