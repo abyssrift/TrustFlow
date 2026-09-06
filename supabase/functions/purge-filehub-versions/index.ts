@@ -100,11 +100,9 @@ interface TaskAttachmentRow {
 }
 
 serve(async (req: Request) => {
-  if (PURGE_FILEHUB_SECRET) {
-    const auth = req.headers.get('Authorization') ?? ''
-    if (auth !== `Bearer ${PURGE_FILEHUB_SECRET}`) {
-      return respond({ error: 'unauthorized' }, 401)
-    }
+  const auth = req.headers.get('Authorization') ?? ''
+  if (!PURGE_FILEHUB_SECRET || auth !== `Bearer ${PURGE_FILEHUB_SECRET}`) {
+    return respond({ error: 'unauthorized' }, 401)
   }
 
   const summary: Summary = {
