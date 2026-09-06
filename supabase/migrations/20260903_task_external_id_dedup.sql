@@ -39,6 +39,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS tasks_company_id_external_id_key
 -- unchanged). When p_external_id is supplied and a non-deleted task with the
 -- same (company_id, external_id) already exists, update it in place instead
 -- of inserting a duplicate sibling — "skip/update on re-import".
+DROP FUNCTION IF EXISTS public.rpc_create_task(
+  text, text, text, timestamptz, uuid, uuid, uuid, text, bigint, text, timestamptz, numeric
+);
+
 CREATE OR REPLACE FUNCTION public.rpc_create_task(
   p_title                 text,
   p_description           text        DEFAULT NULL,
