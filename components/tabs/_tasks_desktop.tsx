@@ -1294,8 +1294,8 @@ export function TasksScreenWeb() {
           </View>
 
           <View className="flex-row items-center gap-1.5 shrink-0">
-            <TaskPingButton task={task} userId={user?.id || ''} className="hover:bg-brand-primary/10 transition-colors" />
-            {hasPermission('task.assign') && (
+            {!multiSelect.active && <TaskPingButton task={task} userId={user?.id || ''} className="hover:bg-brand-primary/10 transition-colors" />}
+            {!multiSelect.active && hasPermission('task.assign') && (
               <TouchableOpacity
                 onPress={() => handleOpenAssignments(task)}
                 className="w-7 h-7 items-center justify-center rounded-xl bg-surface-background border border-surface-border hover:bg-brand-primary/10 transition-colors"
@@ -1303,7 +1303,7 @@ export function TasksScreenWeb() {
                 <FontAwesome name="user-plus" size={10} className="text-typography-muted" />
               </TouchableOpacity>
             )}
-            {(profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
+            {!multiSelect.active && (profile?.is_owner || hasPermission('archive:create') || hasPermission('pipeline.edit')) && (
               <Tooltip label="Archive task" disabled={!!activeSession?.task_id}>
                 <TouchableOpacity
                   onPress={() => {
@@ -1338,7 +1338,7 @@ export function TasksScreenWeb() {
         )}
 
         <View className="pt-4 border-t border-surface-border/50">
-          <TaskCardActions
+          {!multiSelect.active && (<TaskCardActions
             task={task}
             stages={stages}
             stageActions={stageActions}
@@ -1356,7 +1356,7 @@ export function TasksScreenWeb() {
             }}
             onSessionStarted={patchTaskSessionStarted}
             onArchived={beginArchiveExit}
-          />
+          />)}
         </View>
       </TouchableOpacity>
       </AnimatedTaskCard>
