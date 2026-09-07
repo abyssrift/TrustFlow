@@ -3,6 +3,7 @@ import React from 'react';
 import { Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 
 import Tooltip from '@/components/common/Tooltip';
+import Block from '@/components/common/Block';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import {
   ENTITY_META,
@@ -537,27 +538,17 @@ export function SectionCard({
 }) {
   const c = useThemeColors();
   return (
-    <View
-      className={`bg-surface-card border rounded-2xl p-4 md:p-5 ${className ?? ''}`}
-      style={{ borderColor: accent ? accent + '55' : c.border }}
+    <Block
+      title={title}
+      hint={hint}
+      right={right}
+      accent={accent}
+      className={className}
+      eyebrow={kind ? <EntityTag kind={kind} /> : undefined}
+      icon={kind ? <EntityGlyph kind={kind} size={26} /> : icon ? <FontAwesome name={icon as any} size={13} color={accent || c.primary} /> : undefined}
     >
-      <View className="flex-row items-start justify-between gap-3 mb-4">
-        <View className="flex-row items-center gap-2.5 flex-1 min-w-0">
-          {kind ? (
-            <EntityGlyph kind={kind} size={26} />
-          ) : icon ? (
-            <FontAwesome name={icon as any} size={13} color={accent || c.primary} />
-          ) : null}
-          <View className="flex-1 min-w-0">
-            {!!kind && <EntityTag kind={kind} />}
-            <Text className="text-typography-main text-sm font-bold">{title}</Text>
-            {!!hint && <Text className="text-typography-muted text-[11px] mt-0.5">{hint}</Text>}
-          </View>
-        </View>
-        {right}
-      </View>
       {children}
-    </View>
+    </Block>
   );
 }
 
