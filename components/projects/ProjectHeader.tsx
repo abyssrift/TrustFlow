@@ -120,7 +120,12 @@ export default function ProjectHeader() {
   };
 
   return (
-    <Animated.View className="px-4 md:px-8 border-b" style={[{ borderColor: c.border, backgroundColor: c.background }, containerPadStyle]}>
+    <Animated.View
+      className="px-4 md:px-8 border-b"
+      // Keep expanded padding static for the initial web paint; the animated
+      // style remains last so collapse/re-expand can tighten or restore it.
+      style={[{ borderColor: c.border, backgroundColor: c.background, paddingTop: 16, paddingBottom: 16 }, containerPadStyle]}
+    >
       <View className="flex-row items-start gap-3">
         <Tooltip label="Back to Projects">
           <TouchableOpacity
