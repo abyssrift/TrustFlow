@@ -116,6 +116,7 @@ export default function RetentionPanel() {
   const company = overview?.company;
   const statusColor = company?.status === 'overdue' ? colors.danger : company?.status === 'warning' ? colors.warning : colors.success;
   const statusLabel = company?.status === 'overdue' ? 'Overdue for review' : company?.status === 'warning' ? 'Warning window' : 'Active';
+  const statusIcon = company?.status === 'overdue' ? 'exclamation-triangle' : company?.status === 'warning' ? 'clock-o' : 'check-circle';
 
   const handleSaveSettings = async () => {
     if (!form) return;
@@ -193,12 +194,13 @@ export default function RetentionPanel() {
     <View className="flex-1">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 48 }}>
         {/* Header */}
-        {!isWide && (
-          <View className="mb-6 px-1">
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Data Lifecycle</Text>
-            <Text className="text-typography-main text-2xl font-black tracking-tight">Retention & Inactivity</Text>
+        <View className="mb-6 px-1">
+          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.25em] mb-1">Data Lifecycle</Text>
+          <View className="flex-row items-end justify-between gap-3">
+            <Text className="text-typography-main text-2xl font-black tracking-tight flex-1">Retention & Inactivity</Text>
+            <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-1 text-right">Workspace policy</Text>
           </View>
-        )}
+        </View>
 
         {/* Status + Policy — stacked on mobile, side-by-side on desktop */}
         <View className={isWide ? 'flex-row items-start gap-5 mb-5' : ''}>
@@ -206,20 +208,39 @@ export default function RetentionPanel() {
         {company && (
           <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="text-typography-main font-black text-base flex-1 mr-3" numberOfLines={1}>{company.name}</Text>
-              <View style={{ backgroundColor: `${statusColor}1A`, borderColor: `${statusColor}55` }} className="px-3 py-1 rounded-full border">
+              <View className="flex-row items-center flex-1 mr-3">
+                <View className="w-9 h-9 rounded-xl items-center justify-center mr-3 bg-surface-background border border-surface-border">
+                  <FontAwesome name={statusIcon as any} size={15} color={statusColor} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-0.5">Workspace status</Text>
+                  <Text className="text-typography-main font-black text-base" numberOfLines={1}>{company.name}</Text>
+                </View>
+              </View>
+              <View style={{ backgroundColor: `${statusColor}1A`, borderColor: `${statusColor}55` }} className="px-3 py-1.5 rounded-full border">
                 <Text style={{ color: statusColor }} className="text-[10px] font-black uppercase tracking-widest">{statusLabel}</Text>
+              </View>
+            </View>
+
+            <View className="rounded-xl border border-surface-border bg-surface-background px-4 py-3 mb-5 flex-row items-center">
+              <View className="flex-1">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Inactivity threshold</Text>
+                <Text className="text-typography-main text-xs font-bold mt-1">{company.inactivity_days} days without activity</Text>
+              </View>
+              <View className="items-end">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Current</Text>
+                <Text style={{ color: statusColor }} className="text-lg font-black mt-0.5">{company.days_inactive}d</Text>
               </View>
             </View>
 
             <View className="flex-row flex-wrap gap-y-4">
               <View className="w-1/2">
-                <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Days inactive</Text>
-                <Text style={{ color: statusColor }} className="text-2xl font-black">{company.days_inactive}</Text>
-              </View>
-              <View className="w-1/2">
                 <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Days until purge</Text>
                 <Text className="text-typography-main text-2xl font-black">{company.days_until_purge}</Text>
+              </View>
+              <View className="w-1/2">
+                <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Warning lead time</Text>
+                <Text className="text-typography-main text-2xl font-black">{company.warning_interval_days}<Text className="text-xs font-bold text-typography-muted">d</Text></Text>
               </View>
               <View className="w-1/2">
                 <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Last activity</Text>
@@ -236,7 +257,8 @@ export default function RetentionPanel() {
         {/* Policy settings */}
         {form && (
           <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
-            <Text className="text-brand-primary text-[10px] font-black uppercase mb-4 tracking-widest">Policy</Text>
+            <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Retention policy</Text>
+            <Text className="text-typography-muted text-xs mt-1 mb-4">Set when workspaces and members become eligible for cleanup.</Text>
             <View className="flex-row flex-wrap gap-3 mb-4">
               {numField('Company inactivity', 'inactivity_days', 'days')}
               {numField('Warning lead time', 'warning_interval_days', 'days')}
@@ -246,7 +268,7 @@ export default function RetentionPanel() {
             <View className="flex-row items-center justify-between bg-surface-background border border-surface-border rounded-xl px-4 py-3 mb-5">
               <View className="flex-1 mr-3">
                 <Text className="text-typography-main font-black text-xs uppercase tracking-tight">Recurring warnings</Text>
-                <Text className="text-typography-muted text-[10px] mt-0.5">Notify members as the purge window approaches.</Text>
+                <Text className="text-typography-muted text-[10px] mt-0.5">Notify members before the purge window.</Text>
               </View>
               <Switch
                 value={form.warnings_enabled}
@@ -272,8 +294,13 @@ export default function RetentionPanel() {
         {/* Inactive users */}
         <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 mb-5 ${isWide ? 'max-w-3xl' : ''}`}>
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Inactive members</Text>
-            <Text className="text-typography-muted text-[10px] font-bold">{overview?.inactive_users.length || 0}</Text>
+            <View>
+              <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Inactive members</Text>
+              <Text className="text-typography-muted text-xs mt-1">Members past the user inactivity threshold.</Text>
+            </View>
+            <View className="px-2.5 py-1 rounded-lg bg-surface-background border border-surface-border">
+              <Text className="text-typography-main text-[10px] font-black">{overview?.inactive_users.length || 0}</Text>
+            </View>
           </View>
 
           {(!overview || overview.inactive_users.length === 0) ? (
