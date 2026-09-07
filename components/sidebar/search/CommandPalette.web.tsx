@@ -400,10 +400,9 @@ export default function CommandPalette({
   // lines up on screen:
   //   recent destinations → recent searches → CREATE tiles → GO TO → results
   //
-  // 2D-within-1-D: the CREATE tiles occupy [gridStart, gridStart+tileCount).
-  // `gridStart` is only non-zero on an empty query (the recent-destination rows
-  // that sit above the grid). The key handler's ←/→ stay inside that band and
-  // ↑/↓ hop the grid↔list boundary in whole rows.
+  // The one-row CREATE strip occupies [gridStart, gridStart+tileCount).
+  // ←/→ stay inside that horizontal band; ↑/↓ cross between the strip and
+  // the surrounding list.
   const flatItems = useMemo<PaletteItem[]>(() => {
     const items: PaletteItem[] = [];
     // #347 — the inline quick-create row is always first when present.
@@ -430,9 +429,6 @@ export default function CommandPalette({
   const tileCount = matchedActions.length;
   const gridEnd = gridStart + tileCount; // first flat index after the tile grid
   const inGrid = (i: number) => i >= gridStart && i < gridEnd;
-  // Desktop caps at 4/row: at maxWidth 640 with flexBasis 132 + gap, a 5th tile
-  // wraps — so ↑/↓ row-hopping must assume 4, not tileCount.
-  const tileCols = tileCount === 0 ? 1 : isMobile ? Math.min(2, tileCount) : Math.min(4, tileCount);
   // Last tile the selection sat on — ↑ from the first non-tile row returns here.
   const lastTile = useRef(gridStart);
   useEffect(() => {
@@ -474,7 +470,7 @@ export default function CommandPalette({
     if (Platform.OS !== 'web') return;
     const node = rowRefs.current.get(sel);
     const dom = node instanceof Element ? node : node?.getDOMNode?.();
-    dom?.scrollIntoView?.({ block: 'nearest' });
+    dom?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [sel, flatItems.length]);
 
   const seeAll = useCallback(() => {
@@ -649,11 +645,8 @@ export default function CommandPalette({
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSel((i) => {
-          if (inGrid(i)) {
-            const next = i + tileCols; // next tile row, or out of the grid
-            return next < gridEnd ? next : Math.min(gridEnd, last());
-          }
-          return Math.min(i + 1, last()); // recent rows above the grid, or the list below it
+          if (inGrid(i)) return Math.min(gridEnd, last());
+          return Math.min(i + 1, last()); // recent rows above the strip, or the list below it
         });
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -662,8 +655,8 @@ export default function CommandPalette({
           if (i === gridEnd && tileCount > 0) {
             return Math.max(gridStart, Math.min(lastTile.current, gridEnd - 1));
           }
-          // In the grid: up a tile row, or out the top onto a recent row.
-          if (inGrid(i)) return Math.max(0, i - tileCols);
+          // From the one-row strip, move to the final row above it.
+          if (inGrid(i)) return Math.max(0, gridStart - 1);
           // Recent rows above, or list below — plain step.
           return Math.max(i - 1, 0);
         });
@@ -696,7 +689,7 @@ export default function CommandPalette({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, flatItems, sel, gridStart, gridEnd, tileCount, tileCols, query, activate, seeAll, onClose, summon, showCreateHint, mode, actions, actionSel, backToList, enterActions, paletteMode, commands, cmdSel, runCommand]);
+  }, [open, flatItems, sel, gridStart, gridEnd, tileCount, query, activate, seeAll, onClose, summon, showCreateHint, mode, actions, actionSel, backToList, enterActions, paletteMode, commands, cmdSel, runCommand]);
 
   const seedTip = useCallback((token: string) => {
     setQuery(token + ' ');
@@ -895,12 +888,13 @@ export default function CommandPalette({
             </View>
           )}
 
-          {/* CREATE — a wrapping tile grid (#342). Occupies flatItems
+          {/* CREATE — a one-row horizontal tile strip. Occupies flatItems
               [gridStart, gridStart+tileCount). */}
           {matchedActions.length > 0 && (
             <View className="mb-1">
               <SectionHeader label="Create" colors={colors} />
-              <View className="flex-row flex-wrap gap-2 px-3 pb-1">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View className="flex-row gap-2 px-3 pb-1">
                 {matchedActions.map((a) => {
                   const i = idx++;
                   const on = i === sel;
@@ -910,11 +904,8 @@ export default function CommandPalette({
                       ref={setRowRef(i)}
                       onHoverIn={() => setSel(i)}
                       onPress={() => activate({ kind: 'action', run: a.run })}
-                      className="items-center justify-center gap-2 rounded-2xl px-3 py-3.5"
+                      className="w-32 items-center justify-center gap-2 rounded-2xl px-3 py-3.5"
                       style={{
-                        flexGrow: 1,
-                        flexBasis: 132,
-                        minWidth: 132,
                         borderWidth: 1,
                         borderColor: on ? colors.accent : 'transparent',
                         backgroundColor: colors.accent + (on ? '2E' : '1A'),
@@ -932,7 +923,8 @@ export default function CommandPalette({
                     </Pressable>
                   );
                 })}
-              </View>
+                </View>
+              </ScrollView>
             </View>
           )}
 
