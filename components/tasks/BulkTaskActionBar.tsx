@@ -385,7 +385,7 @@ export default function BulkTaskActionBar({ taskIds, stages, availablePipelines,
             onPress={handleAssignSave}
             className="mt-5 bg-brand-primary py-4 rounded-2xl items-center"
           >
-            <Text className="text-white font-black uppercase tracking-widest text-xs">
+            <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">
               {busy ? 'Saving...' : `Assign to ${assignSelectedIds.length} selected`}
             </Text>
           </TouchableOpacity>
