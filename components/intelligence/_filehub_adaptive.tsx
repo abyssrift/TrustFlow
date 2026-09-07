@@ -44,6 +44,7 @@ import FileHubOverview from './FileHubOverview';
 import FileHubBrowse from './FileHubBrowse';
 import { useShareFile } from '../common/ShareFile';
 import TaskFileResults from './TaskFileResults';
+import { FileActivityRows } from './FileHubActivity';
 
 
 
@@ -489,32 +490,7 @@ function FileDetailSheet({
           </ScrollView>
           ) : tab === 'activity' ? (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 16, paddingBottom: 40 }}>
-            {activityLoading ? (
-              <View className="py-10 items-center"><ActivityIndicator color={colors.primary} /></View>
-            ) : activity.length === 0 ? (
-              <View className="py-10 items-center px-8">
-                <FontAwesome name="clock-o" size={28} color={colors.textMuted} />
-                <Text className="text-typography-muted text-sm mt-3 text-center">No activity recorded yet</Text>
-              </View>
-            ) : (
-              activity.map((entry, i) => {
-                const meta = ACTIVITY_META[entry.action] ?? { icon: 'circle', color: '#94a3b8', label: entry.action };
-                return (
-                  <View key={entry.id} className={`flex-row items-start px-6 py-3.5 ${i < activity.length - 1 ? 'border-b border-surface-border/40' : ''}`}>
-                    <View className="w-8 h-8 rounded-full items-center justify-center mr-3 flex-shrink-0 mt-0.5" style={{ backgroundColor: meta.color + '20' }}>
-                      <FontAwesome name={meta.icon as any} size={12} color={meta.color} />
-                    </View>
-                    <View className="flex-1 min-w-0">
-                      <Text className="text-typography-main text-sm font-bold">
-                        <UserLink userId={entry.user.id} name={entry.user.full_name} tab="activity" className="text-typography-main text-sm font-bold" />{' '}
-                        <Text className="text-typography-muted font-medium">{meta.label.toLowerCase()}</Text>
-                      </Text>
-                      <Text className="text-typography-dim text-xs mt-0.5">{relativeDate(entry.created_at)}</Text>
-                    </View>
-                  </View>
-                );
-              })
-            )}
+            <FileActivityRows activity={activity} loading={activityLoading} mobile />
           </ScrollView>
           ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 16, paddingBottom: 40 }}>
@@ -823,7 +799,7 @@ function FolderDetailSheet({
   onDelete: () => void;
 }) {
   const colors = useThemeColors();
-  const { createFolderShareLink, listFolderShareLinks, revokeShareLink } = useFileHub();
+  const { createFolderShareLink, listFolderShareLinks, revokeShareLink, folderActivity } = useFileHub();
   const { showConfirm } = useAlert();
   const { successToast } = useToast();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -833,8 +809,16 @@ function FolderDetailSheet({
   const [shareLinksLoading, setShareLinksLoading] = useState(false);
   const [creatingShareLink, setCreatingShareLink] = useState(false);
   const [shareExpiryHours, setShareExpiryHours] = useState(168);
+  const [activityTab, setActivityTab] = useState<'details' | 'activity'>('details');
+  const [activity, setActivity] = useState<FileActivity[] | null>(null);
 
   useEffect(() => { setIsRenaming(false); setRenameValue(folder?.name ?? ''); }, [folder?.id]);
+  useEffect(() => { setActivityTab('details'); setActivity(null); }, [folder?.id]);
+  useEffect(() => {
+    if (activityTab !== 'activity' || !folder) return;
+    setActivity(null);
+    folderActivity(folder.id).then(setActivity).catch(() => setActivity([]));
+  }, [activityTab, folder?.id, folderActivity]);
 
   if (!folder) return null;
 
@@ -876,6 +860,14 @@ function FolderDetailSheet({
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, paddingTop: 16 }}>
+        <View className="flex-row items-center gap-2 mb-4">
+          {(['details', 'activity'] as const).map(t => (
+            <TouchableOpacity key={t} onPress={() => setActivityTab(t)} className={`h-11 px-5 rounded-2xl border items-center justify-center ${activityTab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}>
+              <Text className={`text-xs font-black capitalize ${activityTab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {activityTab === 'activity' ? <FileActivityRows activity={activity} mobile /> : <>
         <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden mb-5">
           <View className="flex-row items-center px-4 py-3.5 border-b border-surface-border/50">
             <Text className="text-typography-muted text-xs w-24">Location</Text>
@@ -920,6 +912,7 @@ function FolderDetailSheet({
             <Text className="text-state-danger font-black text-sm">Delete</Text>
           </TouchableOpacity>
         </View>
+        </>}
       </ScrollView>
     </Popup>
     <Popup visible={showShareLink} onClose={() => setShowShareLink(false)} presentation="auto" maxWidth={420}>

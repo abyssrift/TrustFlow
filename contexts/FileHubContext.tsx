@@ -293,6 +293,7 @@ type FileHubContextType = {
   logActivity: (fileId: string, action: string, metadata?: Record<string, any> | null) => void;
   logFolderActivity: (folderId: string, action: string, metadata?: Record<string, any> | null) => void;
   fileActivity: (fileId: string) => Promise<FileActivity[]>;
+  folderActivity: (folderId: string) => Promise<FileActivity[]>;
   allTagsWithCounts: () => Promise<{ tag: string; count: number }[]>;
   renameTag: (oldTag: string, newTag: string) => Promise<number>;
   deleteTag: (tag: string) => Promise<number>;
@@ -911,6 +912,11 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     return data || [];
   }, []);
 
+  const folderActivity = useCallback(async (folderId: string): Promise<FileActivity[]> => {
+    const { data } = await supabase.rpc('rpc_filehub_folder_activity', { p_folder_id: folderId });
+    return data || [];
+  }, []);
+
   const allTagsWithCounts = useCallback(async (): Promise<{ tag: string; count: number }[]> => {
     const { data } = await supabase.rpc('rpc_filehub_all_tags');
     return (data || []).map((r: any) => ({ tag: r.tag, count: r.count }));
@@ -953,7 +959,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       groupFiles, groupFilesLoading,
       refreshGroups, refreshGroupFiles,
       createGroup, renameGroup, deleteGroup, addGroupMember, removeGroupMember, fetchGroupMembers,
-      logActivity, logFolderActivity, fileActivity, allTagsWithCounts, renameTag, deleteTag,
+      logActivity, logFolderActivity, fileActivity, folderActivity, allTagsWithCounts, renameTag, deleteTag,
     }}>
       {children}
     </FileHubContext.Provider>
