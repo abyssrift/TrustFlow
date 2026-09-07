@@ -7,8 +7,8 @@
 --   MSYS_NO_PATHCONV=1 docker exec -i supabase_db_TrustFlow psql -U postgres -d postgres \
 --     -f supabase/checks/20260907080650_global_search_v4_check.sql
 --
--- Wrapped in BEGIN/ROLLBACK: seeds throwaway tasks / a report / a comment
--- inside an EXISTING seeded company, reusing real users, asserts, rolls back.
+-- Wrapped in BEGIN/ROLLBACK: creates a throwaway company and users, seeds
+-- throwaway tasks / a report / a comment, asserts, and rolls back.
 --
 -- ?? WHAT REGRESSION THIS LOCKS DOWN ????????????????????????????????????????
 -- Before v4, `rpc_global_search` took ONE `ORDER BY score DESC LIMIT v_limit*3`
@@ -60,36 +60,23 @@ DECLARE
   v_mark TEXT := 'zzmark' || replace(gen_random_uuid()::text, '-', '');
   v_fuzzy UUID; v_exact UUID; v_report UUID; v_comment UUID; v_upwork UUID;
 BEGIN
-  -- A seeded company with an owner and at least one active non-owner member
-  -- that does NOT hold any *.view_all ? the member must be blind to tasks it
-  -- doesn't own for assertion (1) to mean anything.
-  SELECT u.company_id INTO v_company
-  FROM public.users u
-  WHERE u.is_owner AND u.deleted_at IS NULL AND EXISTS (
-    SELECT 1 FROM public.users m
-    WHERE m.company_id = u.company_id AND NOT m.is_owner AND m.deleted_at IS NULL AND m.is_active
-      AND NOT EXISTS (
-        SELECT 1 FROM public.user_roles ur
-        JOIN public.role_permissions rp ON rp.role_id = ur.role_id
-        JOIN public.permissions pm ON pm.id = rp.permission_id
-        WHERE ur.user_id = m.id AND ur.revoked_at IS NULL
-          AND pm.key IN ('task.view_all','tasks.view_all','system.view_all_data'))
-  )
-  ORDER BY u.company_id LIMIT 1;
-  IF v_company IS NULL THEN
-    RAISE EXCEPTION 'No seeded company with an owner + a member without *.view_all ? run against a seeded dev DB, not prod.';
-  END IF;
+  -- Create an isolated company with an owner and a non-owner member. The
+  -- member has no role rows, so it has no *.view_all permission and must be
+  -- blind to the owner-owned exact tasks in assertion (1).
+  v_owner := gen_random_uuid();
+  v_member := gen_random_uuid();
+  INSERT INTO public.companies (name, slug)
+  VALUES ('ZZ Global Search ' || v_mark, 'zz-global-search-' || lower(v_mark))
+  RETURNING id INTO v_company;
 
-  SELECT id INTO v_owner FROM public.users WHERE company_id = v_company AND is_owner LIMIT 1;
-  SELECT m.id INTO v_member FROM public.users m
-  WHERE m.company_id = v_company AND NOT m.is_owner AND m.deleted_at IS NULL AND m.is_active
-    AND NOT EXISTS (
-      SELECT 1 FROM public.user_roles ur
-      JOIN public.role_permissions rp ON rp.role_id = ur.role_id
-      JOIN public.permissions pm ON pm.id = rp.permission_id
-      WHERE ur.user_id = m.id AND ur.revoked_at IS NULL
-        AND pm.key IN ('task.view_all','tasks.view_all','system.view_all_data'))
-  ORDER BY m.id LIMIT 1;
+  INSERT INTO auth.users (id, email)
+  VALUES
+    (v_owner, 'zz-global-search-owner-' || v_owner || '@test.local'),
+    (v_member, 'zz-global-search-member-' || v_member || '@test.local');
+  INSERT INTO public.users (id, company_id, email, is_owner, is_active)
+  VALUES
+    (v_owner, v_company, 'zz-global-search-owner-' || v_owner || '@test.local', true, true),
+    (v_member, v_company, 'zz-global-search-member-' || v_member || '@test.local', false, true);
 
   -- 15 exact tasks (= v_limit*3 when the assertions call with p_limit := 5),
   -- owned by the OWNER with no pipeline => task_list_visible() is FALSE for the
