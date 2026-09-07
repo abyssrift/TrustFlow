@@ -1236,7 +1236,7 @@ export function TasksScreenWeb() {
               borderColor: multiSelect.isSelected(task.id) ? colors.primary : colors.border,
             }}
           >
-            {multiSelect.isSelected(task.id) && <FontAwesome name="check" size={10} color="#fff" />}
+            {multiSelect.isSelected(task.id) && <FontAwesome name="check" size={10} className="text-brand-on-primary" />}
           </View>
         )}
         {isPinged && (
