@@ -134,9 +134,16 @@ placement conventions (auto-apply, Clear Filters, toolbar trigger with the
 
 ### Cards
 
-* Must use `bg-surface-card`
-* Must include `border-surface-border`
-* Must be `rounded-2xl`
+Section-sized card surfaces must use `components/common/Block.tsx`. `Block`
+owns the shared `bg-surface-card`, `border-surface-border`, `rounded-2xl`,
+responsive padding, and optional header composition (`title`, `hint`, `icon`,
+`eyebrow`, `right`, `accent`). Keep charts, forms, tables, empty states, and
+domain layout inside the block; do not grow `Block` into a mega-component.
+
+`WidgetShell`, `MultiViewList`, `Popup`, and filter primitives keep their own
+specialized shell/layout contracts and must not be replaced with `Block`.
+`SectionCard` remains the entity-aware compatibility wrapper for callers that
+need `EntityGlyph` / `EntityTag` composition.
 
 ### Lists, grids, tables (uniform item collections)
 
