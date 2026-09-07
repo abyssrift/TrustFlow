@@ -1525,7 +1525,7 @@ function TasksScreen() {
             <Tooltip label={multiSelect.active ? 'Exit batch select' : 'Batch select'}>
               <TouchableOpacity
                 onPress={() => (multiSelect.active ? multiSelect.exit() : multiSelect.enter())}
-                className={`p-2.5 rounded-xl border ${multiSelect.active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+                className={`w-11 h-11 items-center justify-center rounded-xl border ${multiSelect.active ? 'bg-brand-primary/10 border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
               >
                 <FontAwesome name="check-square-o" size={15} className="text-brand-primary" />
               </TouchableOpacity>
