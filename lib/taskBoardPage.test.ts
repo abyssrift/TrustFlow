@@ -16,11 +16,26 @@ describe('dueDateOrClause', () => {
   });
 
   it('uses LOCAL midnight boundaries, not UTC', () => {
-    const clause = dueDateOrClause(['today'], NOW)!;
-    expect(clause).toBe(`and(due_date.gte.${localMidnight(0)},due_date.lt.${localMidnight(1)})`);
-    // The trap this guards (see commit b3a85cc): a UTC-derived boundary would
-    // read 00:00Z, which is a different instant everywhere but UTC.
-    expect(clause.includes('T00:00:00.000Z')).toBe(false);
+    const previousTZ = process.env.TZ;
+    try {
+      process.env.TZ = 'Africa/Cairo';
+      const now = new Date(2026, 7, 16, 12, 0, 0);
+      const localBoundary = (offsetDays: number) => {
+        const boundary = new Date(now);
+        boundary.setHours(0, 0, 0, 0);
+        boundary.setDate(boundary.getDate() + offsetDays);
+        return boundary.toISOString();
+      };
+      const clause = dueDateOrClause(['today'], now)!;
+
+      expect(clause).toBe(`and(due_date.gte.${localBoundary(0)},due_date.lt.${localBoundary(1)})`);
+      expect(clause).not.toBe(
+        `and(due_date.gte.${new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())).toISOString()},due_date.lt.${new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1)).toISOString()})`,
+      );
+    } finally {
+      if (previousTZ === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTZ;
+    }
   });
 
   it('matches getDueBucket: week is tomorrow..+7d, overdue is before today', () => {
