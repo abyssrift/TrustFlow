@@ -25,7 +25,7 @@ export default function Block({
   className,
   bodyClassName,
 }: BlockProps) {
-  const hasHeader = !!(title || hint || icon || right);
+  const hasHeader = !!(title || hint || icon || eyebrow || right);
   return (
     <View
       className={`bg-surface-card border border-surface-border rounded-2xl p-4 md:p-5 ${className ?? ''}`}

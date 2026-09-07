@@ -8,7 +8,7 @@ const retention = fs.readFileSync(path.join(root, 'components/admin/RetentionPan
 const uiRules = fs.readFileSync(path.join(root, '.agents/rules/ui-consistency.md'), 'utf8');
 const utilityRegistry = fs.readFileSync(path.join(root, '.agents/rules/global-utilities-index.md'), 'utf8');
 
-for (const token of ['title?: string', 'hint?: string', 'icon?: React.ReactNode', 'right?: React.ReactNode', 'accent?: string', 'rounded-2xl', 'p-4 md:p-5']) {
+for (const token of ['title?: string', 'hint?: string', 'icon?: React.ReactNode', 'eyebrow?: React.ReactNode', 'right?: React.ReactNode', 'accent?: string', 'rounded-2xl', 'p-4 md:p-5', 'title || hint || icon || eyebrow || right']) {
   if (!block.includes(token)) throw new Error(`Block API/default missing: ${token}`);
 }
 if (!entity.includes("<Block") || !entity.includes('eyebrow={kind ? <EntityTag kind={kind} /> : undefined}')) {
