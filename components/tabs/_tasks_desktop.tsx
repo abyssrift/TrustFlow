@@ -14,6 +14,7 @@ import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars'
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
+import BulkTaskActionBar from '@/components/tasks/BulkTaskActionBar';
 import CreateTaskModal from '@/components/tasks/CreateTaskModal.web';
 import TaskMobilityModal from '@/components/tasks/TaskMobilityModal';
 import { useAlert } from '@/contexts/AlertContext';
@@ -24,7 +25,9 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
 import { BOARD_PICKER_KEYS, useBoardPicker } from '@/hooks/useBoardPicker';
-import { useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
+import { useTaskMultiSelect } from '@/hooks/useTaskMultiSelect';
+import { useFileDrop, useMarqueeSelect, useSmartPaste } from '@/hooks/useWebDnd';
+import { isMultiSelectModifierActive } from '@/lib/webModifierKeys';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { fileToStaged } from '@/lib/pasteImage';
 import { supabase } from '@/lib/supabase';
@@ -344,6 +347,12 @@ export function TasksScreenWeb() {
   const boardScrollRef = useRef<ScrollView>(null);
   const stageFX = useStageTransitionFX(boardContainerRef, colors.primary);
   const fetchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // Batch select + bulk actions (#216). Marquee (rubber-band) selection is
+  // web-only and armed only while select mode is on, so a normal drag on the
+  // board is unaffected.
+  const multi = useTaskMultiSelect();
+  const { containerRef: marqueeRef, marqueeRect } = useMarqueeSelect(multi.replace, multi.active);
 
   // #194 paging refs. fetchData/loadColumns are plain (non-memoised) closures
   // called from effects, realtime handlers and refs, so anything they need to
@@ -1146,6 +1155,37 @@ export function TasksScreenWeb() {
   const renderTaskCard = (task: Task) => {
     if (!task) return null;
     const prio = getPriorityInfo(task.priority);
+
+    // Batch-select mode: a stripped card whose whole surface toggles selection,
+    // so nested buttons (timer, assign, archive) can't fire mid-selection.
+    if (multi.active) {
+      const selected = multi.selected.has(task.id);
+      return (
+        <AnimatedTaskCard key={task.id} disableLayoutAnimation={boardTransitioning}>
+          <TouchableOpacity
+            onPress={() => multi.toggle(task.id)}
+            // @ts-ignore - web-only marquee hit-test hook
+            dataSet={Platform.OS === 'web' ? { marqueeId: task.id } : undefined}
+            className="flex-row items-center gap-3 bg-surface-card p-4 rounded-2xl mb-4 premium-shadow"
+            style={{ borderColor: selected ? colors.primary : 'rgba(128,128,128,0.15)', borderWidth: selected ? 2 : 1 }}
+          >
+            <View
+              className="w-5 h-5 rounded-md items-center justify-center border-2"
+              style={{ borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : 'transparent' }}
+            >
+              {selected && <FontAwesome name="check" size={11} color="#fff" />}
+            </View>
+            <View className="flex-1 min-w-0">
+              <Text numberOfLines={1} className="text-typography-main font-black text-base">{task.title}</Text>
+              <Text className="text-typography-dim text-[10px] font-bold uppercase tracking-wider">
+                {prio.label}{task.category ? ` · ${task.category}` : ''}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </AnimatedTaskCard>
+      );
+    }
+
     const canViewAllData = hasPermission('system.view_all_data') || user?.id === task.manager_id || (user as any)?.is_owner;
     
     // Calculate total time including active sessions if applicable
@@ -1179,6 +1219,13 @@ export function TasksScreenWeb() {
       >
       <TouchableOpacity
         onPress={() => {
+          // Ctrl/Cmd+click a card to start (or extend) a batch selection
+          // without first toggling select mode. RNW zeroes nativeEvent.ctrlKey,
+          // so this reads the live DOM modifier state (lib/webModifierKeys).
+          if (isMultiSelectModifierActive()) {
+            multi.active ? multi.toggle(task.id) : multi.enter(task.id);
+            return;
+          }
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
         }}
@@ -1503,6 +1550,16 @@ export function TasksScreenWeb() {
                    )}
                  </TouchableOpacity>
                </Tooltip>
+               {(hasPermission('task.edit') || hasPermission('task.assign') || hasPermission('task.create') || hasPermission('archive:create') || hasPermission('pipeline.edit') || profile?.is_owner) && (
+                 <Tooltip label={multi.active ? 'Exit select mode' : 'Select multiple tasks'}>
+                   <TouchableOpacity
+                     onPress={() => (multi.active ? multi.exit() : multi.enter())}
+                     className={`h-14 w-14 items-center justify-center border rounded-2xl premium-shadow transition-all ${multi.active ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'}`}
+                   >
+                     <FontAwesome name="check-square-o" size={16} className={multi.active ? 'text-white' : 'text-brand-primary'} />
+                   </TouchableOpacity>
+                 </Tooltip>
+               )}
                {/* Utility group — icon-only squares, tighter than the labeled primary actions */}
                <View className="flex-row items-center gap-2">
                  <Tooltip label="Refresh board">
@@ -1698,12 +1755,26 @@ export function TasksScreenWeb() {
               </View>
             </View>
           ) : (
-            <View ref={boardContainerRef} style={{ flex: 1 }} onLayout={(e) => {
-              // Re-rendering the whole board per layout frame is only worth it
-              // while a column is actually sized off boardWidth (fullscreen).
-              boardWidthRef.current = e.nativeEvent.layout.width;
-              if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
-            }}>
+            <View
+              ref={(el: any) => { (boardContainerRef as any).current = el; (marqueeRef as any).current = el; }}
+              style={{ flex: 1, position: 'relative' }}
+              onLayout={(e) => {
+                // Re-rendering the whole board per layout frame is only worth it
+                // while a column is actually sized off boardWidth (fullscreen).
+                boardWidthRef.current = e.nativeEvent.layout.width;
+                if (fullscreenStageId) setBoardWidth(boardWidthRef.current);
+              }}
+            >
+              {marqueeRect && (
+                <View
+                  pointerEvents="none"
+                  style={{
+                    position: 'absolute', zIndex: 80,
+                    left: marqueeRect.x, top: marqueeRect.y, width: marqueeRect.w, height: marqueeRect.h,
+                    backgroundColor: colors.primary + '22', borderWidth: 1, borderColor: colors.primary, borderRadius: 4,
+                  }}
+                />
+              )}
             <ScrollView
               ref={boardScrollRef}
               horizontal
@@ -1901,6 +1972,18 @@ export function TasksScreenWeb() {
         onConfirm={handleArchiveTask}
         onCancel={() => setArchiveModal({ visible: false, taskId: null })}
       />
+
+      {multi.active && multi.ids.length > 0 && (
+        <BulkTaskActionBar
+          taskIds={multi.ids}
+          stages={stages}
+          pipelines={availablePipelines}
+          boardPipelineId={pipeline?.id || ''}
+          onExit={multi.exit}
+          onApplied={fetchData}
+          onOptimisticArchive={(ids) => ids.forEach(beginArchiveExit)}
+        />
+      )}
 
       <RightSidebar
         pipelineId={pipeline?.id}

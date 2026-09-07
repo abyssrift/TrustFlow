@@ -1,5 +1,8 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import BulkTaskActionBar from '@/components/tasks/BulkTaskActionBar';
+import { useTaskMultiSelect } from '@/hooks/useTaskMultiSelect';
+import { isMultiSelectModifierActive } from '@/lib/webModifierKeys';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { FileDropOverlay } from '@/components/common/FileDropOverlay';
 import LinkifiedText from '@/components/common/LinkifiedText';
@@ -352,6 +355,9 @@ function TasksScreen() {
   // A task the user just moved, and the task their timer is running on, must
   // stay on the board even when they'd fall outside their column's page.
   const pinTask = (taskId: string) => { pinnedIdsRef.current = addPinnedTaskId(pinnedIdsRef.current, taskId); };
+
+  // Batch select + bulk actions (#216). Long-press a card to enter select mode.
+  const multi = useTaskMultiSelect();
 
   // Board picker state — shared with the desktop layout via useBoardPicker.
   const boardPicker = useBoardPicker(availablePipelines, pipeline?.id);
@@ -1014,13 +1020,46 @@ function TasksScreen() {
     const prio = getPriorityInfo(task.priority, colors);
     const pinggedAt = pingedTasks.get(task.id);
     const isPinged = pinggedAt !== undefined;
+
+    // Batch-select mode: a stripped card whose whole surface toggles selection.
+    if (multi.active) {
+      const selected = multi.selected.has(task.id);
+      return (
+        <AnimatedTaskCard key={task.id}>
+          <TouchableOpacity
+            onPress={() => multi.toggle(task.id)}
+            activeOpacity={0.7}
+            className="flex-row items-center gap-3 bg-surface-card p-4 rounded-2xl mb-3 premium-shadow"
+            style={{ borderColor: selected ? colors.primary : 'rgba(128,128,128,0.15)', borderWidth: selected ? 2 : 1 }}
+          >
+            <View
+              className="w-5 h-5 rounded-md items-center justify-center border-2"
+              style={{ borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : 'transparent' }}
+            >
+              {selected && <FontAwesome name="check" size={11} color="#fff" />}
+            </View>
+            <View className="flex-1 min-w-0">
+              <Text numberOfLines={1} className="text-typography-main font-bold text-base">{task.title}</Text>
+              <Text className="text-typography-dim text-[9px] font-bold uppercase tracking-wider">
+                {prio.label}{task.category ? ` · ${task.category}` : ''}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </AnimatedTaskCard>
+      );
+    }
+
     return (
       <AnimatedTaskCard key={task.id}>
       <TouchableOpacity
         onPress={() => {
+          // Ctrl/Cmd+click (mobile web) starts a batch selection; no-op native.
+          if (isMultiSelectModifierActive()) { multi.enter(task.id); return; }
           if (isPinged) removePingedTask(task.id);
           router.push(`/task/${task.id}`);
         }}
+        onLongPress={() => multi.enter(task.id)}
+        delayLongPress={300}
         activeOpacity={0.7}
         className="bg-surface-card p-4 rounded-2xl mb-3 premium-shadow relative hover:z-50"
         style={isPinged ? {
@@ -1134,7 +1173,7 @@ function TasksScreen() {
       </TouchableOpacity>
       </AnimatedTaskCard>
     );
-  }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, stageTransitions, user?.id, handleOpenAssignments, silentRefresh, colors, pingedTasks, removePingedTask]);
+  }, [router, hasPermission, profile?.is_owner, kanban, activeSessions, stages, stageActions, stageTransitions, user?.id, handleOpenAssignments, silentRefresh, colors, pingedTasks, removePingedTask, multi.active, multi.selected, multi.toggle, multi.enter]);
 
   const renderStageColumn = (stage: Stage) => {
     const stageTasks = tasks.filter(t => {
@@ -1460,6 +1499,16 @@ function TasksScreen() {
                 <FontAwesome name="user" size={13} color={mineOnly ? 'white' : colors.primary} />
               </TouchableOpacity>
             </Tooltip>
+            {(hasPermission('task.edit') || hasPermission('task.assign') || hasPermission('task.create') || hasPermission('archive:create') || hasPermission('pipeline.edit') || profile?.is_owner) && (
+              <Tooltip label={multi.active ? 'Exit select mode' : 'Select multiple tasks'}>
+                <TouchableOpacity
+                  onPress={() => (multi.active ? multi.exit() : multi.enter())}
+                  className={`p-2.5 rounded-xl border ${multi.active ? 'bg-brand-primary border-brand-primary' : 'bg-brand-primary/10 border-brand-primary/20'}`}
+                >
+                  <FontAwesome name="check-square-o" size={13} color={multi.active ? 'white' : colors.primary} />
+                </TouchableOpacity>
+              </Tooltip>
+            )}
             <Tooltip label="Search tasks">
               <TouchableOpacity
                 onPress={() => {
@@ -1715,7 +1764,7 @@ function TasksScreen() {
         <KanbanPersonalizer onClose={() => setShowPersonalizer(false)} />
       )}
 
-      {hasPermission('task.create') && (
+      {hasPermission('task.create') && !multi.active && (
         <Tooltip label="Create task">
           <TouchableOpacity
             onPress={handleCreateTask}
@@ -1725,6 +1774,18 @@ function TasksScreen() {
             <FontAwesome name="plus" size={24} color="white" />
           </TouchableOpacity>
         </Tooltip>
+      )}
+
+      {multi.active && multi.ids.length > 0 && (
+        <BulkTaskActionBar
+          taskIds={multi.ids}
+          stages={stages}
+          pipelines={availablePipelines}
+          boardPipelineId={pipeline?.id || ''}
+          onExit={multi.exit}
+          onApplied={fetchData}
+          bottomOffset={TAB_BAR_HEIGHT.native + 16}
+        />
       )}
 
       <CreateTaskModal
