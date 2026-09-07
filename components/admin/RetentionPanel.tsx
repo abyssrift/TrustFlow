@@ -236,8 +236,7 @@ export default function RetentionPanel() {
 
         {/* Policy settings */}
         {form && (
-          <Block className={isWide ? 'flex-1' : 'mb-5'}>
-            <Text className="text-brand-primary text-[10px] font-black uppercase mb-4 tracking-widest">Policy</Text>
+          <Block title="Policy" className={isWide ? 'flex-1' : 'mb-5'}>
             <View className="flex-row flex-wrap gap-3 mb-4">
               {numField('Company inactivity', 'inactivity_days', 'days')}
               {numField('Warning lead time', 'warning_interval_days', 'days')}
@@ -271,11 +270,11 @@ export default function RetentionPanel() {
         </View>
 
         {/* Inactive users */}
-        <Block className={`mb-5 ${isWide ? 'max-w-3xl' : ''}`}>
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Inactive members</Text>
-            <Text className="text-typography-muted text-[10px] font-bold">{overview?.inactive_users.length || 0}</Text>
-          </View>
+        <Block
+          title="Inactive members"
+          right={<Text className="text-typography-muted text-[10px] font-bold">{overview?.inactive_users.length || 0}</Text>}
+          className={`mb-5 ${isWide ? 'max-w-3xl' : ''}`}
+        >
 
           {(!overview || overview.inactive_users.length === 0) ? (
             <View className="items-center py-8">
@@ -313,8 +312,11 @@ export default function RetentionPanel() {
 
         {/* Danger zone — owner only */}
         {isOwner && company && (
-          <Block className={`border-state-danger/30 bg-state-danger/5 ${isWide ? 'max-w-3xl' : ''}`}>
-            <Text style={{ color: colors.danger }} className="text-[10px] font-black uppercase tracking-widest mb-2">Danger Zone</Text>
+          <Block
+            title="Danger Zone"
+            accent={colors.danger}
+            className={`bg-state-danger/5 ${isWide ? 'max-w-3xl' : ''}`}
+          >
             <Text className="text-typography-muted text-xs leading-5 mb-4">
               Permanently delete this entire workspace and all of its data — tasks, files, members, pipelines and history. This cannot be undone.
             </Text>

@@ -5,6 +5,7 @@ import { Text, TouchableOpacity, View, useWindowDimensions } from 'react-native'
 
 import {
   EntityEmptyState,
+  EntityTag,
   EntityGlyph,
   MetaStat,
   ProgressMeter,
@@ -139,6 +140,7 @@ export default function ProjectLens() {
         <View className={sideBySide ? 'flex-1' : ''}>
           <Block
             icon={<EntityGlyph kind="portfolio" size={26} />}
+            eyebrow={<EntityTag kind="portfolio" />}
             title="Batches of work"
             hint="Rolled up over only the projects you can open."
             right={
@@ -187,6 +189,7 @@ export default function ProjectLens() {
         <View className={sideBySide ? 'flex-1' : ''}>
           <Block
             icon={<EntityGlyph kind="project" size={26} />}
+            eyebrow={<EntityTag kind="project" />}
             title="Needs attention"
             hint="Blocked, or past its due date and not finished — the same filter the projects list uses."
           >

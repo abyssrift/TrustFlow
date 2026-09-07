@@ -12,7 +12,13 @@ for (const token of ['title?: string', 'hint?: string', 'icon?: React.ReactNode'
 if (!entity.includes("<Block") || !entity.includes('eyebrow={kind ? <EntityTag kind={kind} /> : undefined}')) {
   throw new Error('SectionCard is not backed by Block with entity compatibility composition');
 }
+if (!fs.readFileSync(path.join(root, 'components/intelligence/ProjectLens.tsx'), 'utf8').includes('eyebrow={<EntityTag kind="portfolio" />}')) {
+  throw new Error('ProjectLens must preserve entity eyebrow semantics when adopting Block');
+}
 if ((retention.match(/<Block/g) || []).length !== 4) throw new Error('RetentionPanel should adopt all four top-level blocks');
 if (retention.includes('bg-surface-card border border-surface-border rounded-2xl p-5')) throw new Error('RetentionPanel retains an ad-hoc top-level shell');
+for (const title of ['title="Policy"', 'title="Inactive members"', 'title="Danger Zone"']) {
+  if (!retention.includes(title)) throw new Error(`Retention header missing Block API: ${title}`);
+}
 
 console.log('Block.check.ts: OK');
