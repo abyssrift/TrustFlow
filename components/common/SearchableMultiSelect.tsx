@@ -59,7 +59,30 @@ export type SearchableMultiSelectProps = {
   hideBulkToggle?: boolean;
   /** Force a flat list (ignore `category` grouping). */
   flat?: boolean;
+  /** Controlled search query for remote filtering. When supplied, items are already filtered. */
+  query?: string;
+  /** Receives search changes when using remote filtering. */
+  onQueryChange?: (q: string) => void;
+  /** Shows a loading state while remote results are being fetched. */
+  loading?: boolean;
+  /** Optional remote-search error shown above the result list. */
+  errorText?: string | null;
+  /** Authoritative selected items for chips/counts when results are remote or paged. */
+  selectedItems?: SearchableMultiSelectItem[];
+  /** Focus the search field when the picker mounts. */
+  autoFocus?: boolean;
+  /** Clears the authoritative selection when provided. */
+  onClearSelection?: () => void;
 };
+
+function dedupeItems(items: SearchableMultiSelectItem[]) {
+  const seen = new Set<string>();
+  return items.filter(item => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
 
 export default function SearchableMultiSelect({
   title,
@@ -72,21 +95,35 @@ export default function SearchableMultiSelect({
   showSelectedChips = true,
   hideBulkToggle = false,
   flat = false,
+  query,
+  onQueryChange,
+  loading = false,
+  errorText = null,
+  selectedItems,
+  autoFocus = false,
+  onClearSelection,
 }: SearchableMultiSelectProps) {
   const c = useThemeColors();
-  const [query, setQuery] = useState('');
+  const [internalQuery, setInternalQuery] = useState('');
   const accentColor = accent ?? c.primary;
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const uniqueItems = useMemo(() => dedupeItems(items), [items]);
+  const uniqueSelectedItems = useMemo(
+    () => dedupeItems(selectedItems ?? []).filter(item => selectedSet.has(item.id)),
+    [selectedItems, selectedSet],
+  );
+  const isControlledSearch = query !== undefined || onQueryChange !== undefined;
+  const currentQuery = query ?? internalQuery;
 
-  const q = query.trim().toLowerCase();
+  const q = currentQuery.trim().toLowerCase();
   const visible: KeyedItem[] = useMemo(() => {
-    const withKeys = items.map(it => ({ ...it, key: `${it.id}-${it.label}` }));
-    if (!q) return withKeys;
+    const withKeys = uniqueItems.map(it => ({ ...it, key: `${it.id}-${it.label}` }));
+    if (isControlledSearch || !q) return withKeys;
     return withKeys.filter(it =>
       it.label.toLowerCase().includes(q) ||
       (it.description ?? '').toLowerCase().includes(q) ||
       (it.category ?? '').toLowerCase().includes(q));
-  }, [items, q]);
+  }, [uniqueItems, q, isControlledSearch]);
 
   const groups = useMemo(() => {
     if (flat) return [''] as const;
@@ -98,7 +135,23 @@ export default function SearchableMultiSelect({
     return seen;
   }, [visible, flat]);
 
-  const total = selectedSet.size;
+  const selectedChipItems = selectedItems ? uniqueSelectedItems : uniqueItems.filter(it => selectedSet.has(it.id));
+  const total = selectedItems ? uniqueSelectedItems.length : selectedSet.size;
+
+  const clearSelection = () => {
+    if (onClearSelection) {
+      onClearSelection();
+      return;
+    }
+    selectedChipItems.forEach(item => {
+      if (!item.disabled) onToggle(item.id);
+    });
+  };
+
+  const setSearchQuery = (nextQuery: string) => {
+    if (query === undefined) setInternalQuery(nextQuery);
+    onQueryChange?.(nextQuery);
+  };
 
   const groupItems = (cat: string) => visible.filter(it => (it.category ?? '') === cat);
   const selCount = (cat: string) => visible.filter(it => (it.category ?? '') === cat && selectedSet.has(it.id)).length;
@@ -117,18 +170,35 @@ export default function SearchableMultiSelect({
       {/* Header row: caption + selected count */}
       <View className="flex-row items-center justify-between mb-2">
         <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">{title}</Text>
-        <Text className="text-[10px] font-black" style={{ color: total > 0 ? accentColor : c.textDim }}>
-          {total} selected
-        </Text>
+        <View className="flex-row items-center">
+          <Text className="text-[10px] font-black mr-2" style={{ color: total > 0 ? accentColor : c.textDim }}>
+            {total} selected
+          </Text>
+          {total > 0 && (
+            <TouchableOpacity
+              onPress={clearSelection}
+              className="min-h-11 px-2.5 items-center justify-center rounded-lg"
+              style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear all"
+            >
+              <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: c.textMuted }}>Clear all</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Selected chips (optional) */}
-      {showSelectedChips && selectedSet.size > 0 && (
+      {showSelectedChips && total > 0 && (
         <View className="flex-row flex-wrap gap-1.5 mb-2.5">
-          {items.filter(it => selectedSet.has(it.id)).slice(0, 6).map(it => (
-            <View
+          {selectedChipItems.slice(0, 6).map(it => (
+            <TouchableOpacity
               key={it.id}
-              className="flex-row items-center px-2.5 py-1.5 rounded-lg"
+              onPress={it.disabled ? undefined : () => onToggle(it.id)}
+              disabled={it.disabled}
+              accessibilityRole={it.disabled ? undefined : 'button'}
+              accessibilityLabel={it.disabled ? undefined : `Remove ${it.label}`}
+              className="flex-row items-center min-h-11 px-2.5 py-1.5 rounded-lg"
               style={{ backgroundColor: accentColor + '14', borderWidth: 1, borderColor: accentColor + '3D' }}
             >
               {it.color ? (
@@ -137,12 +207,12 @@ export default function SearchableMultiSelect({
               <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: accentColor }} numberOfLines={1}>
                 {it.label}
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
-          {selectedSet.size > 6 && (
+          {total > 6 && (
             <View className="px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
               <Text className="text-[9px] font-black uppercase tracking-widest" style={{ color: c.textMuted }}>
-                +{selectedSet.size - 6}
+                +{total - 6}
               </Text>
             </View>
           )}
@@ -153,25 +223,48 @@ export default function SearchableMultiSelect({
       <View className="flex-row items-center px-3 py-2.5 rounded-xl mb-3 gap-2" style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border }}>
         <FontAwesome name="search" size={12} color={c.textMuted} />
         <TextInput
-          value={query}
-          onChangeText={setQuery}
+          value={currentQuery}
+          onChangeText={setSearchQuery}
           placeholder={searchPlaceholder ?? `Search ${title.toLowerCase()}...`}
           placeholderTextColor={c.textMuted}
           className="flex-1 text-xs font-bold py-0.5"
           style={{ color: c.textMain } as any}
+          autoFocus={autoFocus}
+          accessibilityLabel={`Search ${title}`}
+          accessibilityHint={isControlledSearch ? 'Search results are loaded remotely' : undefined}
         />
         {q.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery('')} className="w-6 h-6 items-center justify-center rounded-full" style={{ backgroundColor: c.border + '40' }}>
+          <TouchableOpacity
+            onPress={() => setSearchQuery('')}
+            className="w-11 h-11 items-center justify-center rounded-full"
+            style={{ backgroundColor: c.border + '40' }}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+          >
             <FontAwesome name="times" size={10} color={c.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
+      {loading && (
+        <View className="py-3 items-center" accessibilityRole="progressbar" accessibilityLabel="Loading search results">
+          <Text className="text-xs font-bold" style={{ color: c.textMuted }}>Loading results...</Text>
+        </View>
+      )}
+
+      {errorText ? (
+        <View className="py-3 px-3 rounded-xl mb-2" style={{ backgroundColor: c.danger + '14', borderWidth: 1, borderColor: c.danger + '66' }} accessibilityRole="alert">
+          <Text className="text-xs font-bold" style={{ color: c.danger }}>{errorText}</Text>
+        </View>
+      ) : null}
+
       {/* Empty search state */}
-      {visible.length === 0 && (
+      {!loading && !errorText && visible.length === 0 && (
         <View className="py-8 items-center">
           <FontAwesome name="search" size={20} color={c.textDim} style={{ marginBottom: 8 }} />
-          <Text className="text-xs font-bold text-center" style={{ color: c.textMuted }}>{emptyText}</Text>
+          <Text className="text-xs font-bold text-center" style={{ color: c.textMuted }}>
+            {currentQuery.trim() ? emptyText : 'No items available.'}
+          </Text>
         </View>
       )}
 
