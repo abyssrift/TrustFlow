@@ -15,4 +15,33 @@ export type StageEvidenceDraftProviderProps = {
   scopeKey: string;
 };
 
+export type StageEvidenceDraftState = {
+  scopeKey: string;
+  submissionContent: string;
+  stagedFiles: PastedFile[];
+};
+
+export const blankStageEvidenceDraft = (scopeKey: string): StageEvidenceDraftState => ({
+  scopeKey,
+  submissionContent: '',
+  stagedFiles: [],
+});
+
+export function projectStageEvidenceDraft(
+  draft: StageEvidenceDraftState,
+  scopeKey: string,
+): StageEvidenceDraftState {
+  return draft.scopeKey === scopeKey ? draft : blankStageEvidenceDraft(scopeKey);
+}
+
+export function updateStageEvidenceDraft(
+  draft: StageEvidenceDraftState,
+  expectedScope: string,
+  liveScope: string,
+  update: (draft: StageEvidenceDraftState) => StageEvidenceDraftState,
+): StageEvidenceDraftState {
+  if (liveScope !== expectedScope) return draft;
+  return update(projectStageEvidenceDraft(draft, expectedScope));
+}
+
 export const StageEvidenceDraftContext = createContext<StageEvidenceDraftContextValue | null>(null);

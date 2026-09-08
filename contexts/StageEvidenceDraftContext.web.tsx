@@ -2,8 +2,12 @@ import { usePathname } from 'expo-router';
 import React, { useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { useStagedFileLifecycle } from '@/hooks/useStagedFileLifecycle';
 import {
+  blankStageEvidenceDraft,
   StageEvidenceDraftContext,
   type StageEvidenceDraftContextValue,
+  type StageEvidenceDraftState,
+  projectStageEvidenceDraft,
+  updateStageEvidenceDraft,
 } from './StageEvidenceDraftContext.shared';
 
 /**
@@ -11,26 +15,18 @@ import {
  * The layout passes pathname as scopeKey, so responsive subtree remounts
  * preserve the draft while navigation clears it and revokes staged URLs.
  */
-type DraftState = {
-  scopeKey: string;
-  submissionContent: string;
-  stagedFiles: StageEvidenceDraftContextValue['stagedFiles'];
-};
-
-const blankDraft = (scopeKey: string): DraftState => ({ scopeKey, submissionContent: '', stagedFiles: [] });
-
 export function StageEvidenceDraftProvider({ children, scopeKey }: { children: React.ReactNode; scopeKey?: string }) {
   const routePathname = usePathname();
   const activeScopeKey = scopeKey ?? routePathname;
   const scopeRef = useRef(activeScopeKey);
   scopeRef.current = activeScopeKey;
-  const [draft, setDraft] = useState<DraftState>(() => blankDraft(activeScopeKey));
-  const activeDraft = draft.scopeKey === activeScopeKey ? draft : blankDraft(activeScopeKey);
+  const [draft, setDraft] = useState<StageEvidenceDraftState>(() => blankStageEvidenceDraft(activeScopeKey));
+  const activeDraft = projectStageEvidenceDraft(draft, activeScopeKey);
 
   // Normalize stored state after the synchronous derived blank has rendered;
   // this prevents a stale route's async setter from repopulating the new one.
   React.useEffect(() => {
-    setDraft(current => current.scopeKey === activeScopeKey ? current : blankDraft(activeScopeKey));
+    setDraft(current => projectStageEvidenceDraft(current, activeScopeKey));
   }, [activeScopeKey]);
 
   useStagedFileLifecycle(activeDraft.stagedFiles);
@@ -38,27 +34,25 @@ export function StageEvidenceDraftProvider({ children, scopeKey }: { children: R
   const setSubmissionContent = useCallback<StageEvidenceDraftContextValue['setSubmissionContent']>(value => {
     const expectedScope = activeScopeKey;
     if (scopeRef.current !== expectedScope) return;
-    setDraft(current => {
-      if (scopeRef.current !== expectedScope) return current;
-      const base = current.scopeKey === expectedScope ? current : blankDraft(expectedScope);
-      return { ...base, submissionContent: typeof value === 'function' ? value(base.submissionContent) : value };
-    });
+    setDraft(current => updateStageEvidenceDraft(current, expectedScope, scopeRef.current, base => ({
+      ...base,
+      submissionContent: typeof value === 'function' ? value(base.submissionContent) : value,
+    })));
   }, [activeScopeKey]);
 
   const setStagedFiles = useCallback<StageEvidenceDraftContextValue['setStagedFiles']>(value => {
     const expectedScope = activeScopeKey;
     if (scopeRef.current !== expectedScope) return;
-    setDraft(current => {
-      if (scopeRef.current !== expectedScope) return current;
-      const base = current.scopeKey === expectedScope ? current : blankDraft(expectedScope);
-      return { ...base, stagedFiles: typeof value === 'function' ? value(base.stagedFiles) : value };
-    });
+    setDraft(current => updateStageEvidenceDraft(current, expectedScope, scopeRef.current, base => ({
+      ...base,
+      stagedFiles: typeof value === 'function' ? value(base.stagedFiles) : value,
+    })));
   }, [activeScopeKey]);
 
   const clearDraft = useCallback(() => {
     const expectedScope = activeScopeKey;
     if (scopeRef.current !== expectedScope) return;
-    setDraft(current => scopeRef.current === expectedScope ? blankDraft(expectedScope) : current);
+    setDraft(current => updateStageEvidenceDraft(current, expectedScope, scopeRef.current, () => blankStageEvidenceDraft(expectedScope)));
   }, [activeScopeKey]);
 
   const value = useMemo<StageEvidenceDraftContextValue>(() => ({

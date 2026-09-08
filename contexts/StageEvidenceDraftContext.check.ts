@@ -9,7 +9,7 @@ assert.match(web, /useStagedFileLifecycle\(activeDraft\.stagedFiles\)/);
 assert.match(native, /StageEvidenceDraftProvider\(\{ children, scopeKey: _scopeKey \}: \{ children: React\.ReactNode; scopeKey\?: string \}\)/);
 assert.match(web, /StageEvidenceDraftProvider/);
 assert.match(web, /useStageEvidenceDraft/);
-assert.match(web, /stagedFiles: \[\]/);
+assert.match(web, /blankStageEvidenceDraft\(activeScopeKey\)/);
 assert.match(native, /useState<PastedFile\[\]>\(\[\]\)/);
 assert.match(native, /useStagedFileLifecycle\(stagedFiles\)/);
 assert.match(native, /return <>{children}<\/>/);

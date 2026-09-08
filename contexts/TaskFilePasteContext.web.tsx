@@ -80,6 +80,7 @@ export function TaskFilePasteProvider({ children, scopeKey }: { children: React.
       const skippedText = skipped ? ` ${skipped} skipped as duplicate${skipped === 1 ? '' : 's'}.` : '';
       infoToast(`${target.label}: added ${accepted.length} file${accepted.length === 1 ? '' : 's'}.${skippedText}`, 'Files pasted');
     } catch (error) {
+      if (scopeRef.current !== pasteScopeKey) return;
       errorToast(`${target.label}: ${errorMessage(error)}`, 'Paste failed');
     }
   }, [errorToast, infoToast]);
