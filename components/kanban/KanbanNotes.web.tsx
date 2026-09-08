@@ -1,23 +1,25 @@
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import { formatRelative } from '@/lib/time';
+import { markdownToPlainText } from '@/lib/taskDescriptionMarkdown';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import Tooltip from '@/components/common/Tooltip';
+import RichDescriptionEditor from '@/components/common/RichDescriptionEditor';
 
 type Note = { id: string; body: string; updatedAt: number };
 
 // First non-empty line, trimmed — the sticky-note "title" shown on its chip.
 export function noteTitle(body: string): string {
-  const line = body.split('\n').map(l => l.trim()).find(Boolean);
+  const line = markdownToPlainText(body).split('\n').map(l => l.trim()).find(Boolean);
   return line ? line.slice(0, 22) : 'New note';
 }
 
 // Second non-empty line (or the rest of the first, if it's the only one) — the
 // preview shown under the title in the list row.
 function notePreview(body: string): string {
-  const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+  const lines = markdownToPlainText(body).split('\n').map(l => l.trim()).filter(Boolean);
   const preview = lines[1] ?? '';
   return preview.slice(0, 60);
 }
@@ -83,7 +85,7 @@ export default function KanbanNotes({ userId }: { userId?: string }) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return notes;
-    return notes.filter(n => n.body.toLowerCase().includes(q));
+    return notes.filter(n => markdownToPlainText(n.body).toLowerCase().includes(q));
   }, [notes, search]);
 
   // Editor — opened by tapping a row in the list below.
@@ -101,15 +103,13 @@ export default function KanbanNotes({ userId }: { userId?: string }) {
           </Pressable>
         </View>
         <View className="flex-1 rounded-2xl border border-surface-border bg-surface-card p-3">
-          <TextInput
+          <RichDescriptionEditor
             value={active.body}
             onChangeText={updateActive}
-            multiline
-            autoFocus
+            minHeight={300}
             placeholder="Write anything — reminders, things to look out for…"
-            placeholderTextColor={colors.muted}
-            className="flex-1 text-sm text-typography-main"
-            style={{ textAlignVertical: 'top' } as any}
+            focusTitle="Private note"
+            sidebarMode
           />
         </View>
         <Text className="mt-2 text-typography-muted text-[10px] font-bold px-1">

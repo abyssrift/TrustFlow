@@ -1,5 +1,6 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Tooltip from '@/components/common/Tooltip';
+import RichDescriptionEditor from '@/components/common/RichDescriptionEditor';
 import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -212,16 +213,11 @@ export default function EditTaskModal({ visible, onClose, focusField }: Props) {
               {/* Description */}
               <View>
                 <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.15em] mb-2">Description</Text>
-                <TextInput
+                <RichDescriptionEditor
                   value={description}
                   onChangeText={setDescription}
                   placeholder="Details about this task..."
-                  placeholderTextColor={colors.textDim}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                  className="bg-surface-background border border-surface-border text-typography-main px-4 py-3.5 rounded-2xl font-medium"
-                  style={{ minHeight: 100 }}
+                  minHeight={100}
                 />
               </View>
 

@@ -3,6 +3,7 @@ import TemplateEditor from '@/components/templates/TemplateEditor';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { starterTemplatesBySector, StarterTemplate } from '@/lib/starterTemplates';
+import { markdownToPlainText } from '@/lib/taskDescriptionMarkdown';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
@@ -26,7 +27,7 @@ function TemplateCard({ template, onPress }: { template: StarterTemplate; onPres
     >
       <View className="flex-1 pr-3">
         <Text className="text-typography-main font-black text-sm">{template.name}</Text>
-        <Text className="text-typography-muted text-xs mt-0.5" numberOfLines={2}>{template.description}</Text>
+        <Text className="text-typography-muted text-xs mt-0.5" numberOfLines={2}>{markdownToPlainText(template.description)}</Text>
         <Text className="text-typography-dim text-[10px] font-bold uppercase mt-1">{template.tasks.length} tasks</Text>
       </View>
       <FontAwesome name="chevron-right" size={12} color={c.textMuted} />
@@ -140,7 +141,7 @@ export default function StarterTemplatePickerSheet({
 
   const preview = selected && (
     <>
-      <Text className="text-typography-muted text-sm mb-4">{selected.description}</Text>
+      <Text className="text-typography-muted text-sm mb-4">{markdownToPlainText(selected.description)}</Text>
       <View style={{ gap: 8 }}>
         {selected.tasks.map((task, i) => (
           <View key={i} className="bg-surface-background border border-surface-border rounded-xl px-4 py-3">
@@ -148,7 +149,7 @@ export default function StarterTemplatePickerSheet({
               <Text className="text-typography-main font-bold text-sm flex-1 pr-2">{task.title}</Text>
               <Text className="text-typography-dim text-[10px] font-black uppercase">{task.category}</Text>
             </View>
-            <Text className="text-typography-muted text-xs">{task.description}</Text>
+            <Text className="text-typography-muted text-xs">{markdownToPlainText(task.description)}</Text>
             <Text className="text-typography-dim text-[10px] mt-1 font-bold uppercase">
               {task.estimated_hours}h · {task.priority}{task.due_offset_days != null ? ` · day ${task.due_offset_days}` : ''}
             </Text>

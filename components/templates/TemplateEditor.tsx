@@ -1,6 +1,7 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
+import RichDescriptionEditor from '@/components/common/RichDescriptionEditor';
 import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { randomId } from '@/lib/randomId';
@@ -451,13 +452,30 @@ export default function TemplateEditor({
           {it.category || 'Uncategorized'} · Day {it.due_offset_days ?? 0} · {PRIORITY_LABEL[it.priority]}
         </Text>
       </View>
-      <TouchableOpacity onPress={() => moveItem(it.key, -1)} disabled={i === 0} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', opacity: i === 0 ? 0.3 : 1 }}>
+      <TouchableOpacity
+        onPress={e => { e.stopPropagation(); moveItem(it.key, -1); }}
+        disabled={i === 0}
+        accessibilityRole="button"
+        accessibilityLabel={`Move ${it.title.trim() || 'task'} up`}
+        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: i === 0 ? 0.3 : 1 }}
+      >
         <FontAwesome name="chevron-up" size={11} color={c.textMuted} />
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => moveItem(it.key, 1)} disabled={i === items.length - 1} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center', opacity: i === items.length - 1 ? 0.3 : 1 }}>
+      <TouchableOpacity
+        onPress={e => { e.stopPropagation(); moveItem(it.key, 1); }}
+        disabled={i === items.length - 1}
+        accessibilityRole="button"
+        accessibilityLabel={`Move ${it.title.trim() || 'task'} down`}
+        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: i === items.length - 1 ? 0.3 : 1 }}
+      >
         <FontAwesome name="chevron-down" size={11} color={c.textMuted} />
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => removeItem(it.key)} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
+      <TouchableOpacity
+        onPress={e => { e.stopPropagation(); removeItem(it.key); }}
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${it.title.trim() || 'task'}`}
+        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+      >
         <FontAwesome name="trash-o" size={12} color={c.danger} />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -493,16 +511,13 @@ export default function TemplateEditor({
 
       <View>
         <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: c.textMuted }}>Description</Text>
-        <TextInput
+        <RichDescriptionEditor
           value={selected.description}
           onChangeText={t => updateSelected({ description: t })}
           placeholder='Done when...'
-          placeholderTextColor={c.textDim}
-          multiline
-          numberOfLines={3}
-          textAlignVertical="top"
-          className="rounded-2xl px-4 py-3 font-medium"
-          style={{ minHeight: 88, backgroundColor: c.background, color: c.textMain, borderWidth: 1, borderColor: c.border }}
+          minHeight={112}
+          focusTitle={selected.title.trim() ? `${selected.title.trim()} description` : 'Template task description'}
+          testID={`template-task-description-${selected.key}`}
         />
       </View>
 

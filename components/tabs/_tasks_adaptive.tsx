@@ -3,6 +3,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import HorizontalScroll from '@/components/common/HorizontalScroll';
 import { FileDropOverlay } from '@/components/common/FileDropOverlay';
 import LinkifiedText from '@/components/common/LinkifiedText';
+import { markdownToPlainText } from '@/components/common/MarkdownDescription';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import SlideDownPanel from '@/components/common/SlideDownPanel';
 import { FilterDropdown } from '@/components/common/FilterPanel';
@@ -1144,7 +1145,7 @@ function TasksScreen() {
 
         {!!task.description && (
           <LinkifiedText className="text-typography-muted text-xs leading-4 mb-3" numberOfLines={2}>
-            {task.description}
+            {markdownToPlainText(task.description ?? '')}
           </LinkifiedText>
         )}
         

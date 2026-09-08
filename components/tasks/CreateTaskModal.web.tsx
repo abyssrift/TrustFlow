@@ -1,5 +1,6 @@
 import AssignmentModePreview from '@/components/tasks/AssignmentModePreview';
 import ClipboardControls from '@/components/common/ClipboardControls';
+import RichDescriptionEditor from '@/components/common/RichDescriptionEditor';
 import DraggableSheet from '@/components/common/DraggableSheet';
 import { FileDropOverlay } from '@/components/common/FileDropOverlay';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
@@ -603,17 +604,12 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId, i
                       onPaste={t => setDraft({ description: draft.description ? `${draft.description}\n${t}` : t })}
                     />
                   </View>
-                  <TextInput
-                    value={draft.description ?? ''}
-                    onChangeText={t => setDraft({ description: t })}
-                    placeholder="Define the scope of this task..."
-                    placeholderTextColor={colors.textDim}
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
-                    className="rounded-2xl px-5 py-4 text-sm leading-6 h-32"
-                    style={{ backgroundColor: colors.card, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
-                  />
+                   <RichDescriptionEditor
+                     value={draft.description ?? ''}
+                     onChangeText={t => setDraft({ description: t })}
+                     placeholder="Define the scope of this task..."
+                     minHeight={128}
+                   />
                 </View>
               </View>
             )}
@@ -1556,16 +1552,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId, i
                         onPaste={t => setDraft({ description: draft.description ? `${draft.description}\n${t}` : t })}
                       />
                     </View>
-                    <TextInput
+                    <RichDescriptionEditor
                       value={draft.description ?? ''}
                       onChangeText={t => setDraft({ description: t })}
                       placeholder="Define the scope of this tactical objective..."
-                      placeholderTextColor={colors.textDim}
-                      multiline
-                      numberOfLines={5}
-                      textAlignVertical="top"
-                      className="rounded-3xl px-6 py-5 text-sm leading-6 h-36"
-                      style={{ backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                      minHeight={128}
                     />
                   </View>
 

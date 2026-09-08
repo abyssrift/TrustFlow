@@ -5,7 +5,7 @@ import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
 import EditTaskModal from './EditTaskModal';
-import LinkifiedText from '../common/LinkifiedText';
+import MarkdownDescription from '../common/MarkdownDescription';
 import UserLink from '../common/UserLink';
 
 function MetaRow({ icon, label, value, valueNode, valueColor }: { icon: string; label: string; value?: string | null; valueNode?: React.ReactNode; valueColor?: string }) {
@@ -61,9 +61,7 @@ export default function TaskMetadata() {
       >
         {/* Description */}
         {task.description && (
-          <LinkifiedText className="text-typography-label text-sm leading-5 mb-4">
-            {task.description}
-          </LinkifiedText>
+          <MarkdownDescription markdown={task.description} className="text-typography-label text-sm leading-5 mb-4" />
         )}
 
         <MetaRow icon="code-fork" label="Pipeline" value={pipeline?.name || '—'} />

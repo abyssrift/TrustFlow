@@ -1,11 +1,12 @@
 import ClipboardControls from '@/components/common/ClipboardControls';
+import MarkdownDescription from '@/components/common/MarkdownDescription';
 import Popup from '@/components/common/Popup';
+import RichDescriptionEditor from '@/components/common/RichDescriptionEditor';
 import Tooltip from '@/components/common/Tooltip';
 import { FilePreviewGrid } from '@/components/common/FilePreviewCard';
 import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
 import ImageLightbox from '@/components/common/ImageLightbox';
 import { useShareFile } from '@/components/common/ShareFile';
-import LinkifiedText from '@/components/common/LinkifiedText';
 import ManualTimeApprovalsModal from '@/components/common/ManualTimeApprovalsModal';
 import ManualTimeModal from '@/components/common/ManualTimeModal';
 import UserLink from '@/components/common/UserLink';
@@ -21,6 +22,8 @@ import { useTicker } from '@/hooks/useTicker';
 import { formatStopwatch, formatCompact } from '@/lib/time';
 import { buildSegments, totalsOf, type ActivityMark, type ActivitySegment, type ActivityState } from '@/lib/time/activity';
 import { getPastedImageFile, fileToStaged } from '@/lib/pasteImage';
+import { markdownToPlainText } from '@/lib/taskDescriptionMarkdown';
+import { useStagedFileLifecycle } from '@/hooks/useStagedFileLifecycle';
 import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
 import { logTaskFileActivity, SUBMISSION_BUCKET } from '@/lib/storage';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -29,7 +32,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Animated, AppState, Image, Platform, ScrollView, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Image, Platform, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import ReanimatedAnimated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
 
@@ -374,6 +377,7 @@ export default function StageActions() {
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
   const [stagedFiles, setStagedFiles] = useState<any[]>([]);
+  useStagedFileLifecycle(stagedFiles);
   const [busy, setBusy] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
@@ -388,6 +392,7 @@ export default function StageActions() {
   const [editContent, setEditContent] = useState('');
   const [editRemovedIds, setEditRemovedIds] = useState<string[]>([]);
   const [editNewFiles, setEditNewFiles] = useState<any[]>([]);
+  useStagedFileLifecycle(editNewFiles);
   const [editSaving, setEditSaving] = useState(false);
   const [historyFor, setHistoryFor] = useState<string | null>(null);
   const [historyVersions, setHistoryVersions] = useState<SubmissionVersionData[] | null>(null);
@@ -982,18 +987,15 @@ export default function StageActions() {
                   }}
                 />
               </View>
-              <TextInput
+              <RichDescriptionEditor
                 value={submissionContent}
                 onChangeText={(val) => {
                   setSubmissionContent(val);
                   smartTimer.recordActivity();
                 }}
-
                 placeholder="Describe your work submission..."
-                placeholderTextColor={colors.textDim}
-                multiline
-                numberOfLines={3}
-                className="bg-surface-background border border-surface-border rounded-xl p-3 text-typography-main text-sm mb-3 min-h-[80px]"
+                minHeight={80}
+                focusTitle="New work submission"
               />
               
               {/* File Upload Queue -> Adaptive File Grid */}
@@ -1075,7 +1077,7 @@ export default function StageActions() {
                     {s.stage_name && <Text className="text-typography-dim text-[9px] font-bold">{s.stage_name}</Text>}
                   </View>
 
-                  {s.content && <LinkifiedText className="text-typography-label text-sm leading-5 mb-2">{s.content}</LinkifiedText>}
+                  {s.content && <MarkdownDescription value={s.content} style={{ marginBottom: 8 }} />}
 
                   {s.attachments.length > 0 && (
                     <View className="mb-2">
@@ -1229,7 +1231,7 @@ export default function StageActions() {
                           </TouchableOpacity>
                         </View>
 
-                        {s.content && <Text className="text-typography-label text-xs leading-4 mb-1" numberOfLines={3}>{s.content}</Text>}
+                        {s.content && <Text className="text-typography-label text-xs leading-4 mb-1" numberOfLines={3}>{markdownToPlainText(s.content)}</Text>}
 
                         <View className="flex-row items-center gap-2">
                           <Text className="text-typography-dim text-[9px] font-bold">by <UserLink userId={s.submitted_by?.id} name={s.submitted_by?.full_name} fallback="Unknown" className="text-typography-dim text-[9px] font-bold" /></Text>
@@ -1258,18 +1260,12 @@ export default function StageActions() {
             {(editingSub && (editingSub.status === 'approved' || editingSub.status === 'confirmed')) ? ' This submission was approved — editing sends it back for review.' : ''}
           </Text>
 
-          <TextInput
+          <RichDescriptionEditor
             value={editContent}
             onChangeText={setEditContent}
             placeholder="Describe your work submission..."
-            placeholderTextColor={colors.textDim}
-            multiline
-            numberOfLines={4}
-            style={{
-              backgroundColor: colors.background, borderColor: colors.border, borderWidth: 1,
-              borderRadius: 12, padding: 12, color: colors.textMain, fontSize: 14,
-              minHeight: 100, marginBottom: 16, textAlignVertical: 'top',
-            }}
+            minHeight={100}
+            focusTitle="Edit work submission"
           />
 
           {(editingSub?.attachments.length ?? 0) > 0 && (
@@ -1414,7 +1410,7 @@ export default function StageActions() {
                 </Text>
 
                 {!!v.content && (
-                  <Text numberOfLines={4} style={{ color: colors.textMain, fontSize: 12, lineHeight: 17, marginBottom: 6 }}>{v.content}</Text>
+                  <Text numberOfLines={4} style={{ color: colors.textMain, fontSize: 12, lineHeight: 17, marginBottom: 6 }}>{markdownToPlainText(v.content)}</Text>
                 )}
 
                 {v.attachments.length > 0 && v.attachments.map((a) => {

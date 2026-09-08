@@ -3,6 +3,8 @@ import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
 import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import Tooltip from '@/components/common/Tooltip';
+import RichDescriptionEditor from '@/components/common/RichDescriptionEditor';
+import MarkdownDescription from '@/components/common/MarkdownDescription';
 import UserLink from '@/components/common/UserLink';
 import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -338,16 +340,11 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
             {/* Description */}
             <View>
               <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Description</Text>
-              <TextInput
+              <RichDescriptionEditor
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Details about this task..."
-                placeholderTextColor={colors.textDim}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                className="rounded-2xl px-4 py-3.5 font-medium"
-                style={{ minHeight: 100, backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                minHeight={100}
               />
             </View>
 
@@ -536,9 +533,12 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
       {task.description && (
         <View className="mt-3 p-3 rounded-xl" style={{ backgroundColor: colors.border + '20' }}>
           <Text className="text-[9px] font-black uppercase tracking-wider mb-1.5" style={{ color: colors.textMuted }}>Description</Text>
-          <Text className="text-xs leading-4 font-medium" style={{ color: colors.textMuted }} numberOfLines={5}>
-            {task.description}
-          </Text>
+          <MarkdownDescription
+            markdown={task.description}
+            className="text-xs leading-4 font-medium"
+            numberOfLines={5}
+            style={{ color: colors.textMuted }}
+          />
         </View>
       )}
     </SidebarLayout>
@@ -742,16 +742,11 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
                   {/* Description */}
                   <View>
                     <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Description</Text>
-                    <TextInput
+                    <RichDescriptionEditor
                       value={description}
                       onChangeText={setDescription}
                       placeholder="Task details and context..."
-                      placeholderTextColor={colors.textDim}
-                      multiline
-                      numberOfLines={5}
-                      textAlignVertical="top"
-                      className="rounded-2xl px-6 py-4 font-medium"
-                      style={{ minHeight: 120, backgroundColor: colors.background, color: colors.textMain, borderWidth: 1, borderColor: colors.border }}
+                      minHeight={100}
                     />
                   </View>
 

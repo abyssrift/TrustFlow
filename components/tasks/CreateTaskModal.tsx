@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DraggableSheet from '../common/DraggableSheet';
 import LoadingOverlay from '../common/LoadingOverlay';
 import ClipboardControls from '../common/ClipboardControls';
+import RichDescriptionEditor from '../common/RichDescriptionEditor';
 import SearchableMultiSelect from '../common/SearchableMultiSelect';
 import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import { formatFileSize, getFileIcon } from '@/lib/taskFileHelpers';
@@ -340,14 +341,11 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId, i
                   onPaste={t => setDraft({ description: draft.description ? `${draft.description}\n${t}` : t })}
                 />
               </View>
-              <TextInput
+              <RichDescriptionEditor
                 value={draft.description ?? ''}
                 onChangeText={t => setDraft({ description: t })}
                 placeholder="Operation details..."
-                placeholderTextColor={colors.textDim}
-                multiline
-                numberOfLines={4}
-                className="bg-surface-background border border-surface-border rounded-xl px-5 py-4 text-typography-main text-sm h-32"
+                minHeight={128}
               />
             </View>
           </View>

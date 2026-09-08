@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { markdownToPlainText } from '@/lib/taskDescriptionMarkdown';
 
 /**
  * The templates library.
@@ -72,6 +73,8 @@ function summarize(body: any[] | null) {
     // The same "implied span" the editor shows, computed the same way, so the
     // list and the editor cannot disagree about how long a process runs.
     spanDays: minOffset === null || maxOffset === null ? null : maxOffset - minOffset,
+    searchText: items.map(it => `${typeof it?.title === 'string' ? it.title : ''} ${typeof it?.description === 'string' ? markdownToPlainText(it.description) : ''}`).join(' '),
+    firstTaskDescription: items.find(it => typeof it?.description === 'string' && it.description.trim())?.description ?? '',
   };
 }
 
@@ -146,11 +149,12 @@ export default function TemplatesLibrary() {
     if (!q) return rows;
     return rows.filter(r => {
       if (r.name.toLowerCase().includes(q)) return true;
-      if ((r.description ?? '').toLowerCase().includes(q)) return true;
+      if (markdownToPlainText(r.description ?? '').toLowerCase().includes(q)) return true;
       // Searching by the work itself, not only the label — "planning" should
       // find the template that contains planning tasks even if its name is a
       // client's.
-      return summarize(r.body).categories.some(cat => cat.toLowerCase().includes(q));
+      const summary = summarize(r.body);
+      return summary.categories.some(cat => cat.toLowerCase().includes(q)) || summary.searchText.toLowerCase().includes(q);
     });
   }, [rows, query]);
 
@@ -421,7 +425,7 @@ function TemplateCard({
   onDelete: () => void;
 }) {
   const c = useThemeColors();
-  const { taskCount, categories, spanDays } = useMemo(() => summarize(row.body), [row.body]);
+  const { taskCount, categories, spanDays, firstTaskDescription } = useMemo(() => summarize(row.body), [row.body]);
   const accent = row.color || c.accent;
 
   return (
@@ -447,11 +451,17 @@ function TemplateCard({
           </Text>
           {!!row.description && (
             <Text numberOfLines={2} className="text-typography-muted text-xs mt-0.5 leading-4">
-              {row.description}
+              {markdownToPlainText(row.description)}
             </Text>
           )}
         </View>
       </View>
+
+      {!!firstTaskDescription && (
+        <Text numberOfLines={2} className="text-typography-muted text-xs leading-4">
+          {markdownToPlainText(firstTaskDescription)}
+        </Text>
+      )}
 
       <View className="flex-row items-center flex-wrap gap-x-4 gap-y-1">
         <Stat icon="check" label={`${taskCount} ${taskCount === 1 ? 'task' : 'tasks'}`} c={c} />

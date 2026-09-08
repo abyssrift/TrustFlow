@@ -1,6 +1,7 @@
 import AnimatedTaskCard from '@/components/common/AnimatedTaskCard';
 import { FileDropOverlay } from '@/components/common/FileDropOverlay';
 import LinkifiedText from '@/components/common/LinkifiedText';
+import { markdownToPlainText } from '@/components/common/MarkdownDescription';
 import LoadingOverlay from '@/components/common/LoadingOverlay';
 import Tooltip from '@/components/common/Tooltip';
 import BoardSwitcherPopup from '@/components/kanban/BoardSwitcherPopup';
@@ -1341,7 +1342,7 @@ export function TasksScreenWeb() {
         )}
         {!!task.description && (
           <LinkifiedText className="text-typography-muted text-sm leading-relaxed mb-4" numberOfLines={2}>
-            {task.description}
+            {markdownToPlainText(task.description ?? '')}
           </LinkifiedText>
         )}
         
