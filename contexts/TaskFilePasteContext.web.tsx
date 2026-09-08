@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname } from 'expo-router';
 import { useToast } from '@/contexts/ToastContext';
 import { useSmartPaste } from '@/hooks/useWebDnd';
 import { dedupeTaskFilePaste } from '@/lib/taskFilePaste';
@@ -10,6 +11,7 @@ import {
 } from './TaskFilePasteContext.shared';
 
 type ConfigRef = { current: TaskFilePasteTargetConfig };
+type RegisteredTarget = { scopeKey: string; configRef: ConfigRef };
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -17,18 +19,28 @@ function errorMessage(error: unknown): string {
   return 'Could not paste files.';
 }
 
-export function TaskFilePasteProvider({ children }: { children: React.ReactNode }) {
+export function TaskFilePasteProvider({ children, scopeKey }: { children: React.ReactNode; scopeKey?: string }) {
   const { infoToast, errorToast } = useToast();
-  const targetsRef = useRef(new Map<TaskFilePasteTargetId, ConfigRef>());
+  const routePathname = usePathname();
+  const activeScopeKey = scopeKey ?? routePathname;
+  const targetsRef = useRef(new Map<TaskFilePasteTargetId, RegisteredTarget>());
+  const scopeRef = useRef(activeScopeKey);
   const armedIdRef = useRef<TaskFilePasteTargetId | null>(null);
   const [armedId, setArmedId] = useState<TaskFilePasteTargetId | null>(null);
   const [registryVersion, setRegistryVersion] = useState(0);
 
+  if (scopeRef.current !== activeScopeKey) {
+    scopeRef.current = activeScopeKey;
+    armedIdRef.current = null;
+    setArmedId(null);
+  }
+
   const registerTarget = useCallback((id: TaskFilePasteTargetId, configRef: ConfigRef) => {
-    targetsRef.current.set(id, configRef);
+    targetsRef.current.set(id, { scopeKey: scopeRef.current, configRef });
     setRegistryVersion(version => version + 1);
     return () => {
-      if (targetsRef.current.get(id) !== configRef) return;
+      const current = targetsRef.current.get(id);
+      if (!current || current.configRef !== configRef) return;
       targetsRef.current.delete(id);
       // Keep the route-scoped selection while a conditional target is absent;
       // re-registration restores eligibility without another arm toast.
@@ -41,7 +53,9 @@ export function TaskFilePasteProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const armTarget = useCallback((id: TaskFilePasteTargetId) => {
-    const target = targetsRef.current.get(id)?.current;
+    const registered = targetsRef.current.get(id);
+    if (!registered || registered.scopeKey !== scopeRef.current) return;
+    const target = registered.configRef.current;
     if (!target) return;
     armedIdRef.current = id;
     setArmedId(id);
@@ -50,7 +64,8 @@ export function TaskFilePasteProvider({ children }: { children: React.ReactNode 
 
   const onFiles = useCallback(async (files: File[]) => {
     const id = armedIdRef.current;
-    const target = id ? targetsRef.current.get(id)?.current : null;
+    const registered = id ? targetsRef.current.get(id) : null;
+    const target = registered?.scopeKey === scopeRef.current ? registered.configRef.current : null;
     if (!target || !target.enabled) return;
     const { accepted, skipped } = dedupeTaskFilePaste(files, target.existingFiles as any[]);
     if (!accepted.length) {
@@ -69,8 +84,9 @@ export function TaskFilePasteProvider({ children }: { children: React.ReactNode 
 
   const activeEligible = useMemo(() => {
     if (!armedId) return false;
-    return !!targetsRef.current.get(armedId)?.current.enabled;
-  }, [armedId, registryVersion]);
+    const registered = targetsRef.current.get(armedId);
+    return registered?.scopeKey === activeScopeKey && !!registered.configRef.current.enabled;
+  }, [activeScopeKey, armedId, registryVersion]);
 
   // Exactly one route-scoped smart-paste hook. Target changes update refs and
   // eligibility; target callback changes never create additional listeners.
@@ -78,6 +94,7 @@ export function TaskFilePasteProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => () => {
     targetsRef.current.clear();
+    scopeRef.current = '';
     armedIdRef.current = null;
   }, []);
 

@@ -5,10 +5,10 @@ const web = fs.readFileSync('contexts/StageEvidenceDraftContext.web.tsx', 'utf8'
 const native = fs.readFileSync('contexts/StageEvidenceDraftContext.tsx', 'utf8');
 const layout = fs.readFileSync('app/_layout.web.tsx', 'utf8');
 
-assert.match(web, /useStagedFileLifecycle\(stagedFiles\)/);
+assert.match(web, /useStagedFileLifecycle\(draft\.stagedFiles\)/);
 assert.match(web, /StageEvidenceDraftProvider/);
 assert.match(web, /useStageEvidenceDraft/);
-assert.match(web, /setStagedFiles\(\[\]\)/);
+assert.match(web, /stagedFiles: \[\]/);
 assert.match(native, /useState<PastedFile\[\]>\(\[\]\)/);
 assert.match(native, /useStagedFileLifecycle\(stagedFiles\)/);
 assert.match(native, /return <>{children}<\/>/);

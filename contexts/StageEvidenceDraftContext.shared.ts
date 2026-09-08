@@ -9,4 +9,10 @@ export type StageEvidenceDraftContextValue = {
   clearDraft: () => void;
 };
 
+export type StageEvidenceDraftProviderProps = {
+  children: React.ReactNode;
+  /** Stable route identity; responsive layout changes must not alter it. */
+  scopeKey: string;
+};
+
 export const StageEvidenceDraftContext = createContext<StageEvidenceDraftContextValue | null>(null);

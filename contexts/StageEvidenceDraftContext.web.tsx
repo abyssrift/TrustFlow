@@ -1,4 +1,5 @@
-import React, { useCallback, useContext, useMemo, useState } from 'react';
+import { usePathname } from 'expo-router';
+import React, { useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { useStagedFileLifecycle } from '@/hooks/useStagedFileLifecycle';
 import {
   StageEvidenceDraftContext,
@@ -10,23 +11,46 @@ import {
  * The layout keys this provider by pathname, so responsive subtree remounts
  * preserve the draft while navigation clears it and revokes staged URLs.
  */
-export function StageEvidenceDraftProvider({ children }: { children: React.ReactNode }) {
-  const [submissionContent, setSubmissionContent] = useState('');
-  const [stagedFiles, setStagedFiles] = useState<StageEvidenceDraftContextValue['stagedFiles']>([]);
-  useStagedFileLifecycle(stagedFiles);
+type DraftState = {
+  scopeKey: string;
+  submissionContent: string;
+  stagedFiles: StageEvidenceDraftContextValue['stagedFiles'];
+};
+
+export function StageEvidenceDraftProvider({ children, scopeKey }: { children: React.ReactNode; scopeKey?: string }) {
+  const routePathname = usePathname();
+  const activeScopeKey = scopeKey ?? routePathname;
+  const previousScopeRef = useRef(activeScopeKey);
+  const [draft, setDraft] = useState<DraftState>({ scopeKey: activeScopeKey, submissionContent: '', stagedFiles: [] });
+
+  // Reset during render so a new route never paints the prior task's draft;
+  // the existing lifecycle hook revokes the prior scope's blob URLs once.
+  if (previousScopeRef.current !== activeScopeKey) {
+    previousScopeRef.current = activeScopeKey;
+    setDraft({ scopeKey: activeScopeKey, submissionContent: '', stagedFiles: [] });
+  }
+
+  useStagedFileLifecycle(draft.stagedFiles);
+
+  const setSubmissionContent = useCallback<StageEvidenceDraftContextValue['setSubmissionContent']>(value => {
+    setDraft(current => ({ ...current, submissionContent: typeof value === 'function' ? value(current.submissionContent) : value }));
+  }, []);
+
+  const setStagedFiles = useCallback<StageEvidenceDraftContextValue['setStagedFiles']>(value => {
+    setDraft(current => ({ ...current, stagedFiles: typeof value === 'function' ? value(current.stagedFiles) : value }));
+  }, []);
 
   const clearDraft = useCallback(() => {
-    setSubmissionContent('');
-    setStagedFiles([]);
+    setDraft(current => ({ ...current, submissionContent: '', stagedFiles: [] }));
   }, []);
 
   const value = useMemo<StageEvidenceDraftContextValue>(() => ({
-    submissionContent,
+    submissionContent: draft.submissionContent,
     setSubmissionContent,
-    stagedFiles,
+    stagedFiles: draft.stagedFiles,
     setStagedFiles,
     clearDraft,
-  }), [clearDraft, stagedFiles, submissionContent]);
+  }), [clearDraft, draft, setStagedFiles, setSubmissionContent]);
 
   return <StageEvidenceDraftContext.Provider value={value}>{children}</StageEvidenceDraftContext.Provider>;
 }

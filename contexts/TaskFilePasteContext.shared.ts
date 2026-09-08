@@ -23,4 +23,10 @@ export type TaskFilePasteContextValue = {
   armedId: TaskFilePasteTargetId | null;
 };
 
+export type TaskFilePasteProviderProps = {
+  children: React.ReactNode;
+  /** Stable route identity; width changes must not change this value. */
+  scopeKey: string;
+};
+
 export const TaskFilePasteContext = createContext<TaskFilePasteContextValue | null>(null);
