@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Migration drift check — does what each migration CREATEs actually exist in the DB?
+ * Migration drift check — does what each migration declares actually exist in the DB?
  *
  * Why this is not just "read supabase_migrations.schema_migrations": the local
  * database is seeded from a production dump, so its ledger reflects PROD's
@@ -38,13 +38,14 @@
  * migration that mentions it decides — created, or dropped and left dropped.
  * A file that drops and recreates in one breath counts as a create.
  *
- * ponytail: signature extraction is regex over DDL, not a SQL parser. It reads
- * CREATE FUNCTION/TABLE/INDEX/TRIGGER/POLICY and ADD COLUMN, which covers
- * essentially every migration in this repo. It cannot see a migration whose
- * only effect is an UPDATE or a GRANT — if drift is suspected in one of those,
- * verify by hand. Nor does it check a policy's BODY: a policy present under
- * the right name but with the wrong USING clause reads as fine here. Upgrade
- * path if either bites: parse with pgsql-ast, or diff a dumped schema.
+ * ponytail: signature extraction is regex over SQL, not a SQL parser. It reads
+ * CREATE FUNCTION/TABLE/INDEX/TRIGGER/POLICY, ADD COLUMN, and explicit
+ * INSERT ... VALUES declarations for storage buckets, which covers essentially
+ * every migration in this repo. It cannot see a migration whose only effect is
+ * an UPDATE or a GRANT — if drift is suspected in one of those, verify by hand.
+ * Nor does it check a policy's BODY: a policy present under the right name but
+ * with the wrong USING clause reads as fine here. Upgrade path if either bites:
+ * parse with pgsql-ast, or diff a dumped schema.
  *
  * #200 — REVERSE PASS. Repo → DB drift (above) makes a feature not work,
  * loudly and locally. DB → repo drift — an object hand-applied straight to a
@@ -130,6 +131,15 @@ for (const f of files) {
   for (const m of sql.matchAll(/CREATE\s+TRIGGER\s+([\w."]+)/gi)) add('trigger', norm(m[1]));
   for (const m of sql.matchAll(/CREATE\s+POLICY\s+(?:"([^"]+)"|([\w]+))\s+ON\s+([\w."]+)/gi)) add('policy', policyName(m[1] ?? m[2], m[3]));
 
+  // Storage buckets are rows, not schema objects.  Capture every explicitly
+  // declared bucket id from INSERT ... VALUES (...), including multi-row
+  // inserts, so a missing bucket cannot hide behind otherwise-present policies.
+  for (const m of sql.matchAll(/INSERT\s+INTO\s+storage\.buckets\b[\s\S]*?\bVALUES\b([\s\S]*?);/gi)) {
+    for (const row of m[1].matchAll(/\(\s*'((?:''|[^'])*)'/g)) {
+      add('bucket', norm(row[1].replace(/''/g, "'")));
+    }
+  }
+
   for (const m of sql.matchAll(/DROP\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?([\w."]+)\s*\(/gi)) rm('function', norm(m[1]));
   for (const m of sql.matchAll(/DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?([\w."]+)/gi)) rm('table', norm(m[1]));
   for (const m of sql.matchAll(/DROP\s+INDEX\s+(?:CONCURRENTLY\s+)?(?:IF\s+EXISTS\s+)?([\w."]+)/gi)) rm('index', norm(m[1]));
@@ -179,6 +189,7 @@ present AS (
   UNION ALL SELECT 'table',   lower(tablename)   FROM pg_tables   WHERE schemaname = 'public'
   UNION ALL SELECT 'index',   lower(indexname)   FROM pg_indexes  WHERE schemaname = 'public'
   UNION ALL SELECT 'column',  lower(column_name) FROM information_schema.columns WHERE table_schema = 'public'
+  UNION ALL SELECT 'bucket',   lower(id)          FROM storage.buckets
   UNION ALL SELECT 'trigger', lower(tgname)      FROM pg_trigger  WHERE NOT tgisinternal
   -- No schema filter: the policies this check was blind to were on
   -- storage.objects, and pg_policies already spans every schema.
@@ -244,7 +255,7 @@ console.log(
 );
 
 if (!missing.length) {
-  console.log('migration drift (repo -> DB): NONE — every object the migrations create exists locally');
+  console.log('migration drift (repo -> DB): NONE — every tracked migration signature exists locally');
 } else {
   console.error(`\nmigration drift (repo -> DB): ${missing.length} file(s) with objects missing from the local DB:\n`);
   for (const m of missing) console.error('  ' + m);
