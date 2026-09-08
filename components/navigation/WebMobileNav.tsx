@@ -5,6 +5,7 @@ import { NavPosition } from '@/hooks/useNavBarPosition';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useUnreadNotificationAttention } from '@/hooks/useUnreadNotificationAttention';
 import { addAlpha } from '@/lib/layout';
+import { DEV_TOOLS_DESTINATION } from '@/components/sidebar/constants';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -263,6 +264,18 @@ export default function WebMobileNav({
                   >
                     <FontAwesome name="shield" size={18} color={pathname.startsWith('/platform-admin') ? colors.primary : colors.textDim} className="w-8" />
                     <Text className="font-bold ml-2" style={{ color: pathname.startsWith('/platform-admin') ? colors.primary : addAlpha(colors.primary, 0.7) }}>Control Plane</Text>
+                  </Pressable>
+                </Link>
+                <Link href={DEV_TOOLS_DESTINATION.href as any} asChild onPress={handleClose}>
+                  <Pressable
+                    className="flex-row items-center p-4 rounded-xl mb-2 border"
+                    style={{
+                      backgroundColor: pathname.startsWith(DEV_TOOLS_DESTINATION.href) ? addAlpha(colors.primary, 0.1) : addAlpha(colors.primary, 0.05),
+                      borderColor: pathname.startsWith(DEV_TOOLS_DESTINATION.href) ? addAlpha(colors.primary, 0.3) : addAlpha(colors.primary, 0.1),
+                    }}
+                  >
+                    <FontAwesome name={DEV_TOOLS_DESTINATION.icon} size={18} color={pathname.startsWith(DEV_TOOLS_DESTINATION.href) ? colors.primary : colors.textDim} className="w-8" />
+                    <Text className="font-bold ml-2" style={{ color: pathname.startsWith(DEV_TOOLS_DESTINATION.href) ? colors.primary : addAlpha(colors.primary, 0.7) }}>{DEV_TOOLS_DESTINATION.label}</Text>
                   </Pressable>
                 </Link>
               </View>

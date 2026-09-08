@@ -6,19 +6,22 @@ Dev Tools is now a **dedicated admin page** separate from the main dashboard, gi
 
 ## Accessing Dev Tools
 
-### From the Tasks Screen
-1. Open the app and go to **Tasks**
-2. Look for the blue **Dev Tools** widget at the top
-3. Click **"Seeding & Data Management"**
-4. Redirects to the dedicated Dev Tools page
+### From the desktop web navigation
+1. Sign in as a platform administrator.
+2. Open the navigation rail and choose **Dev Tools** in the **System** section.
+
+### From the mobile web drawer
+1. Sign in as a platform administrator.
+2. Open **Menu**, then choose **Dev Tools** in the **System** section.
+
+### From the native menu
+1. Sign in as a platform administrator on iOS or Android.
+2. Open the **Menu** tab, then choose **Dev Tools** in the **System** section.
 
 ### Direct URL
 ```
 /admin/dev-tools
 ```
-
-### From Admin Sidebar (Desktop)
-In the platform admin panel, look for Dev Tools option in the sidebar (if configured).
 
 ## What You Get
 

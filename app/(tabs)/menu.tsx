@@ -3,7 +3,7 @@ import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneD
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
-import { PALETTE_DESTINATIONS, SHORTCUTS, type PaletteDestination, type Shortcut } from '@/components/sidebar/constants';
+import { DEV_TOOLS_DESTINATION, PALETTE_DESTINATIONS, SHORTCUTS, type PaletteDestination, type Shortcut } from '@/components/sidebar/constants';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -160,6 +160,14 @@ export default function MenuScreen() {
                     <FontAwesome name="shield" size={18} color={pathname.startsWith('/platform-admin') ? colors.primary : colors.primary} />
                   </View>
                   <Text className={`font-bold ml-2 ${pathname.startsWith('/platform-admin') ? 'text-brand-primary' : 'text-typography-main'}`}>Control Plane</Text>
+                </Pressable>
+              </Link>
+              <Link href={DEV_TOOLS_DESTINATION.href as any} asChild>
+                <Pressable className={`flex-row items-center p-4 border-t border-surface-border/50 ${pathname.startsWith(DEV_TOOLS_DESTINATION.href) ? 'bg-brand-primary-dim' : ''}`}>
+                  <View className="w-8 items-center">
+                    <FontAwesome name={DEV_TOOLS_DESTINATION.icon} size={18} color={colors.primary} />
+                  </View>
+                  <Text className={`font-bold ml-2 ${pathname.startsWith(DEV_TOOLS_DESTINATION.href) ? 'text-brand-primary' : 'text-typography-main'}`}>{DEV_TOOLS_DESTINATION.label}</Text>
                 </Pressable>
               </Link>
               <Link href="/admin/pipelines" asChild>

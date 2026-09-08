@@ -116,6 +116,19 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'code-fork', label: 'Pipelines', href: '/admin/pipelines', keywords: ['workflow', 'stages', 'automation', 'admin'] },
 ];
 
+// Platform-admin-only destinations stay outside SHORTCUTS so their visibility
+// cannot be mistaken for an ordinary permission-gated navigation entry.
+export type SystemDestination = { id: string; label: string; href: string; icon: IconName };
+
+export const DEV_TOOLS_DESTINATION: SystemDestination = {
+  id: 'dev-tools',
+  label: 'Dev Tools',
+  href: '/admin/dev-tools',
+  icon: 'wrench',
+};
+
+export const SYSTEM_DESTINATIONS: SystemDestination[] = [DEV_TOOLS_DESTINATION];
+
 // Deeper, keyword-indexed jump targets — the sub-features that live *inside* a
 // top-level page, so a search for the concept ("compare", "rbac", "pdf") lands
 // the right screen even though it has no rail entry of its own. This is the ONE

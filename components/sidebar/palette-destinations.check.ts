@@ -2,7 +2,11 @@
 // No framework (ponytail): plain asserts. Covers keyword match, permission
 // gating, href dedupe, and the empty-query case.
 import assert from 'node:assert';
-import { fuzzyMatch, matchDestinations, PALETTE_DESTINATIONS, SHORTCUTS } from './constants';
+import { DEV_TOOLS_DESTINATION, fuzzyMatch, matchDestinations, PALETTE_DESTINATIONS, SHORTCUTS, SYSTEM_DESTINATIONS } from './constants';
+
+assert.deepEqual(DEV_TOOLS_DESTINATION, { id: 'dev-tools', label: 'Dev Tools', href: '/admin/dev-tools', icon: 'wrench' });
+assert.equal(new Set(SYSTEM_DESTINATIONS.map((item) => item.id)).size, SYSTEM_DESTINATIONS.length, 'system destination ids must be unique');
+assert.equal(new Set(SYSTEM_DESTINATIONS.map((item) => item.href)).size, SYSTEM_DESTINATIONS.length, 'system destination hrefs must be unique');
 
 const destinationById = (id: string) => {
   const destination = PALETTE_DESTINATIONS.find((item) => item.id === id);
