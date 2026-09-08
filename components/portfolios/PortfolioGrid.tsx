@@ -41,9 +41,11 @@ import { usePortfolios, type PortfolioRow } from '@/hooks/usePortfolios';
 export default function PortfolioGrid({
   onOpenPortfolio,
   onCreate,
+  refreshToken = 0,
 }: {
   onOpenPortfolio?: (id: string) => void;
   onCreate?: () => void;
+  refreshToken?: number;
 }) {
   const c = useThemeColors();
   const { hasPermission } = useAuth();
@@ -51,6 +53,10 @@ export default function PortfolioGrid({
   const [editing, setEditing] = useState<PortfolioRow | null>(null);
   const { rows, loading, error, denied, refresh } = usePortfolios(search);
   const canEdit = hasPermission('project.edit');
+
+  useEffect(() => {
+    if (refreshToken > 0) void refresh();
+  }, [refreshToken, refresh]);
 
   const pctOf = (p: PortfolioRow) => (p.projects_total > 0 ? (p.projects_done / p.projects_total) * 100 : 0);
 
@@ -189,8 +195,8 @@ export default function PortfolioGrid({
           title: search ? 'No portfolios match that' : 'No portfolios yet',
           body: search
             ? 'Nothing here has that name. Clear the search to see them all.'
-            : 'A portfolio is one batch of work — everything created together from a spreadsheet or a template. Import a spreadsheet or bulk-create from a template and the batch appears here.',
-          actionLabel: onCreate && !search ? 'Add several projects' : undefined,
+            : 'Start an empty portfolio manually, or use the guided Excel / CSV intake to map and preview a batch of projects before creating it.',
+          actionLabel: onCreate && !search ? 'Create portfolio' : undefined,
           onAction: onCreate && !search ? onCreate : undefined,
         }}
         style={{ flex: 1 }}

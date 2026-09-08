@@ -8,6 +8,7 @@
 // Platform variants (.web.tsx) of each modal are resolved by Metro, so this
 // single file serves web + native.
 import React from 'react';
+import { useRouter } from 'expo-router';
 
 import { useModalDispatch } from '@/contexts/ModalDispatchContext';
 import { useModalQueryParam } from '@/hooks/useModalQueryParam';
@@ -17,11 +18,13 @@ import ProjectFolderModal from '@/components/projects/ProjectFolderModal';
 import ReportGenerator from '@/components/intelligence/_ReportGenerator_adaptive';
 import RoleEditorContainer from '@/components/admin/RoleEditorContainer';
 import UploadComposerModal from '@/components/filehub/UploadComposerModal';
+import CreatePortfolioModal from '@/components/portfolios/CreatePortfolioModal';
 
 const noop = () => {};
 
 export default function ModalHost() {
   const { active, dismiss } = useModalDispatch();
+  const router = useRouter();
 
   // #324: separate concern — turns `/tasks?new=1&type=task` style deep links
   // into a summon() call, then strips the params. Lives here (not in each
@@ -73,13 +76,17 @@ export default function ModalHost() {
     case 'new-role':
       return <RoleEditorContainer visible onClose={dismiss} />;
 
-    // #323 follow-up: create-portfolio has NO standalone modal.
-    // PortfolioEditModal is edit-only (needs an existing portfolio row, saves
-    // via rpc_update_portfolio). Portfolios are only born today as a side
-    // effect of BulkCreateProjectsSheet / SpreadsheetImportSheet / template
-    // instantiation. Needs a real rpc_create_portfolio + a create modal first.
     case 'create-portfolio':
-      return null;
+      return (
+        <CreatePortfolioModal
+          visible
+          onClose={dismiss}
+          onCreated={(portfolioId) => {
+            dismiss();
+            router.push(`/portfolios?created=${encodeURIComponent(portfolioId)}` as any);
+          }}
+        />
+      );
 
     // #340: the FileHub upload composer, lifted out of _filehub_desktop.tsx's
     // screen-local UploadModal into components/filehub/UploadComposerModal.

@@ -344,6 +344,7 @@ export default function CommandPalette({
     const all: CreateAction[] = [
       { id: 'create-task', label: 'New Task', icon: 'check-square-o', permission: 'task.create', run: () => summon('create-task') },
       { id: 'create-project', label: 'New Project', icon: 'folder-o', permission: 'project.create', run: () => summon('create-project') },
+      { id: 'create-portfolio', label: 'New Portfolio', icon: 'cubes', permission: 'project.create', run: () => summon('create-portfolio') },
       { id: 'generate-report', label: 'Generate Report', icon: 'bar-chart', permission: 'report.view', run: () => summon('generate-report') },
       { id: 'new-role', label: 'New Role', icon: 'user-plus', permission: 'role.manage', run: () => summon('new-role') },
       { id: 'upload', label: 'Upload File', icon: 'cloud-upload', permission: 'filehub:view', run: () => summon('upload') },

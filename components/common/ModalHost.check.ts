@@ -15,7 +15,7 @@ const MAPPING: Record<ModalType, Wiring> = {
   'create-project': 'wired',    // <ProjectFolderModal/>
   'generate-report': 'wired',   // <ReportGenerator/> (_ReportGenerator_adaptive)
   'new-role': 'wired',          // #338: <RoleEditorContainer/> (owns RoleManagerProvider)
-  'create-portfolio': 'stub',   // #323 follow-up: no standalone create modal exists
+  'create-portfolio': 'wired',  // <CreatePortfolioModal/>
   'upload': 'wired',            // #340: <UploadComposerModal/> (web: UploadManagerContext; native: /filehub redirect stub)
 };
 
@@ -25,8 +25,8 @@ console.assert(types.length === 6, `expected 6 ModalType entries, got ${types.le
 
 const wired = types.filter((t) => MAPPING[t] === 'wired');
 console.assert(
-  wired.length === 5,
-  `expected 5 wired modals, got ${wired.length}: ${wired.join(', ')}`,
+  wired.length === 6,
+  `expected 6 wired modals, got ${wired.length}: ${wired.join(', ')}`,
 );
 
 for (const t of types) {

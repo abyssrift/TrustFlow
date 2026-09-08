@@ -26,11 +26,11 @@ assert.deepStrictEqual(
   'task + projectId should build a create-task payload',
 );
 
-// 2. unwired type -> null (silently ignored, see #323)
-assert.strictEqual(
+// 2. portfolio -> create-portfolio with an empty payload
+assert.deepStrictEqual(
   mapModalQueryParams({ new: '1', type: 'portfolio' }),
-  null,
-  'portfolio is unwired -> null',
+  { type: 'create-portfolio', payload: {} },
+  'portfolio should map to create-portfolio',
 );
 
 // 3. report -> generate-report with an empty payload
