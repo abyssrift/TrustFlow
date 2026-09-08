@@ -91,6 +91,8 @@ type ActionCtx = {
   successToast: (msg: string, title?: string) => void;
   errorToast: (msg: string, title?: string) => void;
   backToList: () => void;
+  hasPermission: (permission: string) => boolean;
+  currentUserId: string | null;
 };
 
 // The action set for a result row. Same three actions for every result type:
@@ -98,14 +100,8 @@ type ActionCtx = {
 // stay consistent), Open-in-new-tab and Copy-link build an absolute URL from
 // resultRoute() — web-only surface, so `window` is always there.
 //
-// #345 follow-up: task-only "Assign to me" / "Mark done" were specced but are
-// omitted — no clean standalone RPC exists. `rpc_update_task_assignments` is a
-// full-set delete-then-reinsert gated to the task manager only (destructive as a
-// one-tap action, and wrong permission model), `rpc_claim_task` only applies to
-// single-claimant teams, and marking a task done is a per-pipeline stage-machine
-// transition (`rpc_execute_stage_action` / `rpc_advance_stage`) that needs stage
-// + transition context a search result row doesn't carry. Add them here behind
-// `permission` once a sanctioned "add me / complete" RPC lands.
+// Task rows also expose the sanctioned self-assignment and completion RPCs,
+// each filtered by its canonical permission and kept within this action panel.
 function resultActions(r: SearchResult, ctx: ActionCtx): PaletteAction[] {
   const url = window.location.origin + resultRoute(r);
   const all: PaletteAction[] = [
@@ -138,6 +134,47 @@ function resultActions(r: SearchResult, ctx: ActionCtx): PaletteAction[] {
       },
     },
   ];
+  if (r.type === 'task' && ctx.currentUserId && ctx.hasPermission('task.assign')) {
+    all.push({
+      id: 'assign-to-me',
+      label: 'Assign to me',
+      icon: 'user-plus',
+      permission: 'task.assign',
+      run: async () => {
+        try {
+          const { error } = await supabase.rpc('rpc_task_add_assignee', {
+            p_task_id: r.id,
+            p_user_id: ctx.currentUserId,
+          });
+          if (error) throw error;
+          ctx.successToast('Task assigned to you');
+        } catch (error) {
+          ctx.errorToast(error instanceof Error ? error.message : 'Could not assign task');
+        } finally {
+          ctx.backToList();
+        }
+      },
+    });
+  }
+  if (r.type === 'task' && ctx.hasPermission('task.advance')) {
+    all.push({
+      id: 'mark-done',
+      label: 'Mark done',
+      icon: 'check',
+      permission: 'task.advance',
+      run: async () => {
+        try {
+          const { error } = await supabase.rpc('rpc_complete_task', { p_task_id: r.id });
+          if (error) throw error;
+          ctx.successToast('Task marked done');
+        } catch (error) {
+          ctx.errorToast(error instanceof Error ? error.message : 'Could not mark task done');
+        } finally {
+          ctx.backToList();
+        }
+      },
+    });
+  }
   return all;
 }
 
@@ -262,7 +299,7 @@ export default function CommandPalette({
   const colors = useThemeColors();
   const router = useRouter();
   const pathname = usePathname();
-  const { hasPermission, profile, signOut } = useAuth();
+  const { hasPermission, profile, signOut, user } = useAuth();
   const { theme, setTheme } = useTheme();
   const { summon } = useModalDispatch();
   const { width } = useWindowDimensions();
@@ -577,8 +614,15 @@ export default function CommandPalette({
     setMode('actions');
   }, []);
   const actions = useMemo<PaletteAction[]>(
-    () => (actionTarget ? resultActions(actionTarget, { activate, successToast, errorToast, backToList }) : []),
-    [actionTarget, activate, successToast, errorToast, backToList]
+    () => (actionTarget ? resultActions(actionTarget, {
+      activate,
+      successToast,
+      errorToast,
+      backToList,
+      hasPermission,
+      currentUserId: user?.id ?? null,
+    }) : []),
+    [actionTarget, activate, successToast, errorToast, backToList, hasPermission, user?.id]
   );
 
   // Leave actions mode whenever the palette reopens or the query changes — the
