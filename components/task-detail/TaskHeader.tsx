@@ -138,7 +138,21 @@ export default function TaskHeader() {
       async () => {
         setReverting(true);
         try {
-          await revertStage();
+          const reversalHistoryId = await revertStage({ showSuccessToast: false });
+          if (data && (data.permissions.is_owner || hasPermission('pipeline.reverse'))) {
+            const taskId = data.task.id;
+            registerUndo({
+              label: 'Task reverted to previous stage.',
+              undo: async () => {
+                const { error: undoError } = await supabase.rpc('rpc_undo_stage_reversal', {
+                  p_task_id: taskId,
+                  p_reversal_history_id: reversalHistoryId,
+                });
+                if (undoError) throw undoError;
+                router.replace(`/task/${taskId}` as any);
+              },
+            });
+          }
         } catch {
           // revertStage already toasts
         } finally {

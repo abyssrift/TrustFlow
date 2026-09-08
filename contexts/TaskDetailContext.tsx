@@ -195,7 +195,7 @@ type TaskDetailContextType = {
   advanceStage: (toStageId: string) => Promise<void>;
   linkPipeline: (pipelineId: string) => Promise<void>;
   unlinkPipeline: (pipelineId: string) => Promise<void>;
-  revertStage: () => Promise<void>;
+  revertStage: (options?: { showSuccessToast?: boolean }) => Promise<string>;
   reviewSubmission: (submissionId: string, decision: string, notes?: string, advanceStageId?: string) => Promise<void>;
   deleteSubmission: (submissionId: string) => Promise<void>;
   restoreSubmission: (submissionId: string) => Promise<void>;
@@ -445,14 +445,18 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     }
   }, [taskId, fetchDetails, infoToast, errorToast]);
 
-  const revertStage = useCallback(async () => {
+  const revertStage = useCallback(async (options?: { showSuccessToast?: boolean }) => {
     try {
       taskFlowDebug('task-detail.revertStage:start', { taskId });
-      const { error } = await supabase.rpc('rpc_revert_stage', { p_task_id: taskId });
+      const { data: reversalHistoryId, error } = await supabase.rpc('rpc_revert_stage', { p_task_id: taskId });
       if (error) throw error;
+      if (typeof reversalHistoryId !== 'string' || !reversalHistoryId) {
+        throw new Error('Stage reversal completed without returning its history ID.');
+      }
       await fetchDetails();
       taskFlowDebug('task-detail.revertStage:success', { taskId });
-      successToast('Task reverted to previous stage.');
+      if (options?.showSuccessToast !== false) successToast('Task reverted to previous stage.');
+      return reversalHistoryId;
     } catch (err: any) {
       taskFlowError('task-detail.revertStage:error', err, { taskId });
       errorToast(err.message || 'Could not revert task.');
