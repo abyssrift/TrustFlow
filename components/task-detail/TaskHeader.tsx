@@ -258,7 +258,13 @@ export default function TaskHeader() {
   };
 
   return (
-    <Animated.View className="px-5 bg-surface-card border-b border-surface-border relative z-50" style={containerPadStyle}>
+    <Animated.View
+      className="px-5 bg-surface-card border-b border-surface-border relative z-50"
+      // Keep the expanded geometry in the base style so the first web paint
+      // is correct before the collapse worklet produces an animated value.
+      // The animated style is intentionally last and tightens these values.
+      style={[{ paddingTop: PAD_TOP_FULL, paddingBottom: 16 }, containerPadStyle]}
+    >
       {/* Top row: back + badges. Elevated so the presence popover clears the rows below it. */}
       <View className="flex-row items-center mb-3 relative z-50">
         <Tooltip label="Go back">

@@ -5,14 +5,15 @@ import { Text, TouchableOpacity, View, useWindowDimensions } from 'react-native'
 
 import {
   EntityEmptyState,
+  EntityTag,
   EntityGlyph,
   MetaStat,
   ProgressMeter,
   ProjectCard,
-  SectionCard,
   fmtDate,
   type ProjectCardRow,
 } from '@/components/entities/EntityUI';
+import Block from '@/components/common/Block';
 import { ErrorBanner } from '@/components/projects/ProjectsTable';
 import { SkeletonList } from '@/components/Skeleton';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -137,8 +138,9 @@ export default function ProjectLens() {
           native. */}
       <View className={sideBySide ? 'flex-row items-start' : ''} style={{ gap: 16 }}>
         <View className={sideBySide ? 'flex-1' : ''}>
-          <SectionCard
-            kind="portfolio"
+          <Block
+            icon={<EntityGlyph kind="portfolio" size={26} />}
+            eyebrow={<EntityTag kind="portfolio" />}
             title="Batches of work"
             hint="Rolled up over only the projects you can open."
             right={
@@ -181,12 +183,13 @@ export default function ProjectLens() {
                 )}
               </View>
             )}
-          </SectionCard>
+          </Block>
         </View>
 
         <View className={sideBySide ? 'flex-1' : ''}>
-          <SectionCard
-            kind="project"
+          <Block
+            icon={<EntityGlyph kind="project" size={26} />}
+            eyebrow={<EntityTag kind="project" />}
             title="Needs attention"
             hint="Blocked, or past its due date and not finished — the same filter the projects list uses."
           >
@@ -223,7 +226,7 @@ export default function ProjectLens() {
                 )}
               </View>
             )}
-          </SectionCard>
+          </Block>
         </View>
       </View>
     </View>

@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import Popup from '@/components/common/Popup';
 import UserLink from '@/components/common/UserLink';
+import Block from '@/components/common/Block';
 
 type CompanyStatus = {
   id: string;
@@ -204,7 +205,7 @@ export default function RetentionPanel() {
         <View className={isWide ? 'flex-row items-start gap-5 mb-5' : ''}>
         {/* Company status card */}
         {company && (
-          <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
+          <Block className={isWide ? 'flex-1' : 'mb-5'}>
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-typography-main font-black text-base flex-1 mr-3" numberOfLines={1}>{company.name}</Text>
               <View style={{ backgroundColor: `${statusColor}1A`, borderColor: `${statusColor}55` }} className="px-3 py-1 rounded-full border">
@@ -230,13 +231,12 @@ export default function RetentionPanel() {
                 <Text className="text-typography-main text-sm font-bold mt-1">{fmtDate(company.last_warning_at)}</Text>
               </View>
             </View>
-          </View>
+          </Block>
         )}
 
         {/* Policy settings */}
         {form && (
-          <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'flex-1' : 'mb-5'}`}>
-            <Text className="text-brand-primary text-[10px] font-black uppercase mb-4 tracking-widest">Policy</Text>
+          <Block title="Policy" className={isWide ? 'flex-1' : 'mb-5'}>
             <View className="flex-row flex-wrap gap-3 mb-4">
               {numField('Company inactivity', 'inactivity_days', 'days')}
               {numField('Warning lead time', 'warning_interval_days', 'days')}
@@ -265,16 +265,16 @@ export default function RetentionPanel() {
                 {savingSettings ? 'Saving…' : 'Save Policy'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </Block>
         )}
         </View>
 
         {/* Inactive users */}
-        <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 mb-5 ${isWide ? 'max-w-3xl' : ''}`}>
-          <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Inactive members</Text>
-            <Text className="text-typography-muted text-[10px] font-bold">{overview?.inactive_users.length || 0}</Text>
-          </View>
+        <Block
+          title="Inactive members"
+          right={<Text className="text-typography-muted text-[10px] font-bold">{overview?.inactive_users.length || 0}</Text>}
+          className={`mb-5 ${isWide ? 'max-w-3xl' : ''}`}
+        >
 
           {(!overview || overview.inactive_users.length === 0) ? (
             <View className="items-center py-8">
@@ -308,12 +308,15 @@ export default function RetentionPanel() {
               ))}
             </View>
           )}
-        </View>
+        </Block>
 
         {/* Danger zone — owner only */}
         {isOwner && company && (
-          <View className={`border border-state-danger/30 bg-state-danger/5 rounded-2xl p-5 ${isWide ? 'max-w-3xl' : ''}`}>
-            <Text style={{ color: colors.danger }} className="text-[10px] font-black uppercase tracking-widest mb-2">Danger Zone</Text>
+          <Block
+            title="Danger Zone"
+            accent={colors.danger}
+            className={`bg-state-danger/5 ${isWide ? 'max-w-3xl' : ''}`}
+          >
             <Text className="text-typography-muted text-xs leading-5 mb-4">
               Permanently delete this entire workspace and all of its data — tasks, files, members, pipelines and history. This cannot be undone.
             </Text>
@@ -324,7 +327,7 @@ export default function RetentionPanel() {
               <FontAwesome name="exclamation-triangle" size={13} color={colors.danger} />
               <Text style={{ color: colors.danger }} className="font-black text-[11px] uppercase tracking-widest">Purge Workspace</Text>
             </TouchableOpacity>
-          </View>
+          </Block>
         )}
       </ScrollView>
 

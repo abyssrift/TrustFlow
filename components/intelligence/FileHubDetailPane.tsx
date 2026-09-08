@@ -13,6 +13,7 @@ import { FilePreviewTeaser, getPreviewKind } from '../common/FilePreview';
 import Tooltip from '../common/Tooltip';
 import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
+import { FileActivityRows } from './FileHubActivity';
 
 export type DetailFile = {
   source: 'filehub' | 'submission' | 'task_brief';
@@ -49,9 +50,6 @@ function ago(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString();
 }
 
-const ACTION_ICON: Record<FileActivity['action'], any> = {
-  upload: 'upload', download: 'download', view: 'eye', delete: 'trash-o', share: 'share',
-};
 
 /**
  * Preview-biased detail pane for the Browse tab (#146). Every source now gets
@@ -284,23 +282,7 @@ export default function FileHubDetailPane({
             )
         )}
 
-        {tab === 'activity' && (
-          activity === null ? <ActivityIndicator color={colors.primary} />
-            : activity.length === 0 ? <Text className="text-typography-muted text-sm">No activity yet.</Text>
-            : (
-              <View className="gap-2.5">
-                {activity.map(a => (
-                  <View key={a.id} className="flex-row items-center gap-3">
-                    <FontAwesome name={ACTION_ICON[a.action] || 'circle'} size={12} color={colors.textMuted} />
-                    <Text className="flex-1 text-typography-main text-[12px]" numberOfLines={1}>
-                      <Text className="font-bold">{a.user?.full_name || 'Someone'}</Text> {a.action === 'view' ? 'viewed' : `${a.action}ed`}
-                    </Text>
-                    <Text className="text-typography-muted text-[10px]">{ago(a.created_at)}</Text>
-                  </View>
-                ))}
-              </View>
-            )
-        )}
+        {tab === 'activity' && <FileActivityRows activity={activity} />}
       </ScrollView>
     </View>
   );
