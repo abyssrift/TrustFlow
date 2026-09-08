@@ -22,6 +22,7 @@ export type UploadComposerModalProps = {
   // Accepted for API parity with the web composer. Native redirects to the
   // FileHub screen, whose local sheet owns native file objects and channels.
   initialFiles?: File[] | null;
+  visibilitySeed?: 'direct' | 'broadcast';
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
 };
 

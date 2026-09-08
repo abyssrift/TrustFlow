@@ -29,6 +29,7 @@ export type ModalPayloads = {
     folderId?: string;
     taskId?: string;
     initialFiles?: File[] | null;
+    visibilitySeed?: 'direct' | 'broadcast';
     activeGroup?: { id: string; name: string; avatar_color: string } | null;
   };
   'generate-report': {};

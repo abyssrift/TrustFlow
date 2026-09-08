@@ -31,6 +31,7 @@ s = reducer(s, {
   payload: {
     folderId: 'folder-1',
     initialFiles: [uploadFile],
+    visibilitySeed: 'broadcast',
     activeGroup: { id: 'group-1', name: 'Legal', avatar_color: '#123456' },
   },
 });
@@ -41,6 +42,7 @@ eq(
     payload: {
       folderId: 'folder-1',
       initialFiles: [uploadFile],
+      visibilitySeed: 'broadcast',
       activeGroup: { id: 'group-1', name: 'Legal', avatar_color: '#123456' },
     },
   },
@@ -53,6 +55,7 @@ void t;
 const uploadSeed: ModalPayloads['upload'] = {
   folderId: 'folder-1',
   initialFiles: null,
+  visibilitySeed: 'direct',
   activeGroup: { id: 'group-1', name: 'Legal', avatar_color: '#123456' },
 };
 void uploadSeed;

@@ -2354,6 +2354,12 @@ function FileHubDesktopInner() {
   const groupPanelHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeGroup = useMemo(() => groups.find(g => g.id === activeGroupId) ?? null, [groups, activeGroupId]);
+
+  // Upload visibility follows the active FileHub mode; channel uploads retain
+  // their group seed so the composer keeps its group semantics.
+  const uploadVisibilitySeed: 'direct' | 'broadcast' | undefined = mode === 'groups'
+    ? undefined
+    : mode === 'broadcast' ? 'broadcast' : 'direct';
   // Channel files come back flat (unfiltered by folder) from rpc_filehub_group_list_files,
   // so folder scoping for channels happens client-side to match the server-side
   // p_folder_id filtering that inbox/sent/broadcast already get from fetchFiles.
@@ -2683,14 +2689,14 @@ function FileHubDesktopInner() {
   // drops arrive with webkitRelativePath set, so they nest exactly like the
   // Folder button.
   const { ref: fileDropRef, isOver: fileDropOver, isDragActive: fileDropActive } = useFileDrop(
-    (files) => summon('upload', { folderId: selectedFolderId ?? undefined, initialFiles: files, activeGroup: activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : undefined }),
+    (files) => summon('upload', { folderId: selectedFolderId ?? undefined, initialFiles: files, visibilitySeed: uploadVisibilitySeed, activeGroup: activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : undefined }),
     canUpload,
   );
   // Paste counterpart of the screen-level useFileDrop above (web-only, native
   // no-op): Ctrl+V a file/screenshot with no canonical upload modal open →
   // summon the shared composer pre-filled with the file.
   useSmartPaste(
-    { onFiles: (files) => summon('upload', { folderId: selectedFolderId ?? undefined, initialFiles: files, activeGroup: activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : undefined }) },
+    { onFiles: (files) => summon('upload', { folderId: selectedFolderId ?? undefined, initialFiles: files, visibilitySeed: uploadVisibilitySeed, activeGroup: activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : undefined }) },
     canUpload && active?.type !== 'upload',
     {
       resolveDirectories: true,
@@ -2776,6 +2782,7 @@ function FileHubDesktopInner() {
             <TouchableOpacity
               onPress={() => summon('upload', {
                 folderId: selectedFolderId ?? undefined,
+                visibilitySeed: uploadVisibilitySeed,
                 activeGroup: activeGroup
                   ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color }
                   : undefined,
@@ -2841,7 +2848,7 @@ function FileHubDesktopInner() {
       {mode === 'overview' && (
         <FileHubOverview
           key={`overview-${refreshKey}`}
-          onUpload={() => summon('upload', { folderId: selectedFolderId ?? undefined, activeGroup: activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : undefined })}
+          onUpload={() => summon('upload', { folderId: selectedFolderId ?? undefined, visibilitySeed: uploadVisibilitySeed, activeGroup: activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : undefined })}
           onNewChannel={() => setShowCreateGroup(true)}
           onGoTab={handleTabChange}
         />

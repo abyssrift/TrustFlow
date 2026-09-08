@@ -102,6 +102,7 @@ export default function ModalHost() {
           folderId={active.payload.folderId}
           taskId={active.payload.taskId}
           initialFiles={active.payload.initialFiles}
+          visibilitySeed={active.payload.visibilitySeed}
           activeGroup={active.payload.activeGroup}
         />
       );

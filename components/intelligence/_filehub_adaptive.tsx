@@ -27,10 +27,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Popup from '@/components/common/Popup';
+import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
 import { FileDropOverlay } from '@/components/common/FileDropOverlay';
 import { useDoubleTap } from '@/hooks/useDoubleTap';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
@@ -1018,6 +1020,8 @@ function FolderDetailSheet({
 
 // ─── Upload Sheet ─────────────────────────────────────────────────────────────
 
+type UploadMemberSummary = { id: string; full_name: string; avatar_url?: string | null };
+
 function UploadSheet({
   visible,
   onClose,
@@ -1026,6 +1030,7 @@ function UploadSheet({
   profile,
   activeGroup,
   defaultFolderId = null,
+  visibilitySeed = 'direct',
 }: {
   visible: boolean;
   onClose: () => void;
@@ -1034,6 +1039,7 @@ function UploadSheet({
   profile: any;
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
   defaultFolderId?: string | null;
+  visibilitySeed?: 'direct' | 'broadcast';
 }) {
   const { folders, checkDuplicate, checkNameConflict, replaceFile, refreshFolders } = useFileHub();
   const { showAlert } = useAlert();
@@ -1044,8 +1050,10 @@ function UploadSheet({
   const [pickedFiles, setPickedFiles] = useState<PickedFile[]>([]);
   const [visibility, setVisibility] = useState<'direct' | 'broadcast' | 'group'>('direct');
   const [recipientSearch, setRecipientSearch] = useState('');
-  const [memberResults, setMemberResults] = useState<any[]>([]);
-  const [selectedRecipients, setSelectedRecipients] = useState<any[]>([]);
+  const [memberResults, setMemberResults] = useState<UploadMemberSummary[]>([]);
+  const [memberSearchLoading, setMemberSearchLoading] = useState(false);
+  const [memberSearchError, setMemberSearchError] = useState<string | null>(null);
+  const [selectedRecipients, setSelectedRecipients] = useState<UploadMemberSummary[]>([]);
   const [folderId, setFolderId] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
@@ -1053,6 +1061,11 @@ function UploadSheet({
   const [uploading, setUploading] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [mobilePage, setMobilePage] = useState<'composer' | 'recipients' | 'destination'>('composer');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const recipientSearchRequest = useRef(0);
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobileSheet = windowWidth < 768;
   const colors = useThemeColors();
   const maxFileSizeBytes = useFileSizeLimit();
 
@@ -1078,10 +1091,13 @@ function UploadSheet({
   );
 
   const resetAll = () => {
+    recipientSearchRequest.current += 1;
     setPickedFiles([]);
-    setVisibility(activeGroup ? 'group' : 'direct');
+    setVisibility(activeGroup ? 'group' : (visibilitySeed === 'broadcast' && canBroadcast ? 'broadcast' : 'direct'));
     setRecipientSearch('');
     setMemberResults([]);
+    setMemberSearchLoading(false);
+    setMemberSearchError(null);
     setSelectedRecipients([]);
     setFolderId(null);
     setTags([]);
@@ -1090,16 +1106,35 @@ function UploadSheet({
     setUploading(false);
     setUploadingIndex(0);
     setProgress(0);
+    setMobilePage('composer');
+    setDetailsOpen(false);
+  };
+
+  const closeSheet = () => {
+    resetAll();
+    onClose();
+  };
+
+  const clearRecipientSearch = () => {
+    setRecipientSearch('');
+    setMemberResults([]);
+    setMemberSearchLoading(false);
+    setMemberSearchError(null);
   };
 
   useEffect(() => {
     if (!visible) resetAll();
     else {
       // Smart leveling: preselect the folder the user is currently browsing.
-      if (activeGroup) setVisibility('group');
+      recipientSearchRequest.current += 1;
+      setRecipientSearch('');
+      setMemberResults([]);
+      setMemberSearchLoading(false);
+      setMemberSearchError(null);
+      setVisibility(activeGroup ? 'group' : (visibilitySeed === 'broadcast' && canBroadcast ? 'broadcast' : 'direct'));
       setFolderId(defaultFolderId ?? null);
     }
-  }, [visible, activeGroup?.id, defaultFolderId]);
+  }, [visible, activeGroup?.id, defaultFolderId, visibilitySeed, canBroadcast]);
 
   // Mobile web: block tab close / refresh mid-upload, so bytes can't be
   // stranded between a file's storage PUT and its commit. No-op on native
@@ -1118,18 +1153,54 @@ function UploadSheet({
     setTagInput('');
   };
 
-  const toggleRecipient = (m: any) => {
+  const toggleRecipient = (m: UploadMemberSummary) => {
     setSelectedRecipients(prev =>
       prev.find(r => r.id === m.id) ? prev.filter(r => r.id !== m.id) : [...prev, m]
     );
   };
 
-  const searchMembers = useCallback(async (query: string) => {
-    setRecipientSearch(query);
-    if (!query.trim()) { setMemberResults([]); return; }
-    const { data } = await supabase.from('users').select('id, full_name, avatar_url').ilike('full_name', `%${query}%`).limit(8);
-    setMemberResults(data || []);
-  }, []);
+  useEffect(() => {
+    if (!visible) return;
+    const query = recipientSearch.trim();
+    const requestId = ++recipientSearchRequest.current;
+    if (!query) {
+      setMemberSearchLoading(false);
+      setMemberSearchError(null);
+    }
+    setMemberSearchLoading(true);
+    setMemberSearchError(null);
+    const timer = setTimeout(async () => {
+      try {
+        let queryBuilder = supabase
+          .from('users')
+          .select('id, full_name, avatar_url')
+          .order('full_name', { ascending: true })
+          .limit(20);
+        if (query) queryBuilder = queryBuilder.ilike('full_name', `%${query}%`);
+        const { data, error } = await queryBuilder;
+        if (requestId !== recipientSearchRequest.current) return;
+        if (error) {
+          setMemberResults([]);
+          setMemberSearchError('Unable to search members right now.');
+        } else {
+          const seen = new Set<string>();
+          setMemberResults((data || []).filter(member => {
+            if (seen.has(member.id)) return false;
+            seen.add(member.id);
+            return true;
+          }));
+        }
+      } catch {
+        if (requestId === recipientSearchRequest.current) {
+          setMemberResults([]);
+          setMemberSearchError('Unable to search members right now.');
+        }
+      } finally {
+        if (requestId === recipientSearchRequest.current) setMemberSearchLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [recipientSearch, visible]);
 
   const processWebFiles = (fileList: FileList | null): PickedFile[] => {
     if (!fileList || fileList.length === 0) return [];
@@ -1378,7 +1449,8 @@ function UploadSheet({
 
   return (
     <>
-    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
+    {/* UploadSheet composer popup */}
+    <Popup visible={visible} onClose={closeSheet} presentation="auto" maxWidth={420}>
 
           {Platform.OS === 'web' && (
             <>
@@ -1387,17 +1459,109 @@ function UploadSheet({
             </>
           )}
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
+          {isMobileSheet && mobilePage === 'recipients' && (
+            <View className="flex-1 px-5 pt-3">
+              <View className="flex-row items-center gap-3 pb-3 border-b border-surface-border">
+                <TouchableOpacity
+                  onPress={() => { clearRecipientSearch(); setMobilePage('composer'); }}
+                  className="w-11 h-11 items-center justify-center rounded-xl bg-surface-background border border-surface-border"
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to upload"
+                >
+                  <FontAwesome name="arrow-left" size={13} color={colors.textMuted} />
+                </TouchableOpacity>
+                <View className="flex-1">
+                  <Text className="text-typography-main text-lg font-black">Recipients</Text>
+                  <Text className="text-typography-muted text-xs">{selectedRecipients.length} selected</Text>
+                </View>
+              </View>
+              <ScrollView className="flex-1" contentContainerStyle={{ paddingVertical: 16, paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+                <SearchableMultiSelect
+                  title="Team members"
+                  items={memberResults.map(m => ({ id: m.id, label: m.full_name, avatarUrl: m.avatar_url }))}
+                  selectedItems={selectedRecipients.map(m => ({ id: m.id, label: m.full_name, avatarUrl: m.avatar_url }))}
+                  selectedIds={selectedRecipients.map(m => m.id)}
+                  onToggle={id => { const member = memberResults.find(m => m.id === id) || selectedRecipients.find(m => m.id === id); if (member) toggleRecipient(member); }}
+                  query={recipientSearch}
+                  onQueryChange={setRecipientSearch}
+                  autoFocus
+                  loading={memberSearchLoading}
+                  errorText={memberSearchError}
+                  searchPlaceholder="Search team members…"
+                  emptyText={recipientSearch.trim() ? 'No matching team members.' : 'Search for a team member.'}
+                  flat
+                  showSelectedChips
+                  hideBulkToggle
+                  accent={colors.primary}
+                />
+              </ScrollView>
+              <TouchableOpacity onPress={() => { clearRecipientSearch(); setMobilePage('composer'); }} className="items-center justify-center bg-brand-primary rounded-2xl py-4 mb-3 min-h-[44px]" accessibilityRole="button" accessibilityLabel="Done choosing recipients">
+                <Text className="text-white font-black text-base">Done</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {isMobileSheet && mobilePage === 'destination' && (
+            <View className="flex-1 px-5 pt-3">
+              <View className="flex-row items-center gap-3 pb-3 border-b border-surface-border">
+                <TouchableOpacity
+                  onPress={() => setMobilePage('composer')}
+                  className="w-11 h-11 items-center justify-center rounded-xl bg-surface-background border border-surface-border"
+                  accessibilityRole="button"
+                  accessibilityLabel="Back to upload"
+                >
+                  <FontAwesome name="arrow-left" size={13} color={colors.textMuted} />
+                </TouchableOpacity>
+                <View className="flex-1">
+                  <Text className="text-typography-main text-lg font-black">Destination</Text>
+                  <Text className="text-typography-muted text-xs" numberOfLines={1}>{folderId ? folderPath(scopedFolders, folderId) : 'Root folder'}</Text>
+                </View>
+              </View>
+              <ScrollView className="flex-1" contentContainerStyle={{ paddingVertical: 16, paddingBottom: 32 }}>
+                {scopedFolders.length > 0 ? (
+                  <FolderTreePicker folders={scopedFolders} selectedId={folderId} onSelect={setFolderId} colors={colors} />
+                ) : (
+                  <Text className="text-typography-muted text-sm text-center py-8">No folders are available here.</Text>
+                )}
+              </ScrollView>
+              <TouchableOpacity onPress={() => setMobilePage('composer')} className="items-center justify-center bg-brand-primary rounded-2xl py-4 mb-3 min-h-[44px]" accessibilityRole="button" accessibilityLabel="Done choosing destination">
+                <Text className="text-white font-black text-base">Done</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {(!isMobileSheet || mobilePage === 'composer') && <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40, gap: 20 }}>
             <View className="flex-row items-center justify-between pt-2">
               <Text className="text-typography-main text-xl font-black tracking-tight">
                 {activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
               </Text>
               <Tooltip label="Close">
-                <TouchableOpacity onPress={onClose} className="w-8 h-8 bg-surface-background border border-surface-border rounded-xl items-center justify-center">
+                <TouchableOpacity onPress={closeSheet} className="w-11 h-11 bg-surface-background border border-surface-border rounded-xl items-center justify-center" accessibilityRole="button" accessibilityLabel="Close upload">
                   <FontAwesome name="times" size={12} color={colors.textMuted} />
                 </TouchableOpacity>
               </Tooltip>
             </View>
+            {!activeGroup && (
+              <View className="gap-2">
+                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Send as</Text>
+                <View className="flex-row gap-2">
+                  <Tooltip label="Direct audience">
+                    <TouchableOpacity onPress={visibility === 'direct' ? () => {} : () => setVisibility('direct')} className={`w-11 h-11 items-center justify-center rounded-xl border ${visibility === 'direct' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`} accessibilityRole="button" accessibilityLabel="Direct audience" accessibilityState={{ selected: visibility === 'direct' }}>
+                      <FontAwesome name="user" size={13} color={visibility === 'direct' ? colors.primary : colors.textMuted} />
+                    </TouchableOpacity>
+                  </Tooltip>
+                  {canBroadcast && (
+                    <Tooltip label="Broadcast audience">
+                      <TouchableOpacity onPress={visibility === 'broadcast' ? () => {} : () => setVisibility('broadcast')} className={`w-11 h-11 items-center justify-center rounded-xl border ${visibility === 'broadcast' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`} accessibilityRole="button" accessibilityLabel="Broadcast audience" accessibilityState={{ selected: visibility === 'broadcast' }}>
+                        <FontAwesome name="bullhorn" size={13} color={visibility === 'broadcast' ? colors.primary : colors.textMuted} />
+                      </TouchableOpacity>
+                    </Tooltip>
+                  )}
+                  <View className="flex-1 justify-center px-2">
+                    <Text className="text-typography-main text-sm font-black">{visibility === 'direct' ? 'Direct' : 'Broadcast'}</Text>
+                    <Text className="text-typography-muted text-xs" numberOfLines={1}>{visibility === 'direct' ? `${selectedRecipients.length} recipient${selectedRecipients.length === 1 ? '' : 's'}` : 'All eligible members'}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
               {/* File picker area */}
               {pickedFiles.length === 0 ? (
                 <View className="border-2 border-dashed border-surface-border rounded-2xl items-center py-10 gap-4 px-6 mx-6">
@@ -1407,12 +1571,12 @@ function UploadSheet({
                   <Text className="text-typography-main font-bold">Choose files to upload</Text>
                   <Text className="text-typography-muted text-xs text-center px-4">Up to 500 MB per file</Text>
                   <View className="flex-row gap-3">
-                    <TouchableOpacity onPress={pickFile} className="flex-row items-center gap-2 bg-brand-primary px-5 py-2.5 rounded-xl">
+                    <TouchableOpacity onPress={pickFile} className="flex-row items-center gap-2 bg-brand-primary px-5 py-2.5 rounded-xl min-h-[44px]" accessibilityRole="button" accessibilityLabel="Choose files">
                       <FontAwesome name="files-o" size={12} color="#fff" />
                       <Text className="text-white font-black text-sm">Files</Text>
                     </TouchableOpacity>
                     {Platform.OS === 'web' && (
-                      <TouchableOpacity onPress={() => folderInputRef.current?.click()} className="flex-row items-center gap-2 bg-surface-background border border-surface-border px-5 py-2.5 rounded-xl">
+                      <TouchableOpacity onPress={() => folderInputRef.current?.click()} className="flex-row items-center gap-2 bg-surface-background border border-surface-border px-5 py-2.5 rounded-xl min-h-[44px]" accessibilityRole="button" accessibilityLabel="Choose folder">
                         <FontAwesome name="folder-open-o" size={12} color={colors.textMuted} />
                         <Text className="text-typography-muted font-black text-sm">Folder</Text>
                       </TouchableOpacity>
@@ -1420,42 +1584,30 @@ function UploadSheet({
                   </View>
                 </View>
               ) : (
-                <AdaptiveFileGrid
-                  files={pickedFiles}
-                  onRemove={(indices) => {
-                    const drop = new Set(indices);
-                    setPickedFiles(prev => prev.filter((_, i) => !drop.has(i)));
-                  }}
-                  onAddMore={pickFile}
-                  formatFileSize={formatFileSize} // Handing it down
-                  getMimeIcon={getMimeIcon}       // Handing it down
-                />
+                <View className="gap-2">
+                  <View className="flex-row items-center justify-between px-1">
+                    <Text className="text-typography-muted text-xs font-bold">
+                      {pickedFiles.length} file{pickedFiles.length === 1 ? '' : 's'} · {formatFileSize(pickedFiles.reduce((total, file) => total + file.size, 0))}
+                    </Text>
+                    <TouchableOpacity onPress={() => setPickedFiles([])} className="min-h-[44px] px-3 justify-center" accessibilityRole="button" accessibilityLabel="Clear all staged files">
+                      <Text className="text-state-danger text-xs font-black">Clear all</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <AdaptiveFileGrid
+                    files={pickedFiles}
+                    onRemove={(indices) => {
+                      const drop = new Set(indices);
+                      setPickedFiles(prev => prev.filter((_, i) => !drop.has(i)));
+                    }}
+                    onAddMore={pickFile}
+                    formatFileSize={formatFileSize}
+                    getMimeIcon={getMimeIcon}
+                  />
+                </View>
               )}
             {pickedFiles.length > 0 && (
               <>
                 {/* Visibility — only show if NOT in group context */}
-                {!activeGroup && (
-                  <View className="gap-2">
-                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Send as</Text>
-                    <View className="flex-row gap-2">
-                      <TouchableOpacity
-                        onPress={() => setVisibility('direct')}
-                        className={`flex-1 items-center py-3 rounded-2xl border ${visibility === 'direct' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-                      >
-                        <Text className={`font-black text-sm ${visibility === 'direct' ? 'text-brand-primary' : 'text-typography-muted'}`}>Direct</Text>
-                      </TouchableOpacity>
-                      {canBroadcast && (
-                        <TouchableOpacity
-                          onPress={() => setVisibility('broadcast')}
-                          className={`flex-1 items-center py-3 rounded-2xl border ${visibility === 'broadcast' ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}
-                        >
-                          <Text className={`font-black text-sm ${visibility === 'broadcast' ? 'text-brand-primary' : 'text-typography-muted'}`}>Broadcast</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                )}
-
                 {/* Channel badge when uploading to a channel */}
                 {activeGroup && (
                   <View className="flex-row items-center gap-3 bg-surface-background border border-surface-border rounded-2xl px-4 py-3">
@@ -1473,13 +1625,24 @@ function UploadSheet({
                 {visibility === 'direct' && (
                   <View className="gap-2">
                     <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Recipients</Text>
+                    {isMobileSheet && (
+                      <TouchableOpacity onPress={() => setMobilePage('recipients')} className="flex-row items-center px-4 py-3 rounded-2xl bg-surface-background border border-surface-border min-h-[44px]" accessibilityRole="button" accessibilityLabel="Choose recipients">
+                        <View className="flex-1">
+                          <Text className="text-typography-main text-sm font-bold">Choose recipients</Text>
+                          <Text className="text-typography-muted text-xs">{selectedRecipients.length ? `${selectedRecipients.length} selected` : 'Search team members'}</Text>
+                        </View>
+                        <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
                     {selectedRecipients.length > 0 && (
                       <View className="flex-row flex-wrap gap-2">
                         {selectedRecipients.map(r => (
                           <Tooltip key={r.id} label="Remove recipient">
                             <TouchableOpacity
                               onPress={() => toggleRecipient(r)}
-                              className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 py-1"
+                              className="flex-row items-center gap-1.5 bg-brand-primary/10 border border-brand-primary/20 rounded-full px-3 min-h-[44px]"
+                              accessibilityRole="button"
+                              accessibilityLabel={`Remove recipient ${r.full_name}`}
                             >
                               <Text className="text-brand-primary text-xs font-bold">{r.full_name}</Text>
                               <FontAwesome name="times" size={9} color={colors.primary} />
@@ -1488,17 +1651,17 @@ function UploadSheet({
                         ))}
                       </View>
                     )}
-                    <View className="flex-row items-center bg-surface-background border border-surface-border rounded-2xl px-4 py-3 gap-2">
+                    {!isMobileSheet && <View className="flex-row items-center bg-surface-background border border-surface-border rounded-2xl px-4 py-3 gap-2">
                       <FontAwesome name="search" size={12} color={colors.textMuted} />
                       <TextInput
                         value={recipientSearch}
-                        onChangeText={searchMembers}
+                        onChangeText={setRecipientSearch}
                         placeholder="Search team members…"
                         placeholderTextColor={colors.textDim}
                         className="flex-1 text-typography-main text-sm"
                       />
-                    </View>
-                    {memberResults.length > 0 && (
+                    </View>}
+                    {!isMobileSheet && memberResults.length > 0 && (
                       <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden">
                         {memberResults.map((m, i) => (
                           <TouchableOpacity
@@ -1518,23 +1681,45 @@ function UploadSheet({
                 )}
 
                 {/* Folder — explorer tree */}
-                {scopedFolders.length > 0 && (
+                {(
                   <View className="gap-2">
                     <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Destination</Text>
+                    {isMobileSheet && (
+                      <TouchableOpacity onPress={() => setMobilePage('destination')} className="flex-row items-center px-4 py-3 rounded-2xl bg-surface-background border border-surface-border min-h-[44px]" accessibilityRole="button" accessibilityLabel="Choose destination">
+                        <View className="flex-1">
+                          <Text className="text-typography-main text-sm font-bold">Choose destination</Text>
+                          <Text className="text-typography-muted text-xs" numberOfLines={1}>{folderId ? folderPath(scopedFolders, folderId) : 'Root folder'}</Text>
+                        </View>
+                        <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
                     {folderId && (
                       <Text className="text-[11px] font-bold" style={{ color: colors.primary }}>
                         {folderPath(scopedFolders, folderId)}
                       </Text>
                     )}
-                    <FolderTreePicker
+                    {!isMobileSheet && scopedFolders.length > 0 && <FolderTreePicker
                       folders={scopedFolders}
                       selectedId={folderId}
                       onSelect={setFolderId}
                       colors={colors}
-                    />
+                    />}
                   </View>
                 )}
 
+                {/* Optional details */}
+                <TouchableOpacity onPress={() => setDetailsOpen(v => !v)} className="flex-row items-center justify-between py-1 min-h-[44px]" accessibilityRole="button" accessibilityLabel="Optional upload details" accessibilityState={{ expanded: detailsOpen }}>
+                  <View className="flex-1">
+                    <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Optional details</Text>
+                    {!detailsOpen && (
+                      <Text className="text-typography-muted text-xs mt-1" numberOfLines={1}>
+                        {tags.length === 0 && !caption.trim() ? 'No details' : `${tags.length ? `${tags.length} tag${tags.length === 1 ? '' : 's'}` : ''}${tags.length && caption.trim() ? ' · ' : ''}${caption.trim() ? 'Caption added' : ''}`}
+                      </Text>
+                    )}
+                  </View>
+                  <FontAwesome name={detailsOpen ? 'chevron-up' : 'chevron-down'} size={11} color={colors.textMuted} />
+                </TouchableOpacity>
+                {detailsOpen && <>
                 {/* Tags */}
                 <View className="gap-2">
                   <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Tags</Text>
@@ -1544,7 +1729,7 @@ function UploadSheet({
                         <Tooltip key={t} label="Remove tag">
                           <TouchableOpacity
                             onPress={() => setTags(prev => prev.filter(x => x !== t))}
-                            className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-full px-3 py-1"
+                            className="flex-row items-center gap-1.5 bg-surface-background border border-surface-border rounded-full px-3 min-h-[44px]"
                           >
                             <Text className="text-typography-muted text-xs font-bold">{t}</Text>
                             <FontAwesome name="times" size={8} color={colors.textMuted} />
@@ -1581,6 +1766,7 @@ function UploadSheet({
                     style={{ minHeight: 80, textAlignVertical: 'top' }}
                   />
                 </View>
+                </>}
 
                 {/* Progress */}
                 {uploading && (
@@ -1598,24 +1784,31 @@ function UploadSheet({
                   </View>
                 )}
 
-                <TouchableOpacity
-                  onPress={handleUpload}
-                  disabled={uploading || (visibility === 'direct' && selectedRecipients.length === 0)}
-                  className="items-center justify-center bg-brand-primary rounded-2xl py-4"
-                  style={{ opacity: (uploading || (visibility === 'direct' && selectedRecipients.length === 0)) ? 0.5 : 1 }}
-                >
-                  {uploading
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text className="text-white font-black text-base">
-                        {pickedFiles.length > 1
-                          ? `Send ${pickedFiles.length} Files`
-                          : visibility === 'group' ? 'Share to Channel' : 'Send File'}
-                      </Text>
-                  }
-                </TouchableOpacity>
               </>
             )}
-          </ScrollView>
+          </ScrollView>}
+          {mobilePage === 'composer' && pickedFiles.length > 0 && (
+            <View className="px-6 pt-3 pb-5 border-t border-surface-border bg-surface-card">
+              <TouchableOpacity
+                onPress={handleUpload}
+                disabled={uploading || (visibility === 'direct' && selectedRecipients.length === 0)}
+                className="items-center justify-center bg-brand-primary rounded-2xl py-4 min-h-[44px]"
+                style={{ opacity: (uploading || (visibility === 'direct' && selectedRecipients.length === 0)) ? 0.5 : 1 }}
+                accessibilityRole="button"
+                accessibilityLabel={uploading ? 'Uploading files' : visibility === 'group' ? 'Share to channel' : 'Send file'}
+                accessibilityState={{ disabled: uploading || (visibility === 'direct' && selectedRecipients.length === 0), busy: uploading }}
+              >
+                {uploading
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text className="text-white font-black text-base">
+                      {pickedFiles.length > 1
+                        ? `Send ${pickedFiles.length} Files`
+                        : visibility === 'group' ? 'Share to Channel' : 'Send File'}
+                    </Text>
+                }
+              </TouchableOpacity>
+            </View>
+          )}
     </Popup>
 
     {/* Web-safe decision dialog (replaces RN Alert.alert multi-button prompts) */}
@@ -1644,31 +1837,17 @@ function UploadSheet({
         </View>
       );
 
-      if (Platform.OS === 'web') {
-        return (
-          <Popup
-            visible
-            onClose={() => {}}
-            presentation="centered"
-            dismissible={false}
-            maxWidth={420}
-            containerClassName="rounded-3xl overflow-hidden premium-shadow"
-          >
-            {decisionContent}
-          </Popup>
-        );
-      }
-
-      // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
-      // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
       return (
-        <Modal visible transparent animationType="fade">
-          <View className="flex-1 bg-black/60 items-center justify-center p-8">
-            <View className="rounded-3xl border premium-shadow w-full max-w-[420px]" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-              {decisionContent}
-            </View>
-          </View>
-        </Modal>
+        <Popup
+          visible
+          onClose={() => {}}
+          presentation="centered"
+          dismissible={false}
+          maxWidth={420}
+          containerClassName="rounded-3xl overflow-hidden premium-shadow"
+        >
+          {decisionContent}
+        </Popup>
       );
     })()}
     </>
@@ -2560,6 +2739,12 @@ function FileHubAdaptiveInner() {
     [groups, activeGroupId]
   );
 
+  // Upload visibility follows the active FileHub mode; channel uploads retain
+  // their group seed so the composer keeps its group semantics.
+  const uploadVisibilitySeed: 'direct' | 'broadcast' | undefined = mode === 'groups'
+    ? undefined
+    : mode === 'broadcast' ? 'broadcast' : 'direct';
+
   // Keep the channel override guard identical to the upload affordance below:
   // view-only override channels and the channel list itself cannot accept files.
   const canUpload = mode !== 'groups' || (!!activeGroupId && (!activeGroup?.is_override || canManageOverride));
@@ -2570,6 +2755,7 @@ function FileHubAdaptiveInner() {
     if (Platform.OS === 'web') {
       summon('upload', {
         folderId: selectedFolderId ?? undefined,
+        visibilitySeed: uploadVisibilitySeed,
         initialFiles: initialFiles?.length ? initialFiles : undefined,
         activeGroup: activeGroup
           ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color }
@@ -2578,7 +2764,7 @@ function FileHubAdaptiveInner() {
       return;
     }
     setShowUpload(true);
-  }, [activeGroup, canUpload, selectedFolderId, summon]);
+  }, [activeGroup, canUpload, selectedFolderId, summon, uploadVisibilitySeed]);
 
   // Web-only screen-level intake. The global modal owns the composer while it
   // is open, so this screen listener yields to it and cannot compete for paste.
@@ -3274,6 +3460,7 @@ function FileHubAdaptiveInner() {
           profile={profile}
           activeGroup={activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : null}
           defaultFolderId={selectedFolderId}
+          visibilitySeed={uploadVisibilitySeed}
         />
       )}
 

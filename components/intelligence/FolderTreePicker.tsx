@@ -1,5 +1,5 @@
 import { FontAwesome } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { FileHubFolder, folderAncestors } from '@/contexts/FileHubContext';
 
@@ -36,6 +36,20 @@ export default function FolderTreePicker({
   const [expanded, setExpanded] = useState<Set<string>>(
     () => new Set(selectedId ? folderAncestors(folders, selectedId).map(f => f.id) : [])
   );
+
+  // The picker can stay mounted while the caller changes the destination or
+  // while folders finish loading. Add the new target's ancestor chain without
+  // resetting branches the user explicitly opened or closed.
+  useEffect(() => {
+    if (!selectedId) return;
+    const ancestors = folderAncestors(folders, selectedId).map(f => f.id);
+    if (ancestors.length === 0) return;
+    setExpanded(prev => {
+      const next = new Set(prev);
+      ancestors.forEach(id => next.add(id));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [folders, selectedId]);
 
   const toggle = (id: string) =>
     setExpanded(prev => {
