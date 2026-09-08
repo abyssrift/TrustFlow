@@ -5,6 +5,8 @@
 // behavior is preserved exactly. Divergent helpers (relativeDate, getMimeIcon,
 // computeSHA256Web/computeSHA256) intentionally remain local to each shell.
 
+import { ActivityPresentation, getActivityPresentation } from '@/lib/filehubActivityPresentation';
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -48,12 +50,11 @@ export function getTagColor(tag: string): { bg: string; text: string; border: st
   return TAG_PALETTE[hash % TAG_PALETTE.length];
 }
 
-export const ACTIVITY_META: Record<string, { icon: string; color: string; label: string }> = {
-  upload:   { icon: 'upload',   color: '#10b981', label: 'Uploaded'   },
-  download: { icon: 'download', color: '#3b82f6', label: 'Downloaded' },
-  view:     { icon: 'eye',      color: '#8b5cf6', label: 'Viewed'     },
-  delete:   { icon: 'trash-o',  color: '#ef4444', label: 'Deleted'    },
-  share:    { icon: 'share',    color: '#f59e0b', label: 'Shared'     },
+export const ACTIVITY_META: Record<string, ActivityPresentation> = {
+  upload: getActivityPresentation('upload'), download: getActivityPresentation('download'), view: getActivityPresentation('view'),
+  delete: getActivityPresentation('delete'), share: getActivityPresentation('share'), rename: getActivityPresentation('rename'),
+  move: getActivityPresentation('move'), restore: getActivityPresentation('restore'), share_revoke: getActivityPresentation('share_revoke'),
+  folder_create: getActivityPresentation('folder_create'), folder_delete: getActivityPresentation('folder_delete'),
 };
 
 // ─── Upload helpers ───────────────────────────────────────────────────────────

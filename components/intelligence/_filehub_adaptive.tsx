@@ -811,13 +811,19 @@ function FolderDetailSheet({
   const [shareExpiryHours, setShareExpiryHours] = useState(168);
   const [activityTab, setActivityTab] = useState<'details' | 'activity'>('details');
   const [activity, setActivity] = useState<FileActivity[] | null>(null);
+  const [activityError, setActivityError] = useState(false);
 
   useEffect(() => { setIsRenaming(false); setRenameValue(folder?.name ?? ''); }, [folder?.id]);
-  useEffect(() => { setActivityTab('details'); setActivity(null); }, [folder?.id]);
+  useEffect(() => { setActivityTab('details'); setActivity(null); setActivityError(false); }, [folder?.id]);
   useEffect(() => {
     if (activityTab !== 'activity' || !folder) return;
+    let cancelled = false;
     setActivity(null);
-    folderActivity(folder.id).then(setActivity).catch(() => setActivity([]));
+    setActivityError(false);
+    folderActivity(folder.id)
+      .then((nextActivity) => { if (!cancelled) setActivity(nextActivity); })
+      .catch(() => { if (!cancelled) setActivityError(true); });
+    return () => { cancelled = true; };
   }, [activityTab, folder?.id, folderActivity]);
 
   if (!folder) return null;
@@ -867,7 +873,7 @@ function FolderDetailSheet({
             </TouchableOpacity>
           ))}
         </View>
-        {activityTab === 'activity' ? <FileActivityRows activity={activity} mobile /> : <>
+        {activityTab === 'activity' ? <FileActivityRows activity={activity} error={activityError} mobile /> : <>
         <View className="bg-surface-background border border-surface-border rounded-2xl overflow-hidden mb-5">
           <View className="flex-row items-center px-4 py-3.5 border-b border-surface-border/50">
             <Text className="text-typography-muted text-xs w-24">Location</Text>

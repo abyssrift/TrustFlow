@@ -865,12 +865,18 @@ function FolderDetailPanel({
   const [restoringBatch, setRestoringBatch] = useState<string | null>(null);
   const [activityTab, setActivityTab] = useState<'details' | 'activity'>('details');
   const [activity, setActivity] = useState<FileActivity[] | null>(null);
+  const [activityError, setActivityError] = useState(false);
   useEffect(() => { setIsRenaming(false); setDisplayName(folder.name); }, [folder.id]);
-  useEffect(() => { setActivityTab('details'); setActivity(null); }, [folder.id]);
+  useEffect(() => { setActivityTab('details'); setActivity(null); setActivityError(false); }, [folder.id]);
   useEffect(() => {
     if (activityTab !== 'activity') return;
+    let cancelled = false;
     setActivity(null);
-    folderActivity(folder.id).then(setActivity).catch(() => setActivity([]));
+    setActivityError(false);
+    folderActivity(folder.id)
+      .then((nextActivity) => { if (!cancelled) setActivity(nextActivity); })
+      .catch(() => { if (!cancelled) setActivityError(true); });
+    return () => { cancelled = true; };
   }, [activityTab, folder.id, folderActivity]);
 
   // Folder versions = upload batches that touched it. Cheap (derived, index-only),
@@ -959,7 +965,7 @@ function FolderDetailPanel({
             </TouchableOpacity>
           ))}
         </View>
-        {activityTab === 'activity' ? <FileActivityRows activity={activity} /> : <>
+        {activityTab === 'activity' ? <FileActivityRows activity={activity} error={activityError} /> : <>
         <View className="mb-4 pb-4 border-b border-surface-border/50">
           <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1">Location</Text>
           <View className="flex-row items-center gap-2">

@@ -200,9 +200,14 @@ export type FolderRestoreResult = {
   skipped_newer: number;
 };
 
+export type FileActivityAction =
+  | 'upload' | 'download' | 'view' | 'delete' | 'share'
+  | 'rename' | 'move' | 'restore' | 'share_revoke'
+  | 'folder_create' | 'folder_delete';
+
 export type FileActivity = {
   id: string;
-  action: 'upload' | 'download' | 'view' | 'delete' | 'share';
+  action: FileActivityAction;
   metadata: Record<string, any> | null;
   created_at: string;
   user: { id: string; full_name: string; avatar_url: string | null };
@@ -314,6 +319,26 @@ export function useFileHub() {
  */
 export function useFileHubOptional() {
   return useContext(FileHubContext) ?? null;
+}
+
+function fileActivityDisplay(file: FileHubFile | undefined, folders: FileHubFolder[]): Record<string, string> {
+  if (!file) return {};
+  const metadata: Record<string, string> = {};
+  if (file.original_name) metadata.target_name = file.original_name;
+  if (file.folder_id) {
+    const location = folderPath(folders, file.folder_id);
+    if (location) metadata.from_location = location;
+  }
+  return metadata;
+}
+
+function folderActivityDisplay(folder: FileHubFolder | undefined, folders: FileHubFolder[]): Record<string, string> {
+  if (!folder) return {};
+  const location = folderPath(folders, folder.id);
+  return {
+    ...(folder.name ? { target_name: folder.name } : {}),
+    ...(location ? { from_location: location } : {}),
+  };
 }
 
 export function FileHubProvider({ children }: { children: React.ReactNode }) {
@@ -605,15 +630,21 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.rpc('rpc_filehub_restore', { p_file_id: fileId });
     if (error) { showAlert('Error', error.message); throw error; }
     setBinFiles(prev => prev.filter(f => f.id !== fileId));
+    logActivity(fileId, 'restore', fileActivityDisplay(binFiles.find(f => f.id === fileId), folders));
     refresh();
-  }, [refresh]);
+  }, [refresh, binFiles, folders]);
 
   const restoreFolder = useCallback(async (folderId: string) => {
     const { error } = await supabase.rpc('rpc_filehub_folder_restore', { p_id: folderId });
     if (error) { showAlert('Error', error.message); throw error; }
     setBinFiles(prev => prev.filter(f => f.id !== folderId));
+    const restoredFolder = folders.find(f => f.id === folderId);
+    const binEntry = binFiles.find(f => f.id === folderId);
+    logFolderActivity(folderId, 'restore', restoredFolder
+      ? folderActivityDisplay(restoredFolder, folders)
+      : (binEntry?.original_name ? { target_name: binEntry.original_name } : null));
     await fetchFolders();
-  }, [fetchFolders]);
+  }, [fetchFolders, folders, binFiles]);
 
   // Instant, permission-gated purge of the whole company Bin (#55) — bypasses
   // the 15-day grace period entirely. Authorization happens server-side (the
@@ -731,41 +762,89 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   }, [island, fetchFolders]);
 
   const createFolder = useCallback(async (name: string, parentId?: string | null, scope: FileHubFolderScope = 'direct', groupId?: string | null) => {
-    const { error } = await supabase.rpc('rpc_filehub_folder_create', {
+    const { data, error } = await supabase.rpc('rpc_filehub_folder_create', {
       p_name: name,
       p_parent_id: parentId || null,
       p_scope: scope,
       p_group_id: groupId || null,
     });
     if (error) { showAlert('Error', error.message); return; }
+    if (data) {
+      const cleanName = name.trim();
+      const parentLocation = parentId ? folderPath(folders, parentId) : '';
+      logFolderActivity(data as string, 'folder_create', {
+        parent_id: parentId || null,
+        name: cleanName,
+        target_name: cleanName,
+        ...(cleanName ? { to_location: parentLocation ? `${parentLocation} / ${cleanName}` : 'FileHub root' } : {}),
+      });
+    }
     await fetchFolders();
-  }, [fetchFolders]);
+  }, [fetchFolders, folders]);
 
   const renameFolder = useCallback(async (id: string, name: string) => {
+    const previous = folders.find(f => f.id === id);
     const { error } = await supabase.rpc('rpc_filehub_folder_rename', { p_id: id, p_name: name });
     if (error) { showAlert('Error', error.message); return; }
+    const fromLocation = previous ? folderPath(folders, previous.id) : '';
+    const parentLocation = previous?.parent_id ? folderPath(folders, previous.parent_id) : '';
+    logFolderActivity(id, 'rename', {
+      from: previous?.name ?? null,
+      to: name.trim(),
+      target_name: name.trim(),
+      ...(fromLocation ? { from_location: fromLocation } : {}),
+      ...(name.trim() ? { to_location: parentLocation ? `${parentLocation} / ${name.trim()}` : name.trim() } : {}),
+    });
     await fetchFolders();
-  }, [fetchFolders]);
+  }, [fetchFolders, folders]);
 
   const deleteFolder = useCallback(async (id: string) => {
+    const previous = folders.find(f => f.id === id);
     const { error } = await supabase.rpc('rpc_filehub_folder_delete', { p_id: id });
     if (error) { showAlert('Error', error.message); return; }
+    if (previous?.parent_id) {
+      // The deleted folder is ON DELETE CASCADE for activity rows. Log against
+      // its surviving parent so the audit row remains durable. Root folders
+      // have no surviving folder target under the one-target/FK invariant.
+      logFolderActivity(previous.parent_id, 'folder_delete', {
+        folder_id: id,
+        name: previous.name ?? null,
+        target_name: previous.name ?? '',
+        ...(folderPath(folders, previous.id) ? { from_location: folderPath(folders, previous.id) } : {}),
+      });
+    }
     setSelectedFolderIdState(prev => (prev === id ? null : prev));
     await fetchFolders();
-  }, [fetchFolders]);
+  }, [fetchFolders, folders]);
 
   const moveFolder = useCallback(async (id: string, newParentId: string | null) => {
+    const previous = folders.find(f => f.id === id);
     const { error } = await supabase.rpc('rpc_filehub_folder_move', { p_id: id, p_new_parent_id: newParentId });
     if (error) { showAlert('Error', error.message); return; }
+    const toParentLocation = newParentId ? folderPath(folders, newParentId) : '';
+    logFolderActivity(id, 'move', {
+      from_folder_id: previous?.parent_id ?? null,
+      to_folder_id: newParentId,
+      ...folderActivityDisplay(previous, folders),
+      ...(previous?.name ? { to_location: toParentLocation ? `${toParentLocation} / ${previous.name}` : 'FileHub root' } : {}),
+    });
     await fetchFolders();
-  }, [fetchFolders]);
+  }, [fetchFolders, folders]);
 
   const moveFile = useCallback(async (fileId: string, folderId: string | null) => {
+    const previous = [...files, ...groupFiles].find(f => f.id === fileId);
     const { error } = await supabase.rpc('rpc_filehub_file_move', { p_file_id: fileId, p_folder_id: folderId });
     if (error) { showAlert('Error', error.message); return; }
+    const toLocation = folderId ? folderPath(folders, folderId) : '';
+    logActivity(fileId, 'move', {
+      from_folder_id: previous?.folder_id ?? null,
+      to_folder_id: folderId,
+      ...fileActivityDisplay(previous, folders),
+      to_location: toLocation || 'FileHub root',
+    });
     refresh();
     fetchGroupFiles();
-  }, [refresh, fetchGroupFiles]);
+  }, [refresh, fetchGroupFiles, files, groupFiles, folders]);
 
   const tagSuggestions = useCallback(async (prefix: string): Promise<string[]> => {
     const { data } = await supabase.rpc('rpc_filehub_tag_suggestions', {
@@ -822,11 +901,23 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const restoreVersion = useCallback(async (versionId: string): Promise<void> => {
+    const { data: versionTarget } = await supabase
+      .from('filehub_file_versions')
+      .select('file_id, version_no')
+      .eq('id', versionId)
+      .maybeSingle();
     const { error } = await supabase.rpc('rpc_filehub_restore_version', { p_version_id: versionId });
     if (error) { showAlert('Error', error.message); throw error; }
+    if (versionTarget?.file_id) {
+      logActivity(versionTarget.file_id, 'restore', {
+        version_id: versionId,
+        ...(versionTarget.version_no == null ? {} : { version_no: versionTarget.version_no }),
+        ...fileActivityDisplay([...files, ...groupFiles].find(f => f.id === versionTarget.file_id), folders),
+      });
+    }
     refresh();
     fetchGroupFiles();
-  }, [refresh, fetchGroupFiles]);
+  }, [refresh, fetchGroupFiles, files, groupFiles, folders]);
 
   const pinVersion = useCallback(async (versionId: string, pinned: boolean): Promise<void> => {
     const { error } = await supabase.rpc('rpc_filehub_pin_version', { p_version_id: versionId, p_pinned: pinned });
@@ -845,12 +936,16 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_batch_id: batchId,
     });
     if (error) { showAlert('Error', error.message); throw error; }
+    logFolderActivity(folderId, 'restore', {
+      batch_id: batchId,
+      ...folderActivityDisplay(folders.find(f => f.id === folderId), folders),
+    });
     // Restoring moves pointers on files the listing already holds, so both the
     // main list and the channel list are stale until they refetch.
     refresh();
     refreshGroupFiles();
     return data as FolderRestoreResult;
-  }, [refresh, refreshGroupFiles]);
+  }, [refresh, refreshGroupFiles, folders]);
 
   const createShareLink = useCallback(async (fileId: string, expiresInHours: number, downloadAllowed: boolean = true): Promise<FileHubShareLink> => {
     const { data, error } = await supabase.rpc('rpc_filehub_share_link_create', {
@@ -859,14 +954,24 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_download_allowed: downloadAllowed,
     });
     if (error) { showAlert('Error', error.message); throw error; }
-    logActivity(fileId, 'share');
+    logActivity(fileId, 'share', fileActivityDisplay([...files, ...groupFiles].find(f => f.id === fileId), folders));
     return { ...(data as { id: string; token: string; expires_at: string; download_allowed: boolean }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
-  }, []);
+  }, [files, groupFiles, folders]);
 
   const revokeShareLink = useCallback(async (id: string): Promise<void> => {
+    // Read the target before revoking so the audit row never needs the bearer token.
+    const { data: target } = await supabase.from('filehub_share_links').select('file_id, folder_id').eq('id', id).maybeSingle();
     const { error } = await supabase.rpc('rpc_filehub_share_link_revoke', { p_id: id });
     if (error) { showAlert('Error', error.message); throw error; }
-  }, []);
+    if (target?.file_id) logActivity(target.file_id, 'share_revoke', {
+      share_link_id: id,
+      ...fileActivityDisplay([...files, ...groupFiles].find(f => f.id === target.file_id), folders),
+    });
+    else if (target?.folder_id) logFolderActivity(target.folder_id, 'share_revoke', {
+      share_link_id: id,
+      ...folderActivityDisplay(folders.find(f => f.id === target.folder_id), folders),
+    });
+  }, [files, groupFiles, folders]);
 
   const listShareLinks = useCallback(async (fileId: string): Promise<FileHubShareLink[]> => {
     const { data, error } = await supabase.rpc('rpc_filehub_share_link_list', { p_file_id: fileId });
@@ -881,9 +986,9 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_download_allowed: downloadAllowed,
     });
     if (error) { showAlert('Error', error.message); throw error; }
-    logFolderActivity(folderId, 'share');
+    logFolderActivity(folderId, 'share', folderActivityDisplay(folders.find(f => f.id === folderId), folders));
     return { ...(data as { id: string; token: string; expires_at: string; download_allowed: boolean }), created_at: new Date().toISOString(), revoked_at: null, view_count: 0, last_viewed_at: null };
-  }, []);
+  }, [folders]);
 
   const listFolderShareLinks = useCallback(async (folderId: string): Promise<FileHubShareLink[]> => {
     const { data, error } = await supabase.rpc('rpc_filehub_folder_share_link_list', { p_folder_id: folderId });
