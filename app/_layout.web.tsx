@@ -154,8 +154,8 @@ function RootLayoutNav() {
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />
             </View>
-            <StageEvidenceDraftProvider key={pathname}>
-              <TaskFilePasteProvider key={pathname}>
+            <StageEvidenceDraftProvider scopeKey={pathname}>
+              <TaskFilePasteProvider scopeKey={pathname}>
                 {showSidebar ? (
                   <Sidebar>
                     <Slot />
