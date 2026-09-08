@@ -8,7 +8,7 @@ import {
 
 /**
  * Owns the unsent Stage Evidence composer at the stable web route boundary.
- * The layout keys this provider by pathname, so responsive subtree remounts
+ * The layout passes pathname as scopeKey, so responsive subtree remounts
  * preserve the draft while navigation clears it and revokes staged URLs.
  */
 type DraftState = {
@@ -17,40 +17,57 @@ type DraftState = {
   stagedFiles: StageEvidenceDraftContextValue['stagedFiles'];
 };
 
+const blankDraft = (scopeKey: string): DraftState => ({ scopeKey, submissionContent: '', stagedFiles: [] });
+
 export function StageEvidenceDraftProvider({ children, scopeKey }: { children: React.ReactNode; scopeKey?: string }) {
   const routePathname = usePathname();
   const activeScopeKey = scopeKey ?? routePathname;
-  const previousScopeRef = useRef(activeScopeKey);
-  const [draft, setDraft] = useState<DraftState>({ scopeKey: activeScopeKey, submissionContent: '', stagedFiles: [] });
+  const scopeRef = useRef(activeScopeKey);
+  scopeRef.current = activeScopeKey;
+  const [draft, setDraft] = useState<DraftState>(() => blankDraft(activeScopeKey));
+  const activeDraft = draft.scopeKey === activeScopeKey ? draft : blankDraft(activeScopeKey);
 
-  // Reset during render so a new route never paints the prior task's draft;
-  // the existing lifecycle hook revokes the prior scope's blob URLs once.
-  if (previousScopeRef.current !== activeScopeKey) {
-    previousScopeRef.current = activeScopeKey;
-    setDraft({ scopeKey: activeScopeKey, submissionContent: '', stagedFiles: [] });
-  }
+  // Normalize stored state after the synchronous derived blank has rendered;
+  // this prevents a stale route's async setter from repopulating the new one.
+  React.useEffect(() => {
+    setDraft(current => current.scopeKey === activeScopeKey ? current : blankDraft(activeScopeKey));
+  }, [activeScopeKey]);
 
-  useStagedFileLifecycle(draft.stagedFiles);
+  useStagedFileLifecycle(activeDraft.stagedFiles);
 
   const setSubmissionContent = useCallback<StageEvidenceDraftContextValue['setSubmissionContent']>(value => {
-    setDraft(current => ({ ...current, submissionContent: typeof value === 'function' ? value(current.submissionContent) : value }));
-  }, []);
+    const expectedScope = activeScopeKey;
+    if (scopeRef.current !== expectedScope) return;
+    setDraft(current => {
+      if (scopeRef.current !== expectedScope) return current;
+      const base = current.scopeKey === expectedScope ? current : blankDraft(expectedScope);
+      return { ...base, submissionContent: typeof value === 'function' ? value(base.submissionContent) : value };
+    });
+  }, [activeScopeKey]);
 
   const setStagedFiles = useCallback<StageEvidenceDraftContextValue['setStagedFiles']>(value => {
-    setDraft(current => ({ ...current, stagedFiles: typeof value === 'function' ? value(current.stagedFiles) : value }));
-  }, []);
+    const expectedScope = activeScopeKey;
+    if (scopeRef.current !== expectedScope) return;
+    setDraft(current => {
+      if (scopeRef.current !== expectedScope) return current;
+      const base = current.scopeKey === expectedScope ? current : blankDraft(expectedScope);
+      return { ...base, stagedFiles: typeof value === 'function' ? value(base.stagedFiles) : value };
+    });
+  }, [activeScopeKey]);
 
   const clearDraft = useCallback(() => {
-    setDraft(current => ({ ...current, submissionContent: '', stagedFiles: [] }));
-  }, []);
+    const expectedScope = activeScopeKey;
+    if (scopeRef.current !== expectedScope) return;
+    setDraft(current => scopeRef.current === expectedScope ? blankDraft(expectedScope) : current);
+  }, [activeScopeKey]);
 
   const value = useMemo<StageEvidenceDraftContextValue>(() => ({
-    submissionContent: draft.submissionContent,
+    submissionContent: activeDraft.submissionContent,
     setSubmissionContent,
-    stagedFiles: draft.stagedFiles,
+    stagedFiles: activeDraft.stagedFiles,
     setStagedFiles,
     clearDraft,
-  }), [clearDraft, draft, setStagedFiles, setSubmissionContent]);
+  }), [activeDraft, clearDraft, setStagedFiles, setSubmissionContent]);
 
   return <StageEvidenceDraftContext.Provider value={value}>{children}</StageEvidenceDraftContext.Provider>;
 }

@@ -10,9 +10,10 @@ assert.match(paste, /armedIdRef\.current = null/);
 assert.match(paste, /registered\.scopeKey !== scopeRef\.current/);
 assert.match(paste, /current\.configRef !== configRef/);
 assert.match(draft, /scopeKey: string/);
-assert.match(draft, /previousScopeRef\.current !== activeScopeKey/);
-assert.match(draft, /setDraft\(\{ scopeKey: activeScopeKey, submissionContent: '', stagedFiles: \[\] \}\)/);
-assert.match(draft, /useStagedFileLifecycle\(draft\.stagedFiles\)/);
+assert.match(draft, /const activeDraft = draft\.scopeKey === activeScopeKey \? draft : blankDraft\(activeScopeKey\)/);
+assert.match(draft, /scopeRef\.current !== expectedScope/);
+assert.match(draft, /useStagedFileLifecycle\(activeDraft\.stagedFiles\)/);
+assert.match(draft, /current\.scopeKey === activeScopeKey \? current : blankDraft\(activeScopeKey\)/);
 assert.doesNotMatch(draft, /AsyncStorage|localStorage/);
 
 console.log('TaskFilePaste/StageEvidenceDraft scope behavior check: ok');

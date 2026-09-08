@@ -5,7 +5,7 @@ import type { StageEvidenceDraftContextValue } from './StageEvidenceDraftContext
 
 /** Native task detail does not replace its route subtree at the web breakpoint.
  * Keep the hook local so native callers retain their existing draft ownership. */
-export function StageEvidenceDraftProvider({ children }: { children: React.ReactNode }) {
+export function StageEvidenceDraftProvider({ children, scopeKey: _scopeKey }: { children: React.ReactNode; scopeKey?: string }) {
   return <>{children}</>;
 }
 

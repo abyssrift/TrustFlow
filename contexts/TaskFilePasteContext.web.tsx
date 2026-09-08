@@ -63,6 +63,7 @@ export function TaskFilePasteProvider({ children, scopeKey }: { children: React.
   }, [infoToast]);
 
   const onFiles = useCallback(async (files: File[]) => {
+    const pasteScopeKey = scopeRef.current;
     const id = armedIdRef.current;
     const registered = id ? targetsRef.current.get(id) : null;
     const target = registered?.scopeKey === scopeRef.current ? registered.configRef.current : null;
@@ -75,6 +76,7 @@ export function TaskFilePasteProvider({ children, scopeKey }: { children: React.
     try {
       const result = await target.onFiles(accepted);
       if (result === false) return;
+      if (scopeRef.current !== pasteScopeKey) return;
       const skippedText = skipped ? ` ${skipped} skipped as duplicate${skipped === 1 ? '' : 's'}.` : '';
       infoToast(`${target.label}: added ${accepted.length} file${accepted.length === 1 ? '' : 's'}.${skippedText}`, 'Files pasted');
     } catch (error) {
@@ -103,7 +105,8 @@ export function TaskFilePasteProvider({ children, scopeKey }: { children: React.
     updateTarget,
     armTarget,
     armedId,
-  }), [armTarget, armedId, registerTarget, updateTarget]);
+    scopeKey: activeScopeKey,
+  }), [activeScopeKey, armTarget, armedId, registerTarget, updateTarget]);
 
   return <TaskFilePasteContext.Provider value={value}>{children}</TaskFilePasteContext.Provider>;
 }
@@ -113,6 +116,7 @@ export function useTaskFilePasteTarget(config: TaskFilePasteTargetConfig) {
   const registerTarget = context?.registerTarget;
   const updateTarget = context?.updateTarget;
   const armTarget = context?.armTarget;
+  const scopeKey = context?.scopeKey;
   const configRef = useRef(config);
   configRef.current = config;
 
@@ -120,7 +124,7 @@ export function useTaskFilePasteTarget(config: TaskFilePasteTargetConfig) {
     if (!registerTarget) return;
     const unregister = registerTarget(config.id, configRef);
     return unregister;
-  }, [registerTarget, config.id]);
+  }, [registerTarget, config.id, scopeKey]);
 
   useEffect(() => {
     updateTarget?.(config.id);

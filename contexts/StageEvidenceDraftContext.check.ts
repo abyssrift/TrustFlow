@@ -5,7 +5,8 @@ const web = fs.readFileSync('contexts/StageEvidenceDraftContext.web.tsx', 'utf8'
 const native = fs.readFileSync('contexts/StageEvidenceDraftContext.tsx', 'utf8');
 const layout = fs.readFileSync('app/_layout.web.tsx', 'utf8');
 
-assert.match(web, /useStagedFileLifecycle\(draft\.stagedFiles\)/);
+assert.match(web, /useStagedFileLifecycle\(activeDraft\.stagedFiles\)/);
+assert.match(native, /StageEvidenceDraftProvider\(\{ children, scopeKey: _scopeKey \}: \{ children: React\.ReactNode; scopeKey\?: string \}\)/);
 assert.match(web, /StageEvidenceDraftProvider/);
 assert.match(web, /useStageEvidenceDraft/);
 assert.match(web, /stagedFiles: \[\]/);

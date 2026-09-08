@@ -21,6 +21,7 @@ export type TaskFilePasteContextValue = {
   updateTarget: (id: TaskFilePasteTargetId) => void;
   armTarget: (id: TaskFilePasteTargetId) => void;
   armedId: TaskFilePasteTargetId | null;
+  scopeKey: string;
 };
 
 export type TaskFilePasteProviderProps = {

@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { TaskFilePasteContext } from './TaskFilePasteContext.shared';
 export type { TaskFilePasteTargetId, TaskFilePasteTargetConfig, TaskFilePasteTargetValue } from './TaskFilePasteContext.shared';
 
-export function TaskFilePasteProvider({ children }: { children: React.ReactNode }) {
+export function TaskFilePasteProvider({ children, scopeKey: _scopeKey }: { children: React.ReactNode; scopeKey?: string }) {
   return <>{children}</>;
 }
 
