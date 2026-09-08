@@ -6,7 +6,7 @@
 // hover SearchDropdown is retired from the top bar.
 //
 // #342 redesign — modelled on the Cloudflare dashboard command palette:
-//   • CREATE is a wrapping row of chunky accent-tinted tiles, not list rows.
+//   • CREATE is a compact, non-wrapping action strip, not list rows.
 //   • GO TO draws from SHORTCUTS *and* PALETTE_DESTINATIONS (constants.ts) and
 //     matches synonyms — "compare" finds Analytics — showing a breadcrumb or an
 //     "Also known as:" line depending on what matched.
@@ -388,16 +388,6 @@ export default function CommandPalette({
     ];
     return all.filter((a) => hasPermission(a.permission));
   }, [hasPermission, summon]);
-  // Fuzzy tile filter — "nwtsk" still finds New Task — best score first.
-  const matchedActions = useMemo(() => {
-    if (!q) return createActions;
-    return createActions
-      .map((a) => ({ a, m: fuzzyMatch(q, a.label) }))
-      .filter((x): x is { a: CreateAction; m: { hit: boolean; score: number } } => !!x.m)
-      .sort((x, y) => y.m.score - x.m.score)
-      .map((x) => x.a);
-  }, [createActions, q]);
-
   // GO TO: top-level SHORTCUTS + keyword-indexed sub-destinations, one registry
   // (constants.ts). Empty query → top-level only; otherwise label + synonym
   // matches across both, deduped by href.
@@ -435,42 +425,34 @@ export default function CommandPalette({
   );
 
   // Flat, ordered nav list — the render below walks this exact order so `sel`
-  // lines up on screen:
-  //   recent destinations → recent searches → CREATE tiles → GO TO → results
-  //
-  // 2D-within-1-D: the CREATE tiles occupy [gridStart, gridStart+tileCount).
-  // `gridStart` is only non-zero on an empty query (the recent-destination rows
-  // that sit above the grid). The key handler's ←/→ stay inside that band and
-  // ↑/↓ hop the grid↔list boundary in whole rows.
+  // lines up on screen. CREATE is always the first list-mode band, followed by
+  // inline creation, recents, destinations, and results.
   const flatItems = useMemo<PaletteItem[]>(() => {
     const items: PaletteItem[] = [];
-    // #347 — the inline quick-create row is always first when present.
+    for (const a of createActions) items.push({ kind: 'action', run: a.run });
     if (createInline) items.push({ kind: 'create-inline', entity: createInline.entity, title: createInline.title });
     for (const d of recentDestMatches) items.push({ kind: 'page', dest: d });
     for (const s of recentSearchNav) items.push({ kind: 'recent-search', q: s });
-    for (const a of matchedActions) items.push({ kind: 'action', run: a.run });
     for (const d of destMatches) items.push({ kind: 'page', dest: d });
     // #347: the result-search block is hidden while an inline-create prefix is
     // active, so keep those rows out of the nav list too or `sel` drifts.
     if (!createInline) for (const t of groupRows) for (const r of grouped[t]!.slice(0, PER_GROUP)) items.push({ kind: 'result', result: r });
     return items;
-  }, [createInline, recentDestMatches, matchedActions, destMatches, groupRows, grouped, recentSearchNav]);
+  }, [createActions, createInline, recentDestMatches, destMatches, groupRows, grouped, recentSearchNav]);
 
   // Nothing matched a non-empty query (and we're done loading) → offer to create
   // a task named after the query. Same predicate gates the row and the ⏎ handler.
   // #347: suppressed when a create prefix is active — the inline create row
   // (createInline / flatItems[0]) supersedes it so the two never both fire.
-  const noHits = results.length === 0 && destMatches.length === 0 && matchedActions.length === 0;
+  const noHits = results.length === 0 && destMatches.length === 0;
   const showCreateHint =
     !!q && input.mode === 'normal' && !searchError && !(loading && results.length === 0) && noHits;
 
-  const gridStart = (createInline ? 1 : 0) + recentDestMatches.length + recentSearchNav.length;
-  const tileCount = matchedActions.length;
-  const gridEnd = gridStart + tileCount; // first flat index after the tile grid
+  const gridStart = 0;
+  const tileCount = createActions.length;
+  const gridEnd = tileCount;
   const inGrid = (i: number) => i >= gridStart && i < gridEnd;
-  // Desktop caps at 4/row: at maxWidth 640 with flexBasis 132 + gap, a 5th tile
-  // wraps — so ↑/↓ row-hopping must assume 4, not tileCount.
-  const tileCols = tileCount === 0 ? 1 : isMobile ? Math.min(2, tileCount) : Math.min(4, tileCount);
+  const firstAfterStrip = tileCount;
   // Last tile the selection sat on — ↑ from the first non-tile row returns here.
   const lastTile = useRef(gridStart);
   useEffect(() => {
@@ -491,8 +473,17 @@ export default function CommandPalette({
   }, [open]);
 
   useEffect(() => {
-    setSel((i) => Math.max(0, Math.min(i, flatItems.length - 1)));
-  }, [flatItems.length]);
+    setSel((i) => {
+      const clamped = Math.max(0, Math.min(i, flatItems.length - 1));
+      // The persistent Create strip stays visually first, but typing a search
+      // should still select the first matching row once one exists. Otherwise
+      // Enter would unexpectedly launch New Task for every non-empty query.
+      if (q && paletteMode === 'list' && inGrid(clamped) && flatItems.length > gridEnd) {
+        return gridEnd;
+      }
+      return clamped;
+    });
+  }, [flatItems.length, gridEnd, paletteMode, q]);
 
   // #346 — command cursor back to the top whenever the command filter changes.
   useEffect(() => {
@@ -512,7 +503,7 @@ export default function CommandPalette({
     if (Platform.OS !== 'web') return;
     const node = rowRefs.current.get(sel);
     const dom = node instanceof Element ? node : node?.getDOMNode?.();
-    dom?.scrollIntoView?.({ block: 'nearest' });
+    dom?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [sel, flatItems.length]);
 
   const seeAll = useCallback(() => {
@@ -695,8 +686,7 @@ export default function CommandPalette({
         e.preventDefault();
         setSel((i) => {
           if (inGrid(i)) {
-            const next = i + tileCols; // next tile row, or out of the grid
-            return next < gridEnd ? next : Math.min(gridEnd, last());
+            return firstAfterStrip <= last() ? firstAfterStrip : i;
           }
           return Math.min(i + 1, last()); // recent rows above the grid, or the list below it
         });
@@ -704,11 +694,11 @@ export default function CommandPalette({
         e.preventDefault();
         setSel((i) => {
           // First list row → back to the last tile the cursor sat on.
-          if (i === gridEnd && tileCount > 0) {
+          if (i === firstAfterStrip && tileCount > 0) {
             return Math.max(gridStart, Math.min(lastTile.current, gridEnd - 1));
           }
           // In the grid: up a tile row, or out the top onto a recent row.
-          if (inGrid(i)) return Math.max(0, i - tileCols);
+          if (inGrid(i)) return i;
           // Recent rows above, or list below — plain step.
           return Math.max(i - 1, 0);
         });
@@ -741,7 +731,7 @@ export default function CommandPalette({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, flatItems, sel, gridStart, gridEnd, tileCount, tileCols, query, activate, seeAll, onClose, summon, showCreateHint, mode, actions, actionSel, backToList, enterActions, paletteMode, commands, cmdSel, runCommand]);
+  }, [open, flatItems, sel, gridStart, gridEnd, tileCount, firstAfterStrip, query, activate, seeAll, onClose, summon, showCreateHint, mode, actions, actionSel, backToList, enterActions, paletteMode, commands, cmdSel, runCommand]);
 
   const seedTip = useCallback((token: string) => {
     setQuery(token + ' ');
@@ -750,7 +740,7 @@ export default function CommandPalette({
   }, []);
 
   // running flat index — MUST advance in the same order as flatItems
-  let idx = 0;
+  let idx = paletteMode === 'list' ? createActions.length : 0;
 
   return (
     <Popup visible={open} onClose={onClose} presentation="auto" maxWidth={640} scrollable={false} dimBackdrop>
@@ -779,6 +769,43 @@ export default function CommandPalette({
             <Text style={{ fontFamily: 'SpaceMono', fontSize: 10, color: colors.textDim }}>esc</Text>
           </View>
         </View>
+
+        {paletteMode === 'list' && createActions.length > 0 && (
+          <View accessibilityLabel="Create">
+            <SectionHeader label="Create" colors={colors} />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <View className="flex-row gap-2 px-3 pb-1">
+                {createActions.map((a, i) => {
+                  const on = i === sel;
+                  return (
+                    <Pressable
+                      key={a.id}
+                      ref={setRowRef(i)}
+                      onHoverIn={() => setSel(i)}
+                      onPress={() => activate({ kind: 'action', run: a.run })}
+                      accessibilityRole="button"
+                      accessibilityLabel={a.label}
+                      accessibilityState={{ selected: on }}
+                      className="w-28 min-h-[44px] items-center justify-center gap-1.5 rounded-xl px-2 py-2"
+                      style={{
+                        borderWidth: 1,
+                        borderColor: on ? colors.accent : 'transparent',
+                        backgroundColor: colors.accent + (on ? '2E' : '1A'),
+                      }}
+                    >
+                      <View className="h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: colors.primary + '1A' }}>
+                        <FontAwesome name={a.icon} size={15} color={colors.primary} />
+                      </View>
+                      <Text numberOfLines={1} style={{ fontSize: 11, fontWeight: '700', color: colors.textMain }}>
+                        {a.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </ScrollView>
+          </View>
+        )}
 
         <ScrollView style={{ maxHeight: isMobile ? 360 : 440 }} keyboardShouldPersistTaps="handled">
           {/* #346 — command mode (`>` prefix). Rows styled like GO TO: icon chip
@@ -937,47 +964,6 @@ export default function CommandPalette({
                   </Pressable>
                 );
               })}
-            </View>
-          )}
-
-          {/* CREATE — a wrapping tile grid (#342). Occupies flatItems
-              [gridStart, gridStart+tileCount). */}
-          {matchedActions.length > 0 && (
-            <View className="mb-1">
-              <SectionHeader label="Create" colors={colors} />
-              <View className="flex-row flex-wrap gap-2 px-3 pb-1">
-                {matchedActions.map((a) => {
-                  const i = idx++;
-                  const on = i === sel;
-                  return (
-                    <Pressable
-                      key={a.id}
-                      ref={setRowRef(i)}
-                      onHoverIn={() => setSel(i)}
-                      onPress={() => activate({ kind: 'action', run: a.run })}
-                      className="items-center justify-center gap-2 rounded-2xl px-3 py-3.5"
-                      style={{
-                        flexGrow: 1,
-                        flexBasis: 132,
-                        minWidth: 132,
-                        borderWidth: 1,
-                        borderColor: on ? colors.accent : 'transparent',
-                        backgroundColor: colors.accent + (on ? '2E' : '1A'),
-                      }}
-                    >
-                      <View
-                        className="h-9 w-9 items-center justify-center rounded-xl"
-                        style={{ backgroundColor: colors.primary + '1A' }}
-                      >
-                        <FontAwesome name={a.icon} size={18} color={colors.primary} />
-                      </View>
-                      <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '700', color: colors.textMain }}>
-                        {a.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
             </View>
           )}
 
