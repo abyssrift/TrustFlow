@@ -37,3 +37,4 @@ When delivering the code, you must:
 2. Provide the implementation for BOTH Desktop and Mobile.
 3. Ensure that all interactive elements have appropriately sized tap targets for mobile (minimum 44x44px).
 4. Extract shared business logic (hooks, state management) outside of the UI components so it can be easily shared if you use Path B.
+5. when creating new buttons or interactive widgets, always favour miniamlistic icons with tooltips than big words buttons, if not applicable use a single word or two at most.
