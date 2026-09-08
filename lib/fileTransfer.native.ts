@@ -51,3 +51,20 @@ export async function pickSpreadsheet(): Promise<PickedFile | null> {
     return null;
   }
 }
+
+export async function pickMarkdownFile(): Promise<PickedFile | null> {
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['text/markdown', 'text/plain', 'application/octet-stream'],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    if (result.canceled || !result.assets?.length) return null;
+    const asset = result.assets[0];
+    const { File } = (await import('expo-file-system')) as any;
+    return { name: asset.name || 'import.md', bytes: await new File(asset.uri).bytes() };
+  } catch (e) {
+    console.error('[fileTransfer] native pickMarkdownFile failed', e);
+    return null;
+  }
+}

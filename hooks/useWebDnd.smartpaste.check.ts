@@ -18,7 +18,7 @@ _mod._load = (req: string, ...rest: any[]) =>
     : _load(req, ...rest);
 
 import assert from 'node:assert';
-const { extractClipboardPayload, routeClipboardPayload, shouldInstallSmartPaste, snapshotClipboardFileItems } = require('./useWebDnd') as typeof import('./useWebDnd');
+const { extractClipboardPayload, routeClipboardPayload, routeScopedMarkdownPayload, shouldInstallSmartPaste, snapshotClipboardFileItems } = require('./useWebDnd') as typeof import('./useWebDnd');
 const { taskSeedKey, applyTaskSeed } = require('../lib/pasteImage') as typeof import('../lib/pasteImage');
 
 // Minimal DataTransfer-shaped fakes — only the bits the parser reads.
@@ -110,7 +110,24 @@ const dt = (o: { items?: any[]; files?: any[]; text?: string }) =>
   assert.strictEqual(prevented, 0);
 }
 
-// 9. Installation gating proves disabled/native/SSR paths do not install a listener.
+// 9. Scoped editor intake claims exactly one Markdown file only. Mixed,
+// multiple, and non-Markdown payloads pass through without invoking it.
+{
+  const markdown = { name: 'notes.MARKDOWN' } as any;
+  let calls = 0;
+  assert.strictEqual(routeScopedMarkdownPayload({ files: [markdown], text: '' }, () => { calls += 1; }), 'claimed');
+  assert.strictEqual(calls, 1);
+  for (const payload of [
+    { files: [markdown, { name: 'other.md' } as any], text: '' },
+    { files: [{ name: 'notes.txt' } as any], text: '' },
+    { files: [], text: 'plain text' },
+  ]) assert.strictEqual(routeScopedMarkdownPayload(payload, () => { calls += 1; }), 'passthrough');
+  assert.strictEqual(calls, 1, 'unclaimed scoped payload must not call the editor');
+  assert.strictEqual(routeScopedMarkdownPayload({ files: [markdown], text: 'browser file metadata' }, () => { calls += 1; }), 'claimed');
+  assert.strictEqual(calls, 2, 'one Markdown file remains authoritative when the browser also supplies text metadata');
+}
+
+// 10. Installation gating proves disabled/native/SSR paths do not install a listener.
 assert.strictEqual(shouldInstallSmartPaste('web', false, true), false);
 assert.strictEqual(shouldInstallSmartPaste('native', true, true), false);
 assert.strictEqual(shouldInstallSmartPaste('web', true, false), false);

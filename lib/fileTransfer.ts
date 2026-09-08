@@ -43,3 +43,24 @@ export function pickSpreadsheet(): Promise<PickedFile | null> {
     input.click();
   });
 }
+
+export function pickMarkdownFile(): Promise<PickedFile | null> {
+  return new Promise(resolve => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.md,.markdown,text/markdown';
+    input.style.display = 'none';
+    const finish = (value: PickedFile | null) => {
+      input.remove();
+      resolve(value);
+    };
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return finish(null);
+      try { finish({ name: file.name, bytes: new Uint8Array(await file.arrayBuffer()) }); }
+      catch { finish(null); }
+    };
+    document.body.appendChild(input);
+    input.click();
+  });
+}

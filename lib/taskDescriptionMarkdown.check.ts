@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { applyMarkdownCommand, continueMarkdownOnEnter, createMarkdownTable, isAllowedMarkdownHref, markdownExcerpt, markdownToPlainText, parseTaskDescriptionMarkdown } from './taskDescriptionMarkdown';
+import { applyMarkdownCommand, continueMarkdownOnEnter, createMarkdownTable, isAllowedMarkdownHref, markdownExcerpt, markdownToPlainText, parseTaskDescriptionMarkdown, scanMarkdownTableRow } from './taskDescriptionMarkdown';
 
 assert.equal(markdownToPlainText('# Title\n\n**bold** *italic* ~~old~~ `code`'), 'Title\nbold italic old code');
 assert.equal(markdownToPlainText('- [x] Done\n- Open\n\n> quote\n\n---'), 'Done\nOpen\nquote');
@@ -28,5 +28,22 @@ assert.equal(applyMarkdownCommand(table, { start: 0, end: table.length }, 'table
 assert.equal(applyMarkdownCommand(createMarkdownTable(2, 2), { start: 0, end: createMarkdownTable(2, 2).length }, 'tableRemoveRow').value, table);
 assert.equal(applyMarkdownCommand('abc', { start: 99, end: 120 }, 'bold').value, 'abc****');
 assert.doesNotThrow(() => markdownToPlainText('*x*'.repeat(1000)));
+assert.deepEqual(scanMarkdownTableRow('| escaped \\| pipe | `code | pipe` |'), ['escaped | pipe', '`code | pipe`']);
+const aligned = parseTaskDescriptionMarkdown('| A | B | C |\n| :--- | :---: | ---: |\n| short | long | right |')[0];
+assert.deepEqual(aligned.type === 'table' ? aligned.alignments : [], ['left', 'center', 'right']);
+assert.equal(applyMarkdownCommand('| A | B |\n| :--- | ---: |\n| x | y |', { start: 0, end: 40 }, 'tableColumn').value, '| A | B | Cell |\n| :--- | ---: | --- |\n| x | y | Cell |');
+const escapedTable = '| A | B |\n| :--- | ---: |\n| x \\| y | `a | b` |';
+assert.equal(applyMarkdownCommand(escapedTable, { start: 0, end: escapedTable.length }, 'tableColumn').value, '| A | B | Cell |\n| :--- | ---: | --- |\n| x \\| y | `a | b` | Cell |');
+const uneven = parseTaskDescriptionMarkdown('| A | B |\n| --- | --- |\n| one |\n| two | three | ignored |')[0];
+assert.equal(uneven.type === 'table' ? uneven.rows[0].length : 0, 2);
+assert.equal(markdownToPlainText('| A | B |\n| --- | --- |\n| one |\n| two | three | ignored |'), 'A | B\none | \ntwo | three');
+assert.equal(applyMarkdownCommand('  a\n    b\n  c', { start: 0, end: 12 }, 'number').value, '  1. a\n    2. b\n  3. c');
+assert.equal(continueMarkdownOnEnter('1. first', 8).value, '1. first\n2. ');
+assert.equal(continueMarkdownOnEnter('1. first\n2. second', 18).value, '1. first\n2. second\n3. ');
+assert.equal(continueMarkdownOnEnter('  10. item', 10).value, '  10. item\n  11. ');
+assert.equal(continueMarkdownOnEnter('  - item', 8).value, '  - item\n  - ');
+assert.equal(continueMarkdownOnEnter('  11. ', 6).value, '\n');
+assert.equal(applyMarkdownCommand('- parent\n- child', { start: 9, end: 16 }, 'indent').value, '- parent\n  - child');
+assert.equal(applyMarkdownCommand('- parent\n  - child', { start: 9, end: 18 }, 'outdent').value, '- parent\n- child');
 assert.equal(markdownExcerpt('one two three', 8), 'one two…');
 console.log('taskDescriptionMarkdown: all assertions passed');

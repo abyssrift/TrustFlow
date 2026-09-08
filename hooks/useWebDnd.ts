@@ -432,6 +432,98 @@ export function snapshotClipboardFileItems(dt: DataTransfer, resolveDirectories:
   return { sources, files, filesystemClaimed };
 }
 
+// Narrow editor intake: claim only one regular Markdown file, leaving broad
+// upload paste/drop behavior untouched for every other clipboard payload.
+export function isMarkdownFile(file: File | null | undefined): file is File {
+  return !!file && /\.(?:md|markdown)$/i.test(String(file.name || ''));
+}
+
+export type ScopedMarkdownPayload = { files: File[]; text: string };
+
+export function routeScopedMarkdownPayload(
+  payload: ScopedMarkdownPayload,
+  onFile: (file: File) => void,
+): 'claimed' | 'passthrough' {
+  // Browsers may include a text/plain representation alongside a copied OS
+  // file. The file list is the authority here: exactly one Markdown file is
+  // unambiguous, while multiple/mixed or non-Markdown files pass through.
+  if (payload.files.length !== 1 || !isMarkdownFile(payload.files[0])) return 'passthrough';
+  onFile(payload.files[0]);
+  return 'claimed';
+}
+
+/** Web-only editor intake for exactly one .md/.markdown file. */
+export function useScopedMarkdownFileIntake(
+  onFile: (file: File) => void,
+  enabled: boolean = true,
+): { ref: (node: any) => void; isOver: boolean } {
+  const [node, setNode] = useState<HTMLElement | null>(null);
+  const ref = useCallback((el: any) => setNode(el ?? null), []);
+  const [isOver, setIsOver] = useState(false);
+  const onFileRef = useRef(onFile);
+  onFileRef.current = onFile;
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !enabled || !node || typeof node.addEventListener !== 'function') return;
+    const el = node;
+    let depth = 0;
+    const readDrop = (e: DragEvent): File | null => {
+      const dt = e.dataTransfer;
+      if (!dt) return null;
+      const items = Array.from(dt.items || []);
+      if (items.length) {
+        if (items.length !== 1 || items[0].kind !== 'file') return null;
+        const file = items[0].getAsFile();
+        return isMarkdownFile(file) && dt.files?.length === 1 ? file : null;
+      }
+      const files = Array.from(dt.files || []);
+      return files.length === 1 && isMarkdownFile(files[0]) ? files[0] : null;
+    };
+    const onDragEnter = (e: DragEvent) => {
+      if (!readDrop(e)) return;
+      e.preventDefault(); e.stopPropagation(); depth += 1; setIsOver(true);
+    };
+    const onDragOver = (e: DragEvent) => {
+      if (!readDrop(e)) return;
+      e.preventDefault(); e.stopPropagation();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      setIsOver(true);
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (e.relatedTarget && el.contains(e.relatedTarget as Node)) return;
+      depth = 0; setIsOver(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      const file = readDrop(e);
+      if (!file) return;
+      e.preventDefault(); e.stopPropagation(); depth = 0; setIsOver(false);
+      onFileRef.current(file);
+    };
+    el.addEventListener('dragenter', onDragEnter);
+    el.addEventListener('dragover', onDragOver);
+    el.addEventListener('dragleave', onDragLeave);
+    el.addEventListener('drop', onDrop);
+
+    const onPaste = (e: ClipboardEvent) => {
+      const dt = e.clipboardData;
+      if (!dt) return;
+      const payload = extractClipboardPayload(dt);
+      if (routeScopedMarkdownPayload(payload, file => onFileRef.current(file)) !== 'claimed') return;
+      e.preventDefault(); e.stopPropagation();
+    };
+    el.addEventListener('paste', onPaste);
+    return () => {
+      el.removeEventListener('dragenter', onDragEnter);
+      el.removeEventListener('dragover', onDragOver);
+      el.removeEventListener('dragleave', onDragLeave);
+      el.removeEventListener('drop', onDrop);
+      el.removeEventListener('paste', onPaste);
+    };
+  }, [enabled, node]);
+
+  return { ref, isOver };
+}
+
 export type SmartPasteDiagnostic = FileDropDiagnostic | { kind: 'unsupported'; path: string; source?: unknown; error?: unknown };
 export const SMART_FOLDER_PASTE_WARNING_TITLE = 'Some pasted folders could not be included';
 export const SMART_FOLDER_PASTE_WARNING_MESSAGE = 'Some copied folders could not be included completely. They may be empty, unreadable, unsupported by this browser, or over the paste limit. Use the Folder picker or drag and drop to add the missing files.';
