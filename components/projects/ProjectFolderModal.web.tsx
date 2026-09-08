@@ -2,6 +2,7 @@ import Popup from '@/components/common/Popup';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import Calendar from '@/components/common/Calendar';
 import Tooltip from '@/components/common/Tooltip';
+import ClipboardControls from '@/components/common/ClipboardControls';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { PROJECT_STATUS_OPTIONS, useProjectFolderForm } from '@/lib/useProjectFolderForm';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -81,9 +82,12 @@ export default function ProjectFolderModal({
             {/* Form Content */}
             <ScrollView className="px-6" style={{ flexShrink: 1 }} contentContainerStyle={{ paddingTop: 24, paddingBottom: 8 }}>
               <View className="mb-6">
-                <Text style={{ color: c.textMuted }} className="text-xs font-bold uppercase mb-2 tracking-widest">
-                  Folder Name
-                </Text>
+                <View className="flex-row items-center justify-between mb-2">
+                  <Text style={{ color: c.textMuted }} className="text-xs font-bold uppercase tracking-widest">
+                    Folder Name
+                  </Text>
+                  <ClipboardControls value={name} onPaste={setName} />
+                </View>
                 <TextInput
                   style={{ backgroundColor: c.background, borderWidth: 1, borderColor: nameMissing ? c.danger : c.border, color: c.textMain }}
                   className="p-4 rounded-xl"
@@ -104,9 +108,15 @@ export default function ProjectFolderModal({
               </View>
 
               <View className="mb-6">
-                <Text style={{ color: c.textMuted }} className="text-xs font-bold uppercase mb-2 tracking-widest">
-                  Description
-                </Text>
+                <View className="flex-row items-center justify-between mb-2">
+                  <Text style={{ color: c.textMuted }} className="text-xs font-bold uppercase tracking-widest">
+                    Description
+                  </Text>
+                  <ClipboardControls
+                    value={description}
+                    onPaste={t => setDescription(description ? `${description}\n${t}` : t)}
+                  />
+                </View>
                 <TextInput
                   style={{ backgroundColor: c.background, borderWidth: 1, borderColor: c.border, color: c.textMain }}
                   className="p-4 rounded-xl"
