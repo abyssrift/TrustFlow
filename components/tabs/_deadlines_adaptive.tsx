@@ -17,6 +17,7 @@ import {
   subscribeDeadlineChanges,
   toDayKey,
   useUpcomingTasks,
+  type ProjectDeadline,
   type UpcomingTask,
 } from '@/hooks/useUpcomingTasks';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -42,7 +43,31 @@ export default function DeadlinesScreen() {
   // "Upcoming" list — same nearest-10/30-day-lookback data as the topbar ribbon,
   // including its customizable look-ahead window (#67), persisted per-device.
   const { windowDays, setWindow } = useAttentionRibbonWindow();
-  const { tasks: ribbonTasks, loading: ribbonLoading } = useUpcomingTasks({ windowDays });
+  const { tasks: ribbonTasks, projects: ribbonProjects, loading: ribbonLoading } = useUpcomingTasks({ windowDays, withProjects: true });
+  const deadlineItems = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const projectItems = ribbonProjects
+      .filter((project): project is ProjectDeadline & { dueDate: string } => !project.done && !!project.dueDate)
+      .map((project) => ({
+        kind: 'project' as const,
+        id: project.id,
+        title: project.name,
+        dueDate: project.dueDate,
+        overdue: new Date(project.dueDate) < today,
+        color: project.color ?? colors.primary,
+        subtitle: project.clientName ? `Project · ${project.clientName}` : 'Project',
+      }));
+    const taskItems = ribbonTasks.map((task) => ({
+      kind: 'task' as const,
+      id: task.id,
+      title: task.title,
+      dueDate: task.dueDate,
+      overdue: task.overdue,
+      color: task.stageColor,
+      subtitle: `${task.pipelineName} · ${task.stageName}`,
+    }));
+    return [...taskItems, ...projectItems].sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 10);
+  }, [colors.primary, ribbonProjects, ribbonTasks]);
 
   // Month grid — same month-bounded fetch the desktop calendar overlay uses,
   // independent of the ribbon's 10-item cap (a task due in 3 weeks can be on
@@ -170,7 +195,7 @@ export default function DeadlinesScreen() {
         <View className="mt-6">
           <View className="flex-row items-center justify-between mb-3">
             <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">
-              Upcoming ({ribbonTasks.length})
+              Upcoming ({deadlineItems.length})
             </Text>
             <View className="flex-row gap-1.5">
               {RIBBON_WINDOW_OPTIONS.map((opt) => {
@@ -195,23 +220,25 @@ export default function DeadlinesScreen() {
 
           {ribbonLoading ? (
             <ActivityIndicator size="small" color={colors.primary} className="mt-6" />
-          ) : ribbonTasks.length === 0 ? (
+          ) : deadlineItems.length === 0 ? (
             <View className="items-center justify-center py-10 bg-surface-card border border-surface-border rounded-2xl">
               <FontAwesome name="check-circle" size={28} color={colors.textMuted} />
               <Text className="text-typography-muted text-sm font-bold mt-3">No upcoming deadlines</Text>
             </View>
           ) : (
-            ribbonTasks.map((t) => (
+            deadlineItems.map((t) => (
               <TouchableOpacity
-                key={t.id}
-                onPress={() => goToTask(t.id)}
+                key={`${t.kind}-${t.id}`}
+                onPress={() => t.kind === 'project' ? router.push(`/projects/${t.id}` as any) : goToTask(t.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.kind === 'project' ? 'Project' : 'Task'}: ${t.title}, ${formatRelativeDue(t.dueDate, t.overdue)}`}
                 className="flex-row items-center p-4 mb-2 rounded-2xl border bg-surface-card"
-                style={{ borderColor: colors.border, borderLeftWidth: 3, borderLeftColor: t.stageColor }}
+                style={{ borderColor: colors.border, borderLeftWidth: 3, borderLeftColor: t.color }}
               >
                 <View className="flex-1 min-w-0 mr-3">
                   <Text className="text-typography-main font-bold text-sm" numberOfLines={1}>{t.title}</Text>
                   <Text className="text-typography-muted text-[11px] mt-0.5" numberOfLines={1}>
-                    {t.pipelineName} · {t.stageName}
+                    {t.subtitle}
                   </Text>
                 </View>
                 <Text

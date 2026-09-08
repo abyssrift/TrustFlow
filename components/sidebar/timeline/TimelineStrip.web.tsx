@@ -111,14 +111,26 @@ export default function TimelineStrip({
     lateTasks.length > 0 ? `${lateTasks.length} task${lateTasks.length === 1 ? '' : 's'} overdue` : null,
     lateProjects.length > 0 ? `${lateProjects.length} project${lateProjects.length === 1 ? '' : 's'} overdue` : null,
   ].filter(Boolean).join(' · ');
+  const accessibleLabel = isEmpty
+    ? 'No upcoming deadlines — open the deadlines calendar'
+    : `${lateSummary ? `${lateSummary}. ` : ''}Upcoming deadlines — open the deadlines calendar`;
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault();
+      onPress?.();
+    }
+  };
 
   return (
     <div
       data-tf-strip
-      aria-label={isEmpty ? 'No upcoming deadlines' : undefined}
+      role="button"
+      tabIndex={0}
+      aria-label={accessibleLabel}
       title={isEmpty ? 'No upcoming deadlines' : undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      onKeyDown={handleKeyDown}
       onClick={() => onPress?.()}
       style={{
         position: 'relative',

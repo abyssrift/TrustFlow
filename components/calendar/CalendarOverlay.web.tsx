@@ -3,7 +3,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { rangeKeysBetween } from '@/lib/calendarRange';
 import { toastError } from '@/lib/toast';
 import { positionTooltip } from '@/lib/tooltipPosition';
-import { fetchCompletedTasks, fetchDeadlineTasks, fetchUnscheduledTasks, subscribeDeadlineChanges, type CompletedTask, type UnscheduledTask, type UpcomingTask } from '@/hooks/useUpcomingTasks';
+import { fetchCompletedTasks, fetchDeadlineProjects, fetchDeadlineTasks, fetchUnscheduledTasks, subscribeDeadlineChanges, type CompletedTask, type ProjectDeadline, type UnscheduledTask, type UpcomingTask } from '@/hooks/useUpcomingTasks';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -73,6 +73,7 @@ export default function CalendarOverlay({
 
   const [monthAnchor, setMonthAnchor] = useState(() => startOfMonth(new Date()));
   const [monthTasks, setMonthTasks] = useState<UpcomingTask[]>([]);
+  const [monthProjects, setMonthProjects] = useState<ProjectDeadline[]>([]);
   const [unscheduledTasks, setUnscheduledTasks] = useState<UnscheduledTask[]>([]);
   const [hiddenStages, setHiddenStages] = useState<Set<string>>(new Set());
   const [showCompleted, setShowCompleted] = useState(false);
@@ -209,12 +210,22 @@ export default function CalendarOverlay({
     const requestId = ++monthRequestId.current;
     try {
       const nextMonthStart = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 1);
-      const mapped = await fetchDeadlineTasks(userId, {
-        gte: monthAnchor.toISOString(),
-        lt: nextMonthStart.toISOString(),
-        rawLimit: 500,
-      });
-      if (requestId === monthRequestId.current) setMonthTasks(mapped);
+      const [mapped, projects] = await Promise.all([
+        fetchDeadlineTasks(userId, {
+          gte: monthAnchor.toISOString(),
+          lt: nextMonthStart.toISOString(),
+          rawLimit: 500,
+        }),
+        fetchDeadlineProjects().catch(() => [] as ProjectDeadline[]),
+      ]);
+      if (requestId === monthRequestId.current) {
+        setMonthTasks(mapped);
+        setMonthProjects(projects.filter((project) => {
+          if (project.done || !project.dueDate) return false;
+          const due = new Date(project.dueDate);
+          return due >= monthAnchor && due < nextMonthStart;
+        }));
+      }
     } catch {
       // keep stale data on error
     }
@@ -301,6 +312,15 @@ export default function CalendarOverlay({
     const list = tasksByDay.get(key) || [];
     list.push(t);
     tasksByDay.set(key, list);
+  }
+
+  const projectsByDay = new Map<string, ProjectDeadline[]>();
+  for (const project of monthProjects) {
+    if (!project.dueDate) continue;
+    const key = toKey(new Date(project.dueDate));
+    const list = projectsByDay.get(key) || [];
+    list.push(project);
+    projectsByDay.set(key, list);
   }
 
   const completedByDay = new Map<string, CompletedTask[]>();
@@ -519,14 +539,18 @@ export default function CalendarOverlay({
                   const isWeekend = d.getDay() === 0 || d.getDay() === 6;
                   const dayTasksAll = tasksByDay.get(key) || [];
                   const dayTasks = dayTasksAll.filter((t) => !hiddenStages.has(t.stageName));
+                  const dayProjects = projectsByDay.get(key) || [];
                   const dayCompletedAll = completedByDay.get(key) || [];
                   const dayCompleted = dayCompletedAll.filter((t) => !hiddenStages.has(t.stageName));
                   const combined = [
                     ...dayTasks.map((t) => ({ id: t.id, title: t.title, color: t.stageColor, kind: 'due' as const })),
+                    ...dayProjects.map((project) => ({ id: project.id, title: project.name, color: project.color || colors.primary, kind: 'project' as const })),
                     ...dayCompleted.map((t) => ({ id: t.id, title: t.title, color: t.stageColor, kind: (t.archived ? 'archived' : 'completed') as 'archived' | 'completed' })),
                   ];
                   const chips = combined.slice(0, MAX_CHIPS);
                   const extra = combined.length - chips.length;
+                  const hiddenLabels = combined.slice(MAX_CHIPS).map((t) => `${t.kind === 'project' ? 'Project' : t.kind === 'archived' ? 'Archived task' : t.kind === 'completed' ? 'Completed task' : 'Task'}: ${t.title}`);
+                  const overflowLabel = `${extra} more deadline${extra === 1 ? '' : 's'}: ${hiddenLabels.join(', ')}`;
                   const inRange = rangeKeySet.has(key);
                   const isEndpoint = key === rangeAnchor || (pinned && key === rangeEnd);
                   return (
@@ -557,8 +581,17 @@ export default function CalendarOverlay({
                       {chips.map((t) => (
                         <div
                           key={`${t.kind}-${t.id}`}
-                          title={t.kind === 'archived' ? `${t.title} (archived)` : t.title}
-                          onClick={t.kind !== 'archived' ? (e) => { e.stopPropagation(); goToTask(t.id); } : (e) => e.stopPropagation()}
+                          title={t.kind === 'archived' ? `${t.title} (archived)` : t.kind === 'project' ? `Project due: ${t.title}` : `Task due: ${t.title}`}
+                          aria-label={t.kind === 'project' ? `Project due: ${t.title}` : t.kind === 'archived' ? `${t.title} (archived)` : `Task due: ${t.title}`}
+                          role={t.kind === 'archived' ? undefined : 'button'}
+                          tabIndex={t.kind === 'archived' ? undefined : 0}
+                          onClick={t.kind !== 'archived' ? (e) => { e.stopPropagation(); t.kind === 'project' ? router.push(`/projects/${t.id}` as any) : goToTask(t.id); } : (e) => e.stopPropagation()}
+                          onKeyDown={t.kind !== 'archived' ? (e) => {
+                            if (e.key !== 'Enter' && e.key !== ' ') return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            t.kind === 'project' ? router.push(`/projects/${t.id}` as any) : goToTask(t.id);
+                          } : undefined}
                           style={{
                             fontSize: 11,
                             color: colors.textMain,
@@ -571,15 +604,16 @@ export default function CalendarOverlay({
                             textOverflow: 'ellipsis',
                             cursor: t.kind !== 'archived' ? 'pointer' : 'default',
                             boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
-                            opacity: t.kind === 'due' ? 1 : 0.65,
+                            opacity: t.kind === 'due' || t.kind === 'project' ? 1 : 0.65,
                           }}
                         >
-                          {t.kind !== 'due' && (t.kind === 'archived' ? '\u{1F4E6} ' : '✓ ')}{t.title}
+                          {t.kind !== 'due' && (t.kind === 'archived' ? '\u{1F4E6} ' : t.kind === 'project' ? '◆ ' : '✓ ')}{t.title}
                         </div>
                       ))}
                       {extra > 0 && (
                         <span
-                          title={combined.slice(MAX_CHIPS).map((t) => t.title).join('\n')}
+                          title={overflowLabel}
+                          aria-label={overflowLabel}
                           style={{ fontSize: 10, fontWeight: 700, color: colors.textDim, padding: '0 5px' }}
                         >
                           +{extra} more

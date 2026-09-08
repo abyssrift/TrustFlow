@@ -303,11 +303,11 @@ export function subscribeDeadlineChanges(onChange: () => void): () => void {
 }
 
 /**
- * `withProjects` is opt-in rather than always-on: the desktop ribbon draws
- * projects and portfolios, the mobile Deadlines screen does not, and there is
- * no reason to spend a query on rows a caller will never render. Both halves
- * share ONE refresh cycle (poll, window focus, AppState, realtime) so the two
- * strata of the same picture can never be refreshed out of step with each other.
+ * `withProjects` is opt-in rather than always-on: surfaces that render project
+ * deadlines opt in, while callers that only need personal tasks avoid the
+ * extra reader. Both halves share ONE refresh cycle (poll, window focus,
+ * AppState, realtime) so the two strata of the same picture can never be
+ * refreshed out of step with each other.
  */
 export function useUpcomingTasks({
   withProjects = false,
