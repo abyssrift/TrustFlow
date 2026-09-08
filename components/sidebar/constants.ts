@@ -120,11 +120,6 @@ export const SHORTCUTS: Shortcut[] = [
 // top-level page, so a search for the concept ("compare", "rbac", "pdf") lands
 // the right screen even though it has no rail entry of its own. This is the ONE
 // place sub-destinations are declared for the palette.
-//
-// ponytail: `_IntelligenceDesktopLayout.tsx` NAV and `app/(tabs)/menu.tsx`
-// MENU_ITEMS still keep their own copies of these routes. They should
-// eventually import label/href/icon/permission from here — not refactored now,
-// just flagged so the next person touching either one folds them in.
 export type PaletteDestination = {
   id: string;
   label: string;

@@ -2,7 +2,28 @@
 // No framework (ponytail): plain asserts. Covers keyword match, permission
 // gating, href dedupe, and the empty-query case.
 import assert from 'node:assert';
-import { fuzzyMatch, matchDestinations, PALETTE_DESTINATIONS } from './constants';
+import { fuzzyMatch, matchDestinations, PALETTE_DESTINATIONS, SHORTCUTS } from './constants';
+
+const destinationById = (id: string) => {
+  const destination = PALETTE_DESTINATIONS.find((item) => item.id === id);
+  assert.ok(destination, `missing palette destination: ${id}`);
+  return destination;
+};
+
+// Canonical metadata is consumed by both desktop and mobile navigation.
+assert.deepEqual(
+  { label: destinationById('intel-targets').label, icon: destinationById('intel-targets').icon, permission: destinationById('intel-targets').permission },
+  { label: 'Targets', icon: 'bullseye', permission: 'target.view' },
+);
+assert.deepEqual(
+  { label: destinationById('intel-archives').label, icon: destinationById('intel-archives').icon, permission: destinationById('intel-archives').permission },
+  { label: 'Cold Storage', icon: 'archive', permission: 'archive.view' },
+);
+assert.deepEqual(
+  { label: destinationById('intel-analytics').label, icon: destinationById('intel-analytics').icon, permission: destinationById('intel-analytics').permission },
+  { label: 'Analytics', icon: 'bar-chart', permission: 'analytics.view' },
+);
+assert.ok(SHORTCUTS.some((shortcut) => shortcut.id === 'radar' && shortcut.anyPermissions?.includes('target.view')));
 
 const owner = { hasPermission: () => true, isOwner: true, isMobile: false };
 const nobody = { hasPermission: () => false, isOwner: false, isMobile: false };

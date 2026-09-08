@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { AnalyticsLimits, getAnalyticsLimits, requiredPlan } from '@/lib/planLimits';
+import { PALETTE_DESTINATIONS, type PaletteDestination } from '@/components/sidebar/constants';
 import { FontAwesome } from '@expo/vector-icons';
 import { Link, Slot, usePathname } from 'expo-router';
 import React from 'react';
@@ -19,13 +20,24 @@ type NavItem = {
   planFeature?: keyof AnalyticsLimits;
 };
 
+const requirePaletteDestination = (id: string): PaletteDestination => {
+  const destination = PALETTE_DESTINATIONS.find((item) => item.id === id);
+  if (!destination) throw new Error(`Missing palette destination: ${id}`);
+  return destination;
+};
+
 const NAV: NavItem[] = [
-  { href: '/intelligence',                   label: 'Overview',         icon: 'th-large',   exact: true, anyPermissions: INTELLIGENCE_PERMISSIONS },
-  { href: '/intelligence/graphs',            label: 'Performance',      icon: 'line-chart',  permission: 'analytics.view' },
-  { href: '/intelligence/targets',           label: 'Targets',          icon: 'bullseye',    permission: 'target.view' },
-  { href: '/intelligence/reports',           label: 'Reports',          icon: 'file-pdf-o',  permission: 'report.view',    planFeature: 'reports' },
-  { href: '/intelligence/analytics',         label: 'Analytics',        icon: 'bar-chart',   permission: 'analytics.view' },
-  { href: '/intelligence/archives',          label: 'Cold Storage',     icon: 'archive',     permission: 'archive.view' },
+  { href: '/intelligence', label: 'Overview', icon: 'th-large', exact: true, anyPermissions: INTELLIGENCE_PERMISSIONS },
+  ...['intel-performance', 'intel-targets', 'intel-reports', 'intel-analytics', 'intel-archives'].map((id): NavItem => {
+    const destination = requirePaletteDestination(id);
+    return {
+      href: destination.href,
+      label: destination.label,
+      icon: destination.icon,
+      permission: destination.permission,
+      planFeature: destination.id === 'intel-reports' ? 'reports' : undefined,
+    };
+  }),
 ];
 
 function planBadgeLabel(planCode: string): string {

@@ -3,6 +3,7 @@ import { useIsPlatformAdmin } from '@/components/platform-admin/useControlPlaneD
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import { PALETTE_DESTINATIONS, SHORTCUTS, type PaletteDestination, type Shortcut } from '@/components/sidebar/constants';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Link, useLocalSearchParams, usePathname } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -10,30 +11,22 @@ import { Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type IconName = React.ComponentProps<typeof FontAwesome>['name'];
+type MenuEntry = Shortcut | PaletteDestination;
 
-type Shortcut = {
-  id: string;
-  permissionKey: string;
-  fallbackPermissionKey?: string;
-  icon: IconName;
-  label: string;
-  href: string;
+const MOBILE_ENTRY_IDS = [
+  'search', 'deadlines', 'projects', 'portfolios', 'radar',
+  'intel-targets', 'intel-archives', 'filehub', 'intel-analytics', 'team',
+] as const;
+
+const requireMenuEntry = (id: string): MenuEntry => {
+  const topLevel = SHORTCUTS.find((item) => item.id === id);
+  if (topLevel) return topLevel;
+  const destination = PALETTE_DESTINATIONS.find((item) => item.id === id);
+  if (destination) return destination;
+  throw new Error(`Missing mobile menu registry entry: ${id}`);
 };
 
-const SHORTCUTS: Shortcut[] = [
-  { id: 'search', permissionKey: '', icon: 'search', label: 'Search', href: '/search' },
-  { id: 'deadlines', permissionKey: '', icon: 'calendar-o', label: 'Deadlines', href: '/deadlines' },
-  { id: 'projects', permissionKey: 'project.view', icon: 'folder-o', label: 'Projects', href: '/projects' },
-  // Same glyph as components/entities/EntityUI.tsx's canonical portfolio icon
-  // (ENTITY_META.portfolio.icon), same gate as the server (project.view).
-  { id: 'portfolios', permissionKey: 'project.view', icon: 'cubes', label: 'Portfolios', href: '/portfolios' },
-  { id: 'radar', permissionKey: 'report.view', icon: 'bullseye', label: 'Intelligence', href: '/intelligence' },
-  { id: 'targets', permissionKey: 'target.view', icon: 'crosshairs', label: 'Targets', href: '/intelligence/targets' },
-  { id: 'archives', permissionKey: 'archive.view', icon: 'archive', label: 'Archives', href: '/intelligence/archives' },
-  { id: 'filehub', permissionKey: 'filehub:view', icon: 'folder-open-o', label: 'File Hub', href: '/filehub' },
-  { id: 'analytics', permissionKey: 'report.view', icon: 'bar-chart', label: 'Analytics', href: '/intelligence/analytics' },
-  { id: 'team', permissionKey: 'user.view_all', fallbackPermissionKey: 'role.manage', icon: 'briefcase', label: 'Corporate', href: '/people?section=teams' },
-];
+const MENU_ENTRIES = MOBILE_ENTRY_IDS.map(requireMenuEntry);
 
 const displayNameFromSession = (session: any) => {
   return session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || session?.user?.email || 'Profile';
@@ -61,13 +54,15 @@ export default function MenuScreen() {
 
   const visibleShortcuts = useMemo(
     () =>
-      SHORTCUTS.filter(
+      MENU_ENTRIES.filter(
         (s) =>
           s.id === 'filehub' ||
           s.id === 'search' ||
           s.id === 'deadlines' ||
-          hasPermission(s.permissionKey) ||
-          (!!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
+          ('anyPermissions' in s && s.anyPermissions?.some((permission) => hasPermission(permission))) ||
+          ('permissionKey' in s && !!s.permissionKey && hasPermission(s.permissionKey)) ||
+          ('permission' in s && !!s.permission && hasPermission(s.permission)) ||
+          ('fallbackPermissionKey' in s && !!s.fallbackPermissionKey && hasPermission(s.fallbackPermissionKey))
       ),
     [hasPermission]
   );
