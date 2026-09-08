@@ -28,6 +28,7 @@ import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { TimerProvider } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { TaskFilePasteProvider } from '@/contexts/TaskFilePasteContext';
+import { StageEvidenceDraftProvider } from '@/contexts/StageEvidenceDraftContext';
 import { UndoActionProvider } from '@/contexts/UndoActionContext';
 import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
 import { PingHighlightProvider } from '@/contexts/PingHighlightContext';
@@ -153,15 +154,17 @@ function RootLayoutNav() {
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />
             </View>
-            <TaskFilePasteProvider key={pathname}>
-              {showSidebar ? (
-                <Sidebar>
+            <StageEvidenceDraftProvider key={pathname}>
+              <TaskFilePasteProvider key={pathname}>
+                {showSidebar ? (
+                  <Sidebar>
+                    <Slot />
+                  </Sidebar>
+                ) : (
                   <Slot />
-                </Sidebar>
-              ) : (
-                <Slot />
-              )}
-            </TaskFilePasteProvider>
+                )}
+              </TaskFilePasteProvider>
+            </StageEvidenceDraftProvider>
           </View>
           </ModalDispatchProvider>
           </PingHighlightProvider>

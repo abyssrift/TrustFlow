@@ -14,6 +14,7 @@ import LockIndicator from '@/components/task-detail/LockIndicator';
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubmission } from '@/contexts/SubmissionContext';
+import { useStageEvidenceDraft } from '@/contexts/StageEvidenceDraftContext';
 import { useTaskDetail, type DeletedSubmissionData, type StageActionData, type SubmissionData, type SubmissionVersionData } from '@/contexts/TaskDetailContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useFileViewer } from '@/hooks/useFileViewer';
@@ -377,9 +378,7 @@ export default function StageActions() {
   // instead — same breakpoint the island itself is gated on.
   const isDesktopWeb = Platform.OS === 'web' && width >= 768;
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
-  const [submissionContent, setSubmissionContent] = useState('');
-  const [stagedFiles, setStagedFiles] = useState<any[]>([]);
-  useStagedFileLifecycle(stagedFiles);
+  const { submissionContent, setSubmissionContent, stagedFiles, setStagedFiles, clearDraft } = useStageEvidenceDraft();
   const [busy, setBusy] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<{ title: string; message: string; variant?: 'danger' | 'warning' } | null>(null);
   const [showManualTimeModal, setShowManualTimeModal] = useState(false);
@@ -700,7 +699,7 @@ export default function StageActions() {
 
       if (descriptor.executionRoute === 'submit_work') {
         const content = submissionContent.trim();
-        await submitWithEvidence({
+        const submitted = await submitWithEvidence({
           taskId: data.task.id,
           taskTitle: data.task.title,
           companyId: data.task.company_id,
@@ -709,8 +708,7 @@ export default function StageActions() {
           stagedFiles
         });
 
-        setSubmissionContent('');
-        setStagedFiles([]);
+        if (submitted) clearDraft();
         return;
       }
 
@@ -756,8 +754,9 @@ export default function StageActions() {
         await stopWork();
       }
 
+      let submitted = false;
       if (submitAction) {
-        await submitWithEvidence({
+        submitted = await submitWithEvidence({
           taskId: data.task.id,
           taskTitle: data.task.title,
           companyId: data.task.company_id,
@@ -766,7 +765,7 @@ export default function StageActions() {
           stagedFiles,
         });
       } else {
-        await submitWithEvidence({
+        submitted = await submitWithEvidence({
           taskId: data.task.id,
           taskTitle: data.task.title,
           companyId: data.task.company_id,
@@ -776,8 +775,7 @@ export default function StageActions() {
         });
       }
 
-      setSubmissionContent('');
-      setStagedFiles([]);
+      if (submitted) clearDraft();
     } finally {
       setLoadingActionId(null);
     }

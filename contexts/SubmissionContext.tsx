@@ -25,7 +25,7 @@ type SubmissionContextType = {
     content: string;
     transitionId?: string | null;
     stagedFiles: any[];
-  }) => Promise<void>;
+  }) => Promise<boolean>;
   editSubmission: (submissionId: string, params: {
     taskId: string;
     taskTitle: string;
@@ -173,7 +173,7 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
     content: string;
     transitionId?: string | null;
     stagedFiles: any[];
-  }) => {
+  }): Promise<boolean> => {
     if (!user) throw new Error('Auth required');
 
     taskFlowDebug('submission.submitWithEvidence:start', {
@@ -242,6 +242,8 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
       // Auto-clear after 4 seconds for better user visibility
       setTimeout(() => clearJob(taskId), 4000);
 
+      return true;
+
     } catch (err: any) {
       taskFlowError('submission.submitWithEvidence:error', err, {
         taskId,
@@ -272,6 +274,7 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
         currentAction: 'Failed to submit evidence'
       });
       showAlert('Submission Failed', `Task: ${taskTitle}\nError: ${displayMessage}`);
+      return false;
     }
   };
 
