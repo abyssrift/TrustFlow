@@ -12,7 +12,7 @@ assert.match(web, /stagedFiles: \[\]/);
 assert.match(native, /useState<PastedFile\[\]>\(\[\]\)/);
 assert.match(native, /useStagedFileLifecycle\(stagedFiles\)/);
 assert.match(native, /return <>{children}<\/>/);
-assert.match(layout, /<StageEvidenceDraftProvider key=\{pathname\}>[\s\S]*?<TaskFilePasteProvider key=\{pathname\}>/);
+assert.match(layout, /<StageEvidenceDraftProvider scopeKey=\{pathname\}>[\s\S]*?<TaskFilePasteProvider scopeKey=\{pathname\}>/);
 assert.doesNotMatch(web, /AsyncStorage|localStorage|submitWithEvidence|upload/);
 
 console.log('StageEvidenceDraftContext.check: all assertions passed');
