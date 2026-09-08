@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
+import Block from '@/components/common/Block';
 import ConfirmModal from '@/components/common/ConfirmModal';
 
 type PlanLimits = {
@@ -55,7 +56,7 @@ export default function BillingPanel() {
   const { profile, hasPermission } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
   const { width } = useWindowDimensions();
-  const isWide = Platform.OS === 'web' && width >= 1024;
+  const isWide = Platform.OS === 'web' && width >= 768;
 
   const canManage = !!profile?.is_owner || hasPermission('company.billing');
 
@@ -115,6 +116,7 @@ export default function BillingPanel() {
     return (
       <View className="flex-1 items-center justify-center p-10">
         <ActivityIndicator color={colors.primary} />
+        <Text className="text-typography-muted text-sm mt-3">Loading billing details…</Text>
       </View>
     );
   }
@@ -270,9 +272,11 @@ export default function BillingPanel() {
 
         {/* Current plan */}
         {billing && (
-          <View className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-6">
-            <View className="flex-row items-center justify-between mb-4">
-              <View className="flex-1 mr-3">
+          <Block
+            className="mb-6"
+          >
+            <View className="flex-row flex-wrap items-center justify-between gap-y-2 mb-4">
+              <View className="flex-1 min-w-[160px] mr-3">
                 <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest">Current plan</Text>
                 <Text className="text-typography-main text-xl font-black mt-0.5">{currentPlan?.name || billing.plan_code}</Text>
               </View>
@@ -358,37 +362,43 @@ export default function BillingPanel() {
               <View className="mt-4">
                 <TouchableOpacity
                   onPress={() => setShowRedeemCode(v => !v)}
-                  className="flex-row items-center justify-center gap-2 border border-brand-primary/30 bg-brand-primary/5 rounded-xl py-2.5"
+                  accessibilityRole="button"
+                  accessibilityLabel="Redeem a trial code"
+                  accessibilityState={{ expanded: showRedeemCode }}
+                  className="min-h-11 flex-row items-center justify-center gap-2 border border-brand-primary/30 bg-brand-primary/5 rounded-xl px-3"
                 >
                   <FontAwesome name="gift" size={12} color={colors.primary} />
                   <Text className="text-brand-primary font-black text-xs uppercase tracking-widest">Redeem a Trial Code</Text>
                   <FontAwesome name={showRedeemCode ? 'chevron-up' : 'chevron-down'} size={9} color={colors.primary} />
                 </TouchableOpacity>
                 {showRedeemCode && (
-                  <View className="mt-3 flex-row gap-2">
+                  <View className="mt-3 flex-row flex-wrap items-center gap-2">
                     <TextInput
                       value={trialCode}
                       onChangeText={setTrialCode}
                       placeholder="TF-PRO-3M-XXXX"
                       placeholderTextColor={colors.textMuted}
                       autoCapitalize="characters"
-                      className="flex-1 bg-surface-background border border-surface-border rounded-xl px-3 py-2.5 text-typography-main text-sm"
+                      accessibilityLabel="Trial code"
+                      className="min-h-11 flex-1 min-w-[180px] bg-surface-background border border-surface-border rounded-xl px-3 text-typography-main text-sm"
                     />
                     <TouchableOpacity
                       onPress={handleRedeemCode}
                       disabled={redeemLoading || !trialCode.trim()}
-                      className="bg-brand-primary px-4 py-2.5 rounded-xl items-center justify-center"
-                      style={{ opacity: (redeemLoading || !trialCode.trim()) ? 0.5 : 1 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={redeemLoading ? 'Activating trial code' : 'Activate trial code'}
+                      accessibilityState={{ disabled: redeemLoading || !trialCode.trim(), busy: redeemLoading }}
+                      className={`min-h-11 px-4 rounded-xl items-center justify-center ${redeemLoading || !trialCode.trim() ? 'bg-surface-background border border-surface-border' : 'bg-brand-primary'}`}
                     >
-                      <Text className="text-white font-black text-xs uppercase tracking-widest">
-                        {redeemLoading ? '…' : 'Activate'}
+                      <Text className={`font-black text-xs uppercase tracking-widest ${redeemLoading || !trialCode.trim() ? 'text-typography-muted' : 'text-brand-on-primary'}`}>
+                        {redeemLoading ? 'Activating…' : 'Activate'}
                       </Text>
                     </TouchableOpacity>
                   </View>
                 )}
               </View>
             )}
-          </View>
+          </Block>
         )}
 
         {/* Section divider */}
@@ -406,7 +416,7 @@ export default function BillingPanel() {
             return (
               <View
                 key={p.code}
-                className={`bg-surface-card border rounded-2xl p-5 ${isCurrent ? 'border-brand-primary' : 'border-surface-border'} ${isWide ? 'grow basis-60 min-w-[240px] max-w-[360px]' : ''}`}
+                className={`bg-surface-card border rounded-2xl p-5 ${isCurrent ? 'border-brand-primary' : 'border-surface-border'} ${isWide ? 'flex-1 min-w-[240px]' : ''}`}
               >
                 <View className="flex-row items-start justify-between mb-2">
                   <View className="flex-1 mr-3">
@@ -477,7 +487,10 @@ export default function BillingPanel() {
                 <TouchableOpacity
                   onPress={() => handleChoose(p)}
                   disabled={isCurrent || working === p.code}
-                  className={`py-3.5 rounded-xl items-center ${isCurrent ? 'bg-surface-background border border-surface-border' : 'bg-brand-primary'} ${isWide ? 'mt-auto' : ''}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={isCurrent ? `${p.name} is the current plan` : `Choose ${p.name} plan`}
+                  accessibilityState={{ disabled: isCurrent || working === p.code, busy: working === p.code }}
+                  className={`min-h-11 px-4 rounded-xl items-center justify-center ${isCurrent ? 'bg-surface-background border border-surface-border' : 'bg-brand-primary'} ${isWide ? 'mt-auto' : ''}`}
                 >
                   <Text className={`font-black text-[11px] uppercase tracking-widest ${isCurrent ? 'text-typography-muted' : 'text-white'}`}>
                     {working === p.code ? 'Working…'

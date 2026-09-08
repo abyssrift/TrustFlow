@@ -7,6 +7,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { saveBytes } from '@/lib/fileTransfer';
 import { buildExportRows, fetchExportTasks, TASK_COLUMNS, type SpreadsheetFormat } from '@/lib/taskMobility';
+import Block from '@/components/common/Block';
 import {
   buildProjectExportRows,
   buildTimeTrackingExportRows,
@@ -18,6 +19,7 @@ import {
 } from '@/lib/companyExport';
 
 type EntityKey = 'tasks' | 'projects' | 'sessions';
+type ExportStatus = { kind: 'progress' | 'success' | 'info' | 'error'; message: string };
 
 const MIME: Record<SpreadsheetFormat, string> = {
   csv: 'text/csv;charset=utf-8;',
@@ -82,7 +84,7 @@ export default function DataExportPanel() {
   const { profile, hasPermission } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
   const { width } = useWindowDimensions();
-  const isWide = Platform.OS === 'web' && width >= 1024;
+  const isWide = Platform.OS === 'web' && width >= 768;
 
   const canManage = !!profile?.is_owner || hasPermission('company.settings') || hasPermission('data.export');
 
@@ -90,18 +92,25 @@ export default function DataExportPanel() {
   const [loadingCounts, setLoadingCounts] = useState(true);
   const [counts, setCounts] = useState({ tasks: 0, projects: 0, sessions: 0 });
   const [busyKey, setBusyKey] = useState<EntityKey | 'all' | null>(null);
+  const [countError, setCountError] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<ExportStatus | null>(null);
 
   const loadCounts = useCallback(async () => {
     setLoadingCounts(true);
+    setCountError(null);
     try {
       const [t, p, s] = await Promise.all([
         supabase.from('tasks').select('id', { count: 'exact', head: true }).is('deleted_at', null),
         supabase.from('projects').select('id', { count: 'exact', head: true }).is('deleted_at', null),
         supabase.from('task_work_sessions').select('id', { count: 'exact', head: true }),
       ]);
+      const failed = [t, p, s].find(result => result.error);
+      if (failed?.error) throw failed.error;
       setCounts({ tasks: t.count ?? 0, projects: p.count ?? 0, sessions: s.count ?? 0 });
     } catch (e: any) {
-      errorToast(e?.message || 'Could not load export counts.');
+      console.error('[DataExport] count load failed', e);
+      setCountError('Could not load export counts.');
+      errorToast('Could not load export counts.');
     } finally {
       setLoadingCounts(false);
     }
@@ -124,6 +133,7 @@ export default function DataExportPanel() {
 
   const handleExportEntity = async (key: EntityKey, label: string) => {
     setBusyKey(key);
+    setExportStatus({ kind: 'progress', message: `Preparing ${label} export…` });
     try {
       let rows: Record<string, any>[];
       let columns: readonly string[];
@@ -140,22 +150,28 @@ export default function DataExportPanel() {
 
       if (rows.length === 0) {
         infoToast(`No ${label.toLowerCase()} to export.`);
+        setExportStatus({ kind: 'info', message: `No ${label.toLowerCase()} available to export.` });
         return;
       }
 
+      setExportStatus({ kind: 'progress', message: `Building ${label} workbook…` });
       const bytes = await sheetsToWorkbookBytes([{ name: label, rows, columns }], format);
+      setExportStatus({ kind: 'progress', message: 'Starting download…' });
       const saved = await saveBytes(`${key}_export_${stamp()}.${format}`, bytes, MIME[format]);
       if (saved) {
         successToast(
-          Platform.OS === 'web' ? `Exported ${rows.length} ${label.toLowerCase()}.` : `Exported ${rows.length} ${label.toLowerCase()} to ${saved}`,
+          Platform.OS === 'web' ? `Download started with ${rows.length} ${label.toLowerCase()} row${rows.length === 1 ? '' : 's'}.` : `Exported ${rows.length} ${label.toLowerCase()} row${rows.length === 1 ? '' : 's'} to ${saved}`,
           'Export complete'
         );
+        setExportStatus({ kind: 'success', message: `${label} download started · ${rows.length} row${rows.length === 1 ? '' : 's'}` });
       } else {
         errorToast('Could not save the export file.');
+        setExportStatus({ kind: 'error', message: 'Download could not be started.' });
       }
     } catch (e: any) {
       console.error('[DataExport] entity export failed', e);
-      errorToast(e?.message || 'Export failed.');
+      errorToast('Export failed.');
+      setExportStatus({ kind: 'error', message: 'Export failed.' });
     } finally {
       setBusyKey(null);
     }
@@ -163,8 +179,16 @@ export default function DataExportPanel() {
 
   const handleExportAll = async () => {
     setBusyKey('all');
+    setExportStatus({ kind: 'progress', message: 'Preparing company export…' });
     try {
       const [tasks, projects, sessions] = await Promise.all([fetchExportTasks(), fetchExportProjects(), fetchExportSessions()]);
+      const totalRows = tasks.length + projects.length + sessions.length;
+      if (totalRows === 0) {
+        infoToast('No company data to export.');
+        setExportStatus({ kind: 'info', message: 'No company data available to export.' });
+        return;
+      }
+      setExportStatus({ kind: 'progress', message: 'Building company workbook…' });
       const bytes = await sheetsToWorkbookBytes(
         [
           { name: 'Tasks', rows: buildExportRows(tasks), columns: TASK_COLUMNS },
@@ -173,15 +197,19 @@ export default function DataExportPanel() {
         ],
         'xlsx'
       );
+      setExportStatus({ kind: 'progress', message: 'Starting download…' });
       const saved = await saveBytes(`company_export_${stamp()}.xlsx`, bytes, MIME.xlsx);
       if (saved) {
-        successToast(Platform.OS === 'web' ? 'Exported all company data.' : `Exported all company data to ${saved}`, 'Export complete');
+        successToast(Platform.OS === 'web' ? `Download started with ${totalRows} rows across 3 sheets.` : `Exported ${totalRows} rows across 3 sheets to ${saved}`, 'Export complete');
+        setExportStatus({ kind: 'success', message: `Company download started · ${totalRows} total rows` });
       } else {
         errorToast('Could not save the export file.');
+        setExportStatus({ kind: 'error', message: 'Download could not be started.' });
       }
     } catch (e: any) {
       console.error('[DataExport] export all failed', e);
-      errorToast(e?.message || 'Export failed.');
+      errorToast('Export failed.');
+      setExportStatus({ kind: 'error', message: 'Export failed.' });
     } finally {
       setBusyKey(null);
     }
@@ -206,6 +234,13 @@ export default function DataExportPanel() {
           </View>
         )}
 
+        {!!countError && (
+          <View className="mb-5 rounded-xl border border-state-danger bg-state-danger/10 p-4" accessibilityRole="alert">
+            <Text className="text-state-danger text-xs font-bold">{countError}</Text>
+            <Text className="text-typography-muted text-[11px] mt-1">You can still try an export; counts may be unavailable.</Text>
+          </View>
+        )}
+
         {/* Format toggle */}
         <View className="flex-row gap-2 mb-5">
           {(['xlsx', 'csv'] as SpreadsheetFormat[]).map(f => {
@@ -215,7 +250,10 @@ export default function DataExportPanel() {
                 key={f}
                 onPress={() => setFormat(f)}
                 disabled={busyKey !== null}
-                className={`flex-1 py-3 rounded-xl border items-center ${active ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-card'}`}
+                accessibilityRole="radio"
+                accessibilityLabel={`Export as ${f === 'xlsx' ? 'Excel workbook' : 'CSV file'}`}
+                accessibilityState={{ checked: active, disabled: busyKey !== null }}
+                className={`min-h-[44px] flex-1 py-3 rounded-xl border items-center justify-center ${active ? 'border-brand-primary bg-brand-primary/10' : 'border-surface-border bg-surface-card'}`}
               >
                 <Text className={`font-black text-xs uppercase tracking-widest ${active ? 'text-brand-primary' : 'text-typography-muted'}`}>
                   {f === 'xlsx' ? 'Excel (.xlsx)' : 'CSV (.csv)'}
@@ -226,9 +264,9 @@ export default function DataExportPanel() {
         </View>
 
         {/* Entity cards */}
-        <View className={isWide ? 'flex-row flex-wrap gap-3 mb-5' : 'gap-3 mb-5'}>
+        <View className={isWide ? 'flex-row flex-wrap gap-4 mb-5' : 'gap-3 mb-5'}>
           {entities.map(e => (
-            <View key={e.key} className={`bg-surface-card border border-surface-border rounded-2xl p-5 flex-row items-center ${isWide ? 'w-[32%]' : ''}`}>
+            <Block key={e.key} className={isWide ? 'flex-1 min-w-[300px]' : undefined} bodyClassName="flex-row items-center flex-1">
               <View className="w-11 h-11 rounded-xl bg-brand-primary/10 items-center justify-center mr-4">
                 <FontAwesome name={e.icon} size={16} color={colors.primary} />
               </View>
@@ -242,17 +280,27 @@ export default function DataExportPanel() {
               <TouchableOpacity
                 onPress={() => handleExportEntity(e.key, e.label)}
                 disabled={busyKey !== null || loadingCounts}
-                className="px-4 py-2.5 rounded-xl bg-brand-primary flex-row items-center gap-2"
+                accessibilityRole="button"
+                accessibilityLabel={`Export ${e.label}`}
+                accessibilityState={{ busy: busyKey === e.key, disabled: busyKey !== null || loadingCounts }}
+                className={`min-h-[44px] px-4 py-2.5 flex-row items-center gap-2 ${busyKey !== null || loadingCounts ? busyKey === e.key ? 'rounded-xl bg-brand-primary' : 'rounded-xl border border-surface-border bg-surface-background' : 'rounded-xl bg-brand-primary'}`}
               >
-                {busyKey === e.key ? <ActivityIndicator color="#fff" size="small" /> : <FontAwesome name="download" size={12} color="#fff" />}
-                <Text className="text-white font-black text-[10px] uppercase tracking-widest">Export</Text>
+                {busyKey === e.key ? <ActivityIndicator color={colors.background} size="small" /> : <FontAwesome name="download" size={12} color={busyKey !== null || loadingCounts ? colors.textMuted : colors.background} />}
+                <Text className={`${busyKey !== null || loadingCounts ? busyKey === e.key ? 'text-brand-on-primary' : 'text-typography-muted' : 'text-brand-on-primary'} font-black text-[10px] uppercase tracking-widest`}>{busyKey === e.key ? 'Exporting…' : 'Export'}</Text>
               </TouchableOpacity>
-            </View>
+            </Block>
           ))}
         </View>
 
+        {!loadingCounts && !countError && counts.tasks === 0 && counts.projects === 0 && counts.sessions === 0 && (
+          <View className="mb-5 rounded-xl border border-surface-border bg-surface-card p-4 flex-row items-center gap-3" accessibilityLiveRegion="polite">
+            <FontAwesome name="info-circle" size={16} color={colors.textMuted} />
+            <Text className="text-typography-muted text-xs flex-1">There is no company data to export yet. Create a task or project, or log time, and this panel will be ready.</Text>
+          </View>
+        )}
+
         {/* Export everything as one workbook */}
-        <View className={`bg-surface-card border border-surface-border rounded-2xl p-5 ${isWide ? 'max-w-2xl' : ''}`}>
+        <Block>
           <Text className="text-brand-primary text-[10px] font-black uppercase mb-2 tracking-widest">Everything, one file</Text>
           <Text className="text-typography-muted text-xs leading-5 mb-4">
             Bundle Tasks, Projects, and Time Tracking into a single Excel workbook with one sheet per entity.
@@ -260,12 +308,26 @@ export default function DataExportPanel() {
           <TouchableOpacity
             onPress={handleExportAll}
             disabled={busyKey !== null || loadingCounts}
-            className="bg-brand-primary py-4 rounded-xl items-center flex-row justify-center gap-2"
+            accessibilityRole="button"
+            accessibilityLabel="Export all company data as an Excel workbook"
+            accessibilityState={{ busy: busyKey === 'all', disabled: busyKey !== null || loadingCounts }}
+            className={`min-h-[48px] py-4 rounded-xl items-center flex-row justify-center gap-2 ${busyKey !== null || loadingCounts ? busyKey === 'all' ? 'bg-brand-primary' : 'border border-surface-border bg-surface-background' : 'bg-brand-primary'}`}
           >
-            {busyKey === 'all' ? <ActivityIndicator color="#fff" /> : <FontAwesome name="download" size={14} color="#fff" />}
-            <Text className="text-white font-black text-[11px] uppercase tracking-widest">Export All (.xlsx)</Text>
+            {busyKey === 'all' ? <ActivityIndicator color={colors.background} /> : <FontAwesome name="download" size={14} color={busyKey !== null || loadingCounts ? colors.textMuted : colors.background} />}
+            <Text className={`${busyKey !== null || loadingCounts ? busyKey === 'all' ? 'text-brand-on-primary' : 'text-typography-muted' : 'text-brand-on-primary'} font-black text-[11px] uppercase tracking-widest`}>{busyKey === 'all' ? 'Exporting…' : 'Export All (.xlsx)'}</Text>
           </TouchableOpacity>
-        </View>
+        </Block>
+        {!!exportStatus && (
+          <View className="mt-3 px-1 flex-row items-center gap-2" accessibilityLiveRegion="polite">
+            {exportStatus.kind === 'progress' && <ActivityIndicator size="small" color={colors.primary} />}
+            {exportStatus.kind === 'success' && <FontAwesome name="check-circle" size={13} color={colors.success} />}
+            {exportStatus.kind === 'info' && <FontAwesome name="info-circle" size={13} color={colors.info} />}
+            {exportStatus.kind === 'error' && <FontAwesome name="exclamation-circle" size={13} color={colors.danger} />}
+            <Text className={`text-[11px] font-semibold ${exportStatus.kind === 'success' ? 'text-state-success' : exportStatus.kind === 'error' ? 'text-state-danger' : exportStatus.kind === 'info' ? 'text-state-info' : 'text-typography-muted'}`}>
+              {exportStatus.message}
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </View>
   );

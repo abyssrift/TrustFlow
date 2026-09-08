@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, Modal, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Switch, useWindowDimensions, Platform } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -202,10 +202,10 @@ export default function RetentionPanel() {
         )}
 
         {/* Status + Policy — stacked on mobile, side-by-side on desktop */}
-        <View className={isWide ? 'flex-row items-start gap-5 mb-5' : ''}>
+        <View className={isWide ? 'flex-row items-stretch gap-6 mb-6' : 'gap-0'}>
         {/* Company status card */}
         {company && (
-          <Block className={isWide ? 'flex-1' : 'mb-5'}>
+          <Block className={isWide ? 'flex-1' : 'mb-6'} bodyClassName="flex-1">
             <View className="flex-row items-center justify-between mb-4">
               <Text className="text-typography-main font-black text-base flex-1 mr-3" numberOfLines={1}>{company.name}</Text>
               <View style={{ backgroundColor: `${statusColor}1A`, borderColor: `${statusColor}55` }} className="px-3 py-1 rounded-full border">
@@ -236,7 +236,7 @@ export default function RetentionPanel() {
 
         {/* Policy settings */}
         {form && (
-          <Block title="Policy" className={isWide ? 'flex-1' : 'mb-5'}>
+          <Block title="Policy" className={isWide ? 'flex-1' : 'mb-6'} bodyClassName="flex-1">
             <View className="flex-row flex-wrap gap-3 mb-4">
               {numField('Company inactivity', 'inactivity_days', 'days')}
               {numField('Warning lead time', 'warning_interval_days', 'days')}
@@ -273,11 +273,11 @@ export default function RetentionPanel() {
         <Block
           title="Inactive members"
           right={<Text className="text-typography-muted text-[10px] font-bold">{overview?.inactive_users.length || 0}</Text>}
-          className={`mb-5 ${isWide ? 'max-w-3xl' : ''}`}
+          className="w-full mb-6"
         >
 
           {(!overview || overview.inactive_users.length === 0) ? (
-            <View className="items-center py-8">
+            <View className="items-center py-5">
               <FontAwesome name="check-circle" size={28} color={colors.success} />
               <Text className="text-typography-muted text-xs mt-3">No members past the inactivity threshold.</Text>
             </View>
@@ -298,7 +298,9 @@ export default function RetentionPanel() {
                   ) : (
                     <TouchableOpacity
                       onPress={() => setPurgeTarget(u)}
-                      className="px-3 py-2 rounded-lg bg-state-danger/10 border border-state-danger/20 flex-row items-center gap-1.5"
+                      accessibilityRole="button"
+                      accessibilityLabel={`Purge ${u.full_name || u.email}`}
+                      className="min-h-[44px] px-3 py-2 rounded-lg bg-state-danger/10 border border-state-danger/20 flex-row items-center gap-1.5"
                     >
                       <FontAwesome name="trash-o" size={12} color={colors.danger} />
                       <Text style={{ color: colors.danger }} className="text-[10px] font-black uppercase tracking-widest">Purge</Text>
@@ -315,7 +317,7 @@ export default function RetentionPanel() {
           <Block
             title="Danger Zone"
             accent={colors.danger}
-            className={`bg-state-danger/5 ${isWide ? 'max-w-3xl' : ''}`}
+            className="w-full bg-state-danger/5"
           >
             <Text className="text-typography-muted text-xs leading-5 mb-4">
               Permanently delete this entire workspace and all of its data — tasks, files, members, pipelines and history. This cannot be undone.
@@ -343,41 +345,48 @@ export default function RetentionPanel() {
         onCancel={() => setPurgeTarget(null)}
       />
 
-      {/* Purge company — type-to-confirm (inline colors per RN Modal convention) */}
+      {/* Purge company — type-to-confirm */}
       {(() => {
         const purgeCompanyContent = (
-          <View style={{ padding: 24 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: `${colors.danger}1A`, alignItems: 'center', justifyContent: 'center' }}>
-                <FontAwesome name="exclamation-triangle" size={20} color={colors.danger} />
+          <View className="p-6">
+            <View className="flex-row items-center gap-3 mb-3.5">
+              <View className="w-11 h-11 rounded-xl bg-state-danger/10 items-center justify-center">
+                <FontAwesome name="exclamation-triangle" size={20} className="text-state-danger" />
               </View>
-              <Text style={{ color: colors.textMain, fontSize: 18, fontWeight: '900', flex: 1 }}>Purge entire workspace</Text>
+              <Text className="text-typography-main text-lg font-black flex-1">Purge entire workspace</Text>
             </View>
-            <Text style={{ color: colors.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 16 }}>
-              This permanently deletes <Text style={{ color: colors.textMain, fontWeight: '800' }}>{company?.name}</Text> and every record in it. To confirm, type the workspace name exactly.
+            <Text className="text-typography-muted text-[13px] leading-5 mb-4">
+              This permanently deletes <Text className="text-typography-main font-extrabold">{company?.name}</Text> and every record in it. To confirm, type the workspace name exactly.
             </Text>
             <TextInput
+              accessibilityLabel="Workspace name confirmation"
               value={confirmName}
               onChangeText={setConfirmName}
               placeholder={company?.name || 'Workspace name'}
               placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
-              style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, color: colors.textMain, fontWeight: '700', marginBottom: 20 }}
+              className="bg-surface-background border border-surface-border rounded-xl px-4 py-3.5 text-typography-main font-bold mb-5 min-h-[44px]"
             />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View className="flex-row gap-3">
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Cancel workspace purge"
+                accessibilityState={{ disabled: purgingCompany }}
                 onPress={() => setShowCompanyPurge(false)}
                 disabled={purgingCompany}
-                style={{ flex: 1, paddingVertical: 15, borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background, alignItems: 'center' }}
+                className="flex-1 min-h-[44px] rounded-xl border border-surface-border bg-surface-background items-center justify-center"
               >
-                <Text style={{ color: colors.textMuted, fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Cancel</Text>
+                <Text className="text-typography-muted font-black text-[11px] uppercase tracking-widest">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Purge workspace forever"
+                accessibilityState={{ disabled: purgingCompany || confirmName.trim() !== (company?.name || ''), busy: purgingCompany }}
                 onPress={handlePurgeCompany}
                 disabled={purgingCompany || confirmName.trim() !== (company?.name || '')}
-                style={{ flex: 2, paddingVertical: 15, borderRadius: 14, backgroundColor: colors.danger, alignItems: 'center', opacity: confirmName.trim() !== (company?.name || '') ? 0.5 : 1 }}
+                className={`flex-[2] min-h-[44px] rounded-xl items-center justify-center ${purgingCompany || confirmName.trim() === (company?.name || '') ? 'bg-state-danger' : 'bg-surface-background border border-surface-border'}`}
               >
-                <Text style={{ color: '#fff', fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <Text className={`font-black text-[11px] uppercase tracking-widest ${purgingCompany || confirmName.trim() === (company?.name || '') ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                   {purgingCompany ? 'Purging…' : 'Purge forever'}
                 </Text>
               </TouchableOpacity>
@@ -385,33 +394,19 @@ export default function RetentionPanel() {
           </View>
         );
 
-        if (Platform.OS === 'web') {
-          return (
+        return (
             <Popup
               visible={showCompanyPurge}
-              onClose={() => setShowCompanyPurge(false)}
-              presentation="centered"
+              onClose={() => !purgingCompany && setShowCompanyPurge(false)}
+              presentation="auto"
               dismissible={!purgingCompany}
               maxWidth={440}
-              containerClassName="overflow-hidden"
-              containerStyle={{ borderRadius: 24, borderWidth: 1, borderColor: `${colors.danger}55` }}
+              containerClassName="overflow-hidden rounded-3xl border-state-danger/30"
             >
               {purgeCompanyContent}
             </Popup>
           );
-        }
 
-        // TODO(#93-native): remove this branch once native is testable — see issue #93/#115.
-        // Old raw-Modal path preserved untouched so native behavior doesn't change yet.
-        return (
-          <Modal visible={showCompanyPurge} transparent animationType="fade" onRequestClose={() => !purgingCompany && setShowCompanyPurge(false)}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-              <View style={{ width: '100%', maxWidth: 440, backgroundColor: colors.card, borderRadius: 24, borderWidth: 1, borderColor: `${colors.danger}55`, overflow: 'hidden' }}>
-                {purgeCompanyContent}
-              </View>
-            </View>
-          </Modal>
-        );
       })()}
     </View>
   );

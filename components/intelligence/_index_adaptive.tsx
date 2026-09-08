@@ -1,5 +1,6 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import Popup from '@/components/common/Popup';
+import Block from '@/components/common/Block';
 import ReportGeneratorAdaptive from '@/components/intelligence/_ReportGenerator_adaptive';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
@@ -40,9 +41,12 @@ const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, on
           <TouchableOpacity
             key={s}
             onPress={() => onSelect(s.toLowerCase())}
-            className={`px-5 py-3 rounded-xl items-center ${active === s.toLowerCase() ? 'bg-brand-primary' : ''}`}
+            accessibilityRole="tab"
+            accessibilityLabel={`Show ${s}`}
+            accessibilityState={{ selected: active === s.toLowerCase() }}
+            className={`min-h-[44px] px-5 py-3 rounded-xl items-center justify-center ${active === s.toLowerCase() ? 'bg-brand-primary' : ''}`}
           >
-            <Text className={`font-bold text-xs ${active === s.toLowerCase() ? 'text-white' : 'text-typography-muted'}`}>
+            <Text className={`font-bold text-xs ${active === s.toLowerCase() ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
               {s}
             </Text>
           </TouchableOpacity>
@@ -124,8 +128,7 @@ const ConversionFunnelChart = ({ data }: any) => {
   if (groups.length === 0) return null;
 
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-5">Retention Funnel</Text>
+    <Block title="Retention Funnel" className="mb-6">
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 8 }}>
         {groups.map((g, gi) => (
           <View key={g.name + gi} style={{ width: 240 }} className="bg-surface-background rounded-2xl border border-surface-border/50 p-4">
@@ -158,7 +161,7 @@ const ConversionFunnelChart = ({ data }: any) => {
           </View>
         ))}
       </ScrollView>
-    </View>
+    </Block>
   );
 };
 
@@ -167,8 +170,7 @@ const WorkDistributionChart = ({ data }: any) => {
   if (!data?.worker_engagement) return null;
   const top = data.worker_engagement.sort((a: any, b: any) => b.action_count - a.action_count).slice(0, 5);
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-4">Operator Engagement</Text>
+    <Block title="Operator Engagement" className="mb-6">
       {top.map((w: any, idx: number) => {
         const max = top[0].action_count;
         const percentage = (w.action_count / (max || 1)) * 100;
@@ -195,7 +197,7 @@ const WorkDistributionChart = ({ data }: any) => {
           </View>
         );
       })}
-    </View>
+    </Block>
   );
 };
 
@@ -204,8 +206,7 @@ const QualityLeaderboard = ({ data }: any) => {
   if (!data?.quality_by_worker) return null;
   const best = data.quality_by_worker.sort((a: any, b: any) => a.revision_rate - b.revision_rate).slice(0, 5);
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-4">Quality Scoreboard</Text>
+    <Block title="Quality Scoreboard" className="mb-6">
       {best.map((w: any, idx: number) => (
         <View key={idx} className="flex-row justify-between mb-3 items-center">
           <View className="flex-row items-center gap-3">
@@ -230,7 +231,7 @@ const QualityLeaderboard = ({ data }: any) => {
           </View>
         </View>
       ))}
-    </View>
+    </Block>
   );
 };
 
@@ -244,12 +245,12 @@ const TrendComparisonCards = ({ data }: any) => {
     { label: 'Latency Drift', cur: c.avg_lead_time_minutes, prev: p.avg_lead_time_minutes, unit: 'm', reverse: true }
   ];
   return (
-    <View className="flex-row flex-wrap gap-4 mb-6">
+    <View className="flex-row flex-wrap gap-3 mb-6">
       {metrics.map((m, i) => {
         const diff = (m.cur || 0) - (m.prev || 0);
         const isBetter = m.reverse ? diff <= 0 : diff >= 0;
         return (
-          <View key={i} className="flex-1 bg-surface-card p-4 rounded-2xl border border-surface-border">
+          <View key={i} className="flex-1 min-w-[150px] bg-surface-card p-4 rounded-2xl border border-surface-border">
             <Text className="text-typography-muted text-[9px] font-bold uppercase mb-2">{m.label}</Text>
             <View className="flex-row items-center">
               <Text className="text-typography-main font-black text-lg">{Math.round(m.cur || 0)}{m.unit}</Text>
@@ -299,8 +300,7 @@ const PipelineLoadChart = ({ data }: any) => {
   const GAP = 2;
 
   return (
-    <View className="bg-surface-card p-6 rounded-3xl border border-surface-border mb-6">
-      <Text className="text-typography-main font-bold text-lg mb-5">Pipeline Load Distribution</Text>
+    <Block title="Pipeline Load Distribution" className="mb-6">
       {groups.length === 0 ? (
         <Text className="text-typography-muted text-sm text-center py-4">No stage activity data available.</Text>
       ) : (
@@ -350,7 +350,7 @@ const PipelineLoadChart = ({ data }: any) => {
           })}
         </ScrollView>
       )}
-    </View>
+    </Block>
   );
 };
 
@@ -358,7 +358,7 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
   const colors = useThemeColors();
   const { limits: planLimits } = useBillingPlan();
   const limits = getAnalyticsLimits(planLimits);
-  if (!data) return <View className="py-20"><ActivityIndicator color={colors.primary} /></View>;
+  if (!data) return <View className="py-12 items-center"><ActivityIndicator color={colors.primary} /></View>;
   const curThr = data.current?.throughput || 0;
   const prevThr = data.comparison?.throughput || 0;
   const adv = data.radar_advanced || {};
@@ -378,7 +378,12 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
       <View className="flex-row justify-between items-end mb-4">
         <Text className="text-typography-main font-bold text-lg">Active Telemetry</Text>
         <Tooltip label="Customize visible metrics">
-          <TouchableOpacity onPress={onEditWidgets}>
+          <TouchableOpacity
+            onPress={onEditWidgets}
+            accessibilityRole="button"
+            accessibilityLabel="Customize visible metrics"
+            className="min-h-[44px] px-3 py-3 justify-center"
+          >
             <Text className="text-brand-primary text-[10px] font-bold uppercase tracking-wider">Customize</Text>
           </TouchableOpacity>
         </Tooltip>
@@ -395,14 +400,22 @@ const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
       </View>
       <SLARiskAlert data={data} />
       <PipelineLoadChart data={data} />
-      {limits.funnel
-        ? <ConversionFunnelChart data={data} />
-        : <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2 mb-6"><FontAwesome name="lock" size={11} color={colors.textMuted} /><Text className="text-typography-muted text-xs">Not available on your plan</Text></View>}
-      {limits.personnel
-        ? <WorkDistributionChart data={data} />
-        : null}
-      <QualityLeaderboard data={data} />
-      <TrendComparisonCards data={data} />
+      <View className="flex-row flex-wrap gap-4">
+        <View className="flex-1 min-w-[320px]">
+          {limits.funnel
+            ? <ConversionFunnelChart data={data} />
+            : <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2 mb-6"><FontAwesome name="lock" size={11} color={colors.textMuted} /><Text className="text-typography-muted text-xs">Not available on your plan</Text></View>}
+        </View>
+        {limits.personnel && (
+          <View className="flex-1 min-w-[320px]">
+            <WorkDistributionChart data={data} />
+          </View>
+        )}
+      </View>
+      <View className="flex-row flex-wrap gap-4">
+        <View className="flex-1 min-w-[320px]"><QualityLeaderboard data={data} /></View>
+        <View className="flex-1 min-w-[320px]"><TrendComparisonCards data={data} /></View>
+      </View>
     </View>
   );
 };
@@ -414,15 +427,15 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
   return (
   <View>
     <View className="flex-row bg-surface-background p-1 rounded-xl mb-6">
-      <Tooltip label="View generated reports" disabled={currentSubSection === 'reports'}>
-        <TouchableOpacity onPress={() => setSubSection('reports')} className={`flex-1 py-2 rounded-lg items-center ${currentSubSection === 'reports' ? 'bg-brand-primary' : ''}`}>
-          <Text className={`font-bold text-[10px] uppercase ${currentSubSection === 'reports' ? 'text-white' : 'text-typography-muted'}`}>Audit Reports</Text>
+      <Tooltip label="View generated reports" disabled={currentSubSection === 'reports'} className="flex-1">
+        <TouchableOpacity onPress={() => setSubSection('reports')} accessibilityRole="tab" accessibilityLabel="View generated reports" accessibilityState={{ selected: currentSubSection === 'reports' }} className={`flex-1 min-h-[44px] py-3 rounded-lg items-center justify-center ${currentSubSection === 'reports' ? 'bg-brand-primary' : ''}`}>
+          <Text className={`font-bold text-[10px] uppercase ${currentSubSection === 'reports' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>Audit Reports</Text>
         </TouchableOpacity>
       </Tooltip>
       {hasPermission('archive.view') && (
-        <Tooltip label="View archived assets" disabled={currentSubSection === 'storage'}>
-          <TouchableOpacity onPress={() => setSubSection('storage')} className={`flex-1 py-2 rounded-lg items-center ${currentSubSection === 'storage' ? 'bg-brand-primary' : ''}`}>
-            <Text className={`font-bold text-[10px] uppercase ${currentSubSection === 'storage' ? 'text-white' : 'text-typography-muted'}`}>Cold Storage</Text>
+        <Tooltip label="View archived assets" disabled={currentSubSection === 'storage'} className="flex-1">
+          <TouchableOpacity onPress={() => setSubSection('storage')} accessibilityRole="tab" accessibilityLabel="View archived assets" accessibilityState={{ selected: currentSubSection === 'storage' }} className={`flex-1 min-h-[44px] py-3 rounded-lg items-center justify-center ${currentSubSection === 'storage' ? 'bg-brand-primary' : ''}`}>
+            <Text className={`font-bold text-[10px] uppercase ${currentSubSection === 'storage' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>Cold Storage</Text>
           </TouchableOpacity>
         </Tooltip>
       )}
@@ -509,8 +522,8 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
             <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-widest mt-4 mb-3">Timeframe</Text>
             <View className="flex-row gap-2">
               {[7, 30, 90].map(val => (
-                <TouchableOpacity key={val} onPress={() => setD(val)} className={`flex-1 py-3 rounded-xl border ${d === val ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
-                  <Text className={`text-center font-bold text-xs ${d === val ? 'text-white' : 'text-typography-muted'}`}>{val} Days</Text>
+                <TouchableOpacity key={val} onPress={() => setD(val)} accessibilityRole="radio" accessibilityLabel={`${val} day timeframe`} accessibilityState={{ checked: d === val }} className={`flex-1 min-h-[44px] py-3 rounded-xl border items-center justify-center ${d === val ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
+                  <Text className={`text-center font-bold text-xs ${d === val ? 'text-brand-on-primary' : 'text-typography-muted'}`}>{val} Days</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -880,7 +893,10 @@ export default function IntelligenceScreen() {
         {/* Main Sections */}
         <View className="px-6">
           {loading ? (
-            <View className="py-20"><ActivityIndicator color={colors.primary} /></View>
+            <View className="py-20 items-center gap-3" accessibilityRole="progressbar" accessibilityLabel="Loading intelligence data">
+              <ActivityIndicator color={colors.primary} />
+              <Text className="text-typography-muted text-xs">Loading intelligence data…</Text>
+            </View>
           ) : pipelines.length === 0 ? (
             <View className="py-10 items-center justify-center">
               <View className="bg-surface-card p-8 rounded-[2rem] border border-surface-border items-center w-full premium-shadow">

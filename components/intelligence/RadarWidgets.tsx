@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-native';
 import Tooltip from '@/components/common/Tooltip';
+import Block from '@/components/common/Block';
 import {
     Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line,
     Tooltip as RechartTooltip,
@@ -103,7 +104,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
   }, {});
 
   return (
-    <View className={`mb-6 bg-surface-card border border-surface-border p-4 rounded-2xl premium-shadow ${className || ''}`}>
+    <Block className={`mb-6 ${className || ''}`}>
       {/* Header: identity on the left, reason mix + help on the right */}
       <View className="flex-row items-center justify-between mb-3 flex-wrap gap-y-2">
         <View className="flex-row items-center gap-2.5">
@@ -123,6 +124,9 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
           <Tooltip label="Learn about SLA risk drivers">
             <TouchableOpacity
               onPress={() => setShowInfo(v => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle SLA risk driver information"
+              accessibilityState={{ expanded: showInfo }}
               className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
             >
               <FontAwesome name="question-circle" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
@@ -183,7 +187,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
             <TouchableOpacity
               key={i}
               onPress={() => router.push(`/task/${r.id}`)}
-              className="w-full xl:w-[calc(50%-10px)] flex-row items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-surface-background transition-all"
+              className="flex-1 min-w-[260px] flex-row items-center gap-2.5 py-1.5 px-2 rounded-lg hover:bg-surface-background transition-all"
             >
               {/* Same 6px driver-coloured dot as before; above the pulse floor it
                   also emits sonar rings whose tempo tracks `risk_percent`. */}
@@ -197,7 +201,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
           );
         })}
       </View>
-    </View>
+    </Block>
   );
 };
 
@@ -205,8 +209,7 @@ export const ConversionFunnelChartWeb = ({ data, className }: { data: any, class
   const colors = useThemeColors();
   if (!data?.conversion_by_stage) return null;
   return (
-    <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${className || ''}`}>
-      <Text className="text-typography-main font-black text-xl mb-8">Task Funnel</Text>
+    <Block title="Task Funnel" className={className}>
       <View className="space-y-2">
         {data.conversion_by_stage.map((stage: any, idx: number) => {
           const rate = (stage.completion_rate || 0) * 100;
@@ -237,7 +240,7 @@ export const ConversionFunnelChartWeb = ({ data, className }: { data: any, class
           );
         })}
       </View>
-    </View>
+    </Block>
   );
 };
 
@@ -247,8 +250,7 @@ export const WorkDistributionChartWeb = ({ data, className }: { data: any, class
   const workers = data.worker_engagement.sort((a: any, b: any) => b.action_count - a.action_count).slice(0, 6);
   const maxCount = Math.max(...workers.map((w: any) => w.action_count));
   return (
-    <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${className || ''}`}>
-      <Text className="text-typography-main font-black text-xl mb-8">Team Workload</Text>
+    <Block title="Team Workload" className={className}>
       <View className="space-y-6">
         {workers.map((worker: any, idx: number) => {
           const percentage = (worker.action_count / (maxCount || 1)) * 100;
@@ -284,7 +286,7 @@ export const WorkDistributionChartWeb = ({ data, className }: { data: any, class
           );
         })}
       </View>
-    </View>
+    </Block>
   );
 };
 
@@ -309,7 +311,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
   const allPerfect = workers.length > 0 && workers.every((w: any) => w.integrityScore === 100);
 
   return (
-    <View className={`bg-surface-card p-4 rounded-2xl border border-surface-border premium-shadow ${className || ''}`}>
+    <Block className={className}>
       {/* Header: title + short subtitle, compact status chip, info toggle */}
       <View className="flex-row items-center justify-between mb-3 flex-wrap gap-y-2">
         <View className="flex-1 mr-3">
@@ -328,6 +330,9 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
           <Tooltip label="How quality integrity is calculated">
             <TouchableOpacity
               onPress={() => setShowInfo(v => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle quality integrity information"
+              accessibilityState={{ expanded: showInfo }}
               className={`w-6 h-6 rounded-md items-center justify-center border transition-all ${showInfo ? 'bg-brand-primary border-brand-primary' : 'bg-surface-background border-surface-border'}`}
             >
               <FontAwesome name="question-circle" size={10} color={showInfo ? 'var(--color-on-primary)' : colors.textDim} />
@@ -391,7 +396,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
           })}
         </View>
       )}
-    </View>
+    </Block>
   );
 };
 
@@ -405,14 +410,14 @@ export const TrendComparisonCardsWeb = ({ data, className }: { data: any, classN
     { label: 'Integrity Shift', val: data.current.revision_rate, prev: data.comparison.revision_rate, suffix: '%', hBetter: false },
   ];
   return (
-    <View className={`mt-8 ${className || ''}`}>
-      <Text className="text-typography-main font-black text-2xl tracking-tight mb-8">Performance Trends</Text>
-      <View className="flex-row gap-6">
+    <View className={`mt-6 ${className || ''}`}>
+      <Text className="text-typography-main font-black text-2xl tracking-tight mb-5">Performance Trends</Text>
+      <View className="flex-row flex-wrap gap-4">
         {metrics.map((m, idx) => {
           const change = (m.val || 0) - (m.prev || 0);
           const isPositive = m.hBetter ? change >= 0 : change <= 0;
           return (
-            <View key={idx} className="flex-1 bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow">
+            <View key={idx} className="flex-1 min-w-[220px] bg-surface-card p-5 rounded-2xl border border-surface-border premium-shadow">
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">{m.label}</Text>
               <View className="flex-row items-baseline justify-between">
                 <Text className="text-typography-main text-3xl font-black">{Math.round(m.val || 0)}{m.suffix}</Text>
@@ -437,8 +442,8 @@ export const SLARiskAlertMiniWeb = ({ data, onViewAll, className }: { data: any,
   if (count === 0) return null;
 
   return (
-    <View className={`bg-state-danger-dim border border-state-danger/20 p-6 rounded-2xl flex-row items-center justify-between mb-4 ${className || ''}`}>
-      <View className="flex-row items-center gap-4">
+    <View className={`bg-state-danger-dim border border-state-danger/20 p-5 rounded-2xl flex-row flex-wrap items-center justify-between gap-3 mb-4 ${className || ''}`}>
+      <View className="flex-1 min-w-[200px] flex-row items-center gap-4">
         <View className="w-10 h-10 rounded-full bg-state-danger-dim items-center justify-center border border-state-danger/10">
           <FontAwesome name="exclamation-triangle" size={16} color={colors.danger} />
         </View>
@@ -459,8 +464,8 @@ export const StageDurationMiniWeb = ({ data, onViewAll, className }: { data: any
   const slowStages = data?.stage_duration_analysis?.filter((s: any) => s.avg_duration_days > 2.5).length || 0;
   
   return (
-    <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border flex-row items-center justify-between mb-4 ${className || ''}`}>
-      <View className="flex-row items-center gap-4">
+    <View className={`bg-surface-card p-5 rounded-2xl border border-surface-border flex-row flex-wrap items-center justify-between gap-3 mb-4 ${className || ''}`}>
+      <View className="flex-1 min-w-[200px] flex-row items-center gap-4">
         <View className="w-10 h-10 rounded-full bg-brand-primary-dim items-center justify-center">
           <FontAwesome name="clock-o" size={16} color={colors.primary} />
         </View>
@@ -484,8 +489,8 @@ export const ConversionFunnelMiniWeb = ({ data, onViewAll, className }: { data: 
   const overallRetention = stages.length > 0 ? (stages[stages.length - 1].completion_rate * 100).toFixed(0) : '0';
   
   return (
-    <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border flex-row items-center justify-between mb-4 ${className || ''}`}>
-      <View className="flex-row items-center gap-4">
+    <View className={`bg-surface-card p-5 rounded-2xl border border-surface-border flex-row flex-wrap items-center justify-between gap-3 mb-4 ${className || ''}`}>
+      <View className="flex-1 min-w-[200px] flex-row items-center gap-4">
         <View className="w-10 h-10 rounded-full bg-state-success-dim items-center justify-center">
           <FontAwesome name="filter" size={16} color={colors.success} />
         </View>
@@ -509,8 +514,8 @@ export const TrendComparisonMiniWeb = ({ data, onViewAll, className }: { data: a
   const isPositive = change >= 0;
 
   return (
-    <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border flex-row items-center justify-between ${className || ''}`}>
-      <View className="flex-row items-center gap-4">
+    <View className={`bg-surface-card p-5 rounded-2xl border border-surface-border flex-row flex-wrap items-center justify-between gap-3 ${className || ''}`}>
+      <View className="flex-1 min-w-[200px] flex-row items-center gap-4">
         <View className="w-10 h-10 rounded-full bg-brand-primary-dim items-center justify-center">
           <FontAwesome name="line-chart" size={16} color={colors.primary} />
         </View>
@@ -572,9 +577,9 @@ export const ThroughputOverTimeMiniWeb = ({ pipelineId, from, to, buckets, onVie
   };
 
   return (
-    <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow mb-4 ${className || ''}`}>
-      <View className="flex-row justify-between items-start mb-6">
-        <View>
+    <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border premium-shadow mb-4 ${className || ''}`}>
+      <View className="flex-row flex-wrap justify-between items-start gap-3 mb-5">
+        <View className="flex-1 min-w-[220px]">
           <Text className="text-typography-main font-black text-xl tracking-tight">Throughput Over Time</Text>
           <Text className="text-typography-muted text-xs mt-1">Operational velocity and completion health</Text>
         </View>
@@ -583,7 +588,7 @@ export const ThroughputOverTimeMiniWeb = ({ pipelineId, from, to, buckets, onVie
         </TouchableOpacity>
       </View>
 
-      <View className="flex-row justify-end items-center mb-8">
+      <View className="flex-row justify-end items-center mb-5">
         <View className="flex-row gap-4 items-center">
           <View className="flex-row items-center gap-1.5">
             <View className="w-2.5 h-2.5 rounded bg-state-success" />
@@ -656,8 +661,8 @@ export const TargetsMiniWeb = ({ onViewAll, className }: { onViewAll: () => void
   const expiredCount = targets.filter(t => t.status === 'expired').length;
 
   return (
-    <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border flex-row items-center justify-between mb-4 ${className || ''}`}>
-      <View className="flex-row items-center gap-4">
+    <View className={`bg-surface-card p-5 rounded-2xl border border-surface-border flex-row flex-wrap items-center justify-between gap-3 mb-4 ${className || ''}`}>
+      <View className="flex-1 min-w-[200px] flex-row items-center gap-4">
         <View className={`w-10 h-10 rounded-full items-center justify-center ${expiredCount > 0 ? 'bg-state-danger-dim' : 'bg-state-success-dim'}`}>
           <FontAwesome name="bullseye" size={16} color={expiredCount > 0 ? colors.danger : colors.success} />
         </View>
@@ -685,25 +690,26 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
 
   if (!data || data.length === 0) {
     return (
-      <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow py-20 items-center justify-center ${className || ''}`}>
-        <View className="flex-row items-center justify-between w-full absolute top-8 px-8">
-          <View>
-            <Text className="text-typography-main font-black text-xl tracking-tight mb-1">Stage Dwell Time</Text>
-            <Text className="text-typography-muted text-xs">Avg time tasks spend at each stage</Text>
-          </View>
-          {onViewDetails && (
-            <TouchableOpacity
-              onPress={onViewDetails}
-              className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border px-4 py-2 rounded-xl active:scale-95 transition-all"
-            >
-              <Text className="text-brand-primary font-black text-[10px] uppercase tracking-wider">Details</Text>
-              <FontAwesome name="external-link" size={10} color={colors.primary} />
-            </TouchableOpacity>
-          )}
-        </View>
+      <Block
+        title="Stage Dwell Time"
+        hint="Avg time tasks spend at each stage"
+        right={onViewDetails ? (
+          <TouchableOpacity
+            onPress={onViewDetails}
+            accessibilityRole="button"
+            accessibilityLabel="View stage dwell details"
+            className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border px-4 py-2 rounded-xl active:scale-95 transition-all"
+          >
+            <Text className="text-brand-primary font-black text-[10px] uppercase tracking-wider">Details</Text>
+            <FontAwesome name="external-link" size={10} color={colors.primary} />
+          </TouchableOpacity>
+        ) : undefined}
+        className={className}
+        bodyClassName="items-center justify-center py-12"
+      >
         <FontAwesome name="hourglass-o" size={24} color={colors.textDim} style={{ marginBottom: 16, opacity: 0.2 }} />
         <Text className="text-typography-muted text-sm font-bold">No stage activity in this period</Text>
-      </View>
+      </Block>
     );
   }
 
@@ -726,26 +732,27 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
     : (v: number) => fmtDwell(v * 60);
 
   return (
-    <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow ${className}`}>
-      <View className="flex-row items-center justify-between mb-6">
-        <View>
-          <Text className="text-typography-main font-black text-xl tracking-tight mb-1">Stage Dwell Time</Text>
-          <Text className="text-typography-muted text-xs">
-            {isSnapshot ? 'Total accumulated task-time per stage' : 'Avg time tasks spend at each stage'}
-          </Text>
-        </View>
-
+    <Block
+      title="Stage Dwell Time"
+      hint={isSnapshot ? 'Total accumulated task-time per stage' : 'Avg time tasks spend at each stage'}
+      right={(
         <View className="flex-row items-center gap-2">
           <Tooltip label="Toggle between average duration and accumulated load" side="bottom">
             <View className="flex-row bg-surface-overlay border border-surface-border rounded-xl overflow-hidden">
               <TouchableOpacity
                 onPress={() => setMode('avg')}
+                accessibilityRole="button"
+                accessibilityLabel="Show average stage dwell time"
+                accessibilityState={{ selected: !isSnapshot }}
                 className={`px-3 py-1.5 transition-all ${!isSnapshot ? 'bg-brand-primary' : ''}`}
               >
                 <Text className={`text-[9px] font-black uppercase tracking-wider ${!isSnapshot ? 'text-white' : 'text-typography-muted'}`}>Avg</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setMode('snapshot')}
+                accessibilityRole="button"
+                accessibilityLabel="Show accumulated stage dwell load"
+                accessibilityState={{ selected: isSnapshot }}
                 className={`px-3 py-1.5 transition-all ${isSnapshot ? 'bg-brand-primary' : ''}`}
               >
                 <Text className={`text-[9px] font-black uppercase tracking-wider ${isSnapshot ? 'text-white' : 'text-typography-muted'}`}>Snapshot</Text>
@@ -755,6 +762,8 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
           {onViewDetails && (
             <TouchableOpacity
               onPress={onViewDetails}
+              accessibilityRole="button"
+              accessibilityLabel="View stage dwell details"
               className="flex-row items-center gap-2 bg-surface-overlay border border-surface-border px-4 py-2 rounded-xl active:scale-95 transition-all"
             >
               <Text className="text-brand-primary font-black text-[10px] uppercase tracking-wider">Details</Text>
@@ -762,7 +771,9 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      )}
+      className={className}
+    >
 
       <View className="flex-row items-center gap-4 mb-8">
         <View className="flex-row items-center gap-1.5">
@@ -808,7 +819,7 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
           </BarChart>
         </ResponsiveContainer>
       </View>
-    </View>
+    </Block>
   );
 };
 
@@ -861,9 +872,9 @@ export const PipelinePointsMiniWeb = ({
   };
 
   return (
-    <View className={`bg-surface-card p-8 rounded-[32px] border border-surface-border premium-shadow mb-4 ${className || ''}`}>
-      <View className="flex-row justify-between items-start mb-6">
-        <View>
+    <View className={`bg-surface-card p-6 rounded-2xl border border-surface-border premium-shadow mb-4 ${className || ''}`}>
+      <View className="flex-row flex-wrap justify-between items-start gap-3 mb-5">
+        <View className="flex-1 min-w-[220px]">
           <Text className="text-typography-main font-black text-xl tracking-tight">Points Generated</Text>
           <Text className="text-typography-muted text-xs mt-1">Weight points earned by pipeline completions</Text>
         </View>
