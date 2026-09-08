@@ -53,7 +53,7 @@ export function FileDropOverlay({ active, over, label = 'Drop files here', style
         className="items-center gap-3 px-8 py-6 rounded-3xl"
         style={{ backgroundColor: colors.card, opacity: over ? 1 : 0.9 }}
       >
-        <Animated.View style={{ transform: [{ scale: over ? iconScale : 1 }] }}>
+        <Animated.View style={{ transform: [{ scale }] }}>
           <FontAwesome
             name="cloud-upload"
             size={over ? 28 : 22}
