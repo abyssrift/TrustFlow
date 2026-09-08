@@ -1,5 +1,5 @@
 import { useNotifications } from '@/contexts/NotificationsContext';
-import { useAttentionRibbonWindow } from '@/hooks/useAttentionRibbonWindow';
+import { RIBBON_WINDOW_OPTIONS, useAttentionRibbonWindow } from '@/hooks/useAttentionRibbonWindow';
 import { useDropdownTrigger } from '@/hooks/useDropdownTrigger';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useUpcomingTasks } from '@/hooks/useUpcomingTasks';
@@ -60,11 +60,19 @@ export default function TopBar({
   // windowDays (#67) — customizable look-ahead, persisted per-device, changed
   // from the pill row in TimelineDropdown.
   const { windowDays, setWindow } = useAttentionRibbonWindow();
+  const windowLabel = RIBBON_WINDOW_OPTIONS.find((option) => option.days === windowDays)?.label ?? '1w';
   const { tasks: upcomingTasks, projects: upcomingProjects } = useUpcomingTasks({ withProjects: true, windowDays });
-  const [timelineOpen, setTimelineOpen] = React.useState(false);
-  const timelineCloseTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    open: timelineOpen,
+    hovered: timelineHovered,
+    clickedOpen: timelineClickedOpen,
+    toggle: toggleTimeline,
+    wrapperRef: timelineWrapRef,
+    closeNow: closeTimelineNow,
+  } = useDropdownTrigger(150);
   const timelineDropdownRef = React.useRef<HTMLDivElement>(null);
   const timelineStripWrapRef = React.useRef<HTMLDivElement>(null);
+  const [timelineControlFocused, setTimelineControlFocused] = React.useState(false);
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [calendarOriginRect, setCalendarOriginRect] = React.useState<{ top: number; left: number; width: number; height: number } | null>(null);
   const { open: notifOpen, setClickedOpen: setNotifOpen, toggle: toggleNotif, wrapperRef: notifWrapRef, closeNow: closeNotifRaw } = useDropdownTrigger(150);
@@ -77,15 +85,6 @@ export default function TopBar({
     onRequestPalette?.(topSearch);
     searchInputRef.current?.blur();
   };
-
-  // Same hover-open pattern as the search bar above, but simpler: the strip
-  // and its dropdown are both raw DOM, so a single plain <div> wrapper with
-  // native onMouseEnter/onMouseLeave covers both (no ref + DOM-listener dance
-  // needed — see TopBar's search wrapper for that heavier variant).
-  const openTimeline = () => { if (timelineCloseTimer.current) clearTimeout(timelineCloseTimer.current); setTimelineOpen(true); };
-  const scheduleCloseTimeline = () => { timelineCloseTimer.current = setTimeout(() => setTimelineOpen(false), 150); };
-  const closeTimelineNow = () => { if (timelineCloseTimer.current) clearTimeout(timelineCloseTimer.current); setTimelineOpen(false); };
-  React.useEffect(() => () => { if (timelineCloseTimer.current) clearTimeout(timelineCloseTimer.current); }, []);
 
   // Hover-open / click-toggle / outside-click-close all come from
   // useDropdownTrigger (shared with PinnedShortcuts) — this just layers the
@@ -174,34 +173,49 @@ export default function TopBar({
         />
 
         <View className="flex-1 px-6">
-          <div
-            ref={timelineStripWrapRef}
-            style={{ position: 'relative', width: '100%' }}
-            onMouseEnter={openTimeline}
-            onMouseLeave={scheduleCloseTimeline}
-          >
-            <TimelineStrip tasks={upcomingTasks} projects={upcomingProjects} onPress={expandCalendarFromStrip} />
-            {/* Transparent bridge over the 12px gap to the dropdown, same trick as
-                the search bar's bridge above, so the hover trip never flicker-closes it. */}
-            {timelineOpen && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, height: 16 }} />
-            )}
-            <TimelineDropdown
-              visible={timelineOpen}
-              tasks={upcomingTasks}
-              projects={upcomingProjects}
-              windowDays={windowDays}
-              onChangeWindowDays={setWindow}
-              onNavigate={closeTimelineNow}
-              onExpand={expandCalendar}
-              containerRef={timelineDropdownRef}
-            />
-            <CalendarOverlay
-              open={calendarOpen}
-              originRect={calendarOriginRect}
-              onClose={() => setCalendarOpen(false)}
-            />
-          </div>
+          <View ref={timelineWrapRef} className="relative flex-row items-center gap-2">
+            <div ref={timelineStripWrapRef} style={{ position: 'relative', flex: 1 }}>
+              <TimelineStrip tasks={upcomingTasks} projects={upcomingProjects} onPress={expandCalendarFromStrip} />
+              {/* Transparent bridge over the 12px gap to the dropdown, same trick as
+                  the search bar's bridge above, so the hover trip never flicker-closes it. */}
+              {timelineOpen && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, height: 16 }} />
+              )}
+              <TimelineDropdown
+                visible={timelineOpen}
+                tasks={upcomingTasks}
+                projects={upcomingProjects}
+                windowDays={windowDays}
+                onChangeWindowDays={setWindow}
+                onNavigate={closeTimelineNow}
+                onExpand={expandCalendar}
+                containerRef={timelineDropdownRef}
+              />
+              <CalendarOverlay
+                open={calendarOpen}
+                originRect={calendarOriginRect}
+                onClose={() => setCalendarOpen(false)}
+              />
+            </div>
+
+            <Tooltip label={`Customize attention ribbon · currently ${windowLabel}`} side="left">
+              <Pressable
+                onPress={toggleTimeline}
+                onFocus={() => setTimelineControlFocused(true)}
+                onBlur={() => setTimelineControlFocused(false)}
+                accessibilityLabel={`Customize attention ribbon, currently ${windowLabel} ahead`}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: timelineOpen }}
+                className={`h-6 w-6 items-center justify-center rounded-md transition-opacity duration-150 motion-reduce:transition-none hover:bg-surface-overlay active:scale-95 ${
+                  timelineHovered || timelineClickedOpen || timelineControlFocused
+                    ? 'opacity-100'
+                    : 'pointer-events-none opacity-0'
+                }`}
+              >
+                <FontAwesome name="binoculars" size={11} color={colors.textMuted} />
+              </Pressable>
+            </Tooltip>
+          </View>
         </View>
 
         <ThemeButton />

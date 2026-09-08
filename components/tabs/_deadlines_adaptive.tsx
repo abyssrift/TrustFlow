@@ -179,9 +179,12 @@ export default function DeadlinesScreen() {
                   <TouchableOpacity
                     key={opt.days}
                     onPress={() => setWindow(opt.days)}
-                    className={active ? 'px-2.5 py-1 rounded-full bg-brand-primary' : 'px-2.5 py-1 rounded-full border border-surface-border bg-surface-card'}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Show deadlines due within ${opt.label}`}
+                    accessibilityState={{ selected: active }}
+                    className={active ? 'h-11 min-w-11 px-2.5 items-center justify-center rounded-full bg-brand-primary' : 'h-11 min-w-11 px-2.5 items-center justify-center rounded-full border border-surface-border bg-surface-card'}
                   >
-                    <Text className={active ? 'text-white text-[10px] font-black' : 'text-typography-muted text-[10px] font-black'}>
+                    <Text className="text-[10px] font-black" style={{ color: active ? colors.card : colors.textMuted }}>
                       {opt.label}
                     </Text>
                   </TouchableOpacity>

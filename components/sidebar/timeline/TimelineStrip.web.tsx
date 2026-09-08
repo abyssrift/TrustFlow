@@ -77,8 +77,7 @@ export default function TimelineStrip({
 }) {
   const colors = useThemeColors();
   const [hovered, setHovered] = useState(false);
-
-  if (tasks.length === 0 && projects.length === 0) return null;
+  const isEmpty = tasks.length === 0 && projects.length === 0;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -116,6 +115,8 @@ export default function TimelineStrip({
   return (
     <div
       data-tf-strip
+      aria-label={isEmpty ? 'No upcoming deadlines' : undefined}
+      title={isEmpty ? 'No upcoming deadlines' : undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={() => onPress?.()}

@@ -147,8 +147,8 @@ export default function TimelineDropdown({
           onClick-to-expand div below, so a pill tap never also opens the
           calendar. */}
       {windowDays != null && onChangeWindowDays && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px 0' }}>
-          <span style={{ fontSize: 10, fontWeight: 800, color: colors.textDim, letterSpacing: 0.3, textTransform: 'uppercase' }}>
+        <div role="group" aria-labelledby="attention-window-label" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px 0' }}>
+          <span id="attention-window-label" style={{ fontSize: 10, fontWeight: 800, color: colors.textDim, letterSpacing: 0.3, textTransform: 'uppercase' }}>
             Looking ahead
           </span>
           <div style={{ display: 'flex', gap: 4 }}>
@@ -159,6 +159,8 @@ export default function TimelineDropdown({
                   key={opt.days}
                   onClick={() => onChangeWindowDays(opt.days)}
                   title={`Show tasks due within ${opt.label}`}
+                  aria-label={`Show tasks due within ${opt.label}`}
+                  aria-pressed={active}
                   style={{
                     border: 'none',
                     borderRadius: 9999,
