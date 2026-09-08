@@ -20,6 +20,8 @@ import CollapsibleCard from './CollapsibleCard';
 import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
 import { fileToStaged, revokeStagedFiles } from '@/lib/pasteImage';
 import { useObjectUrlMap } from '@/hooks/useObjectUrlMap';
+import { useTaskFilePasteTarget } from '@/contexts/TaskFilePasteContext';
+import TaskFilePasteTargetButton from './TaskFilePasteTargetButton';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatSize(bytes: number | null) {
@@ -263,9 +265,17 @@ export default function TaskBriefPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageKey]);
 
+  const canUpload = !!data && (data.permissions.is_manager || data.permissions.is_creator || data.permissions.is_owner);
+  const { isArmed: isBriefPasteArmed, arm: armBriefPaste } = useTaskFilePasteTarget({
+    id: 'task-brief',
+    label: 'Task brief',
+    enabled: canUpload && !uploading,
+    existingFiles: data?.task_attachments ?? [],
+    onFiles: (files) => uploadFiles(files.map(fileToStaged)),
+  });
+
   if (!data) return null;
 
-  const canUpload = data.permissions.is_manager || data.permissions.is_creator || data.permissions.is_owner;
   const hasFiles = data.task_attachments.length > 0;
 
   // Uploads one file to a fresh path in the brief bucket, returns the storage path.
@@ -286,8 +296,8 @@ export default function TaskBriefPanel() {
     return storageData.path;
   };
 
-  const uploadFiles = async (files: { uri: string; name: string; size: number; type: string }[]) => {
-    if (!user || files.length === 0) return;
+  async function uploadFiles(files: { uri: string; name: string; size: number; type: string }[]): Promise<boolean> {
+    if (!user || !data || files.length === 0) return false;
     setUploading(true);
     setErrorMsg(null);
     try {
@@ -299,13 +309,15 @@ export default function TaskBriefPanel() {
       const { error: rpcErr } = await supabase.rpc('rpc_add_task_attachments', { p_task_id: data.task.id, p_attachments: uploaded });
       if (rpcErr) throw rpcErr;
       await refresh();
+      return true;
     } catch (err: any) {
       setErrorMsg(err.message || 'Upload failed');
+      return false;
     } finally {
       revokeStagedFiles(files);
       setUploading(false);
     }
-  };
+  }
 
   // Drag OS files onto the brief card → upload them straight to the task.
   const { ref: briefDropRef, isOver: briefDropOver } = useFileDrop(
@@ -569,7 +581,7 @@ export default function TaskBriefPanel() {
       )}
 
       {canUpload && (
-        <View className="flex-row gap-3 pt-2 border-t border-surface-border/30">
+        <View className="flex-row flex-wrap gap-3 pt-2 border-t border-surface-border/30">
           <TouchableOpacity onPress={async () => {
               const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] as any, allowsMultipleSelection: true });
               if (!result.canceled) await uploadFiles(result.assets.map(a => ({ uri: a.uri, name: a.fileName || `image_${Date.now()}.jpg`, size: a.fileSize || 0, type: a.mimeType || 'image/jpeg' })));
@@ -588,6 +600,12 @@ export default function TaskBriefPanel() {
             <FontAwesome name="paperclip" size={11} color={colors.primary} />
             <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Attach File</Text>
           </TouchableOpacity>
+          <TaskFilePasteTargetButton
+            label="Task brief"
+            isArmed={isBriefPasteArmed}
+            disabled={uploading}
+            onPress={armBriefPaste}
+          />
           {uploading && <ActivityIndicator size="small" color={colors.primary} className="ml-auto" />}
         </View>
       )}

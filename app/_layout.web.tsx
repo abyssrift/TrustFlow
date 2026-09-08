@@ -1,7 +1,7 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot, usePathname, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { View, useWindowDimensions } from 'react-native';
@@ -27,6 +27,7 @@ import { SubmissionProvider } from '@/contexts/SubmissionContext';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { TimerProvider } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { TaskFilePasteProvider } from '@/contexts/TaskFilePasteContext';
 import { UndoActionProvider } from '@/contexts/UndoActionContext';
 import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
 import { PingHighlightProvider } from '@/contexts/PingHighlightContext';
@@ -97,6 +98,7 @@ function RootLayoutNav() {
   const colorScheme = useColorScheme();
   const { session, profile, initialized } = useAuth();
   const segments = useSegments();
+  const pathname = usePathname();
   const router = useRouter();
   const { width } = useWindowDimensions();
 
@@ -151,13 +153,15 @@ function RootLayoutNav() {
             <View className="absolute top-0 left-0 right-0 z-[999]">
               <NetworkStatusBanner />
             </View>
-            {showSidebar ? (
-              <Sidebar>
+            <TaskFilePasteProvider key={pathname}>
+              {showSidebar ? (
+                <Sidebar>
+                  <Slot />
+                </Sidebar>
+              ) : (
                 <Slot />
-              </Sidebar>
-            ) : (
-              <Slot />
-            )}
+              )}
+            </TaskFilePasteProvider>
           </View>
           </ModalDispatchProvider>
           </PingHighlightProvider>

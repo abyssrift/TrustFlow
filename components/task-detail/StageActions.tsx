@@ -35,6 +35,8 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Animated, AppState, Image, Platform, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import ReanimatedAnimated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { getActionDescriptor, splitStageActions } from './actionRegistry';
+import TaskFilePasteTargetButton from './TaskFilePasteTargetButton';
+import { useTaskFilePasteTarget } from '@/contexts/TaskFilePasteContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -397,8 +399,25 @@ export default function StageActions() {
   const [historyFor, setHistoryFor] = useState<string | null>(null);
   const [historyVersions, setHistoryVersions] = useState<SubmissionVersionData[] | null>(null);
   const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
-
   const { submitWithEvidence, editSubmission, activeJobs } = useSubmission();
+
+  const preActionable = (data?.stage_actions ?? []).filter((a) => a.can_perform && a.precondition_met);
+  const preGrouped = splitStageActions(preActionable);
+  const preSubmitAction = preGrouped.submission[0] || null;
+  const preSubmissionMode = data?.current_stage?.submission_mode
+    ?? (data?.current_stage?.requires_submission ? 'required' : 'none');
+  const preCanSubmitEvidence = !!data && (data.permissions.is_assigned || data.permissions.is_owner || data.permissions.is_manager || data.permissions.is_creator);
+  const preCanDirectSubmit = preSubmissionMode !== 'none' && preCanSubmitEvidence;
+  const preShowSubmitForm = preSubmissionMode !== 'none' && !!(preCanDirectSubmit || preSubmitAction);
+  const preActiveJob = data ? activeJobs[data.task.id] : undefined;
+  const preIsUploading = !!preActiveJob && (preActiveJob.status === 'processing' || preActiveJob.status === 'uploading' || preActiveJob.status === 'committing');
+  const { isArmed: isEvidencePasteArmed, arm: armEvidencePaste } = useTaskFilePasteTarget({
+    id: 'stage-evidence',
+    label: 'Stage evidence',
+    enabled: preShowSubmitForm && !preIsUploading,
+    existingFiles: stagedFiles,
+    onFiles: (files) => setStagedFiles((prev) => [...prev, ...files.map(fileToStaged)]),
+  });
 
   // Submission attachments → navigable image lightbox / direct download.
   const submissionMedia = React.useMemo(
@@ -606,9 +625,7 @@ export default function StageActions() {
   // The submission form shows if the stage allows submissions (optional/required)
   // and the user can submit, or there's an explicit submit_work action.
   // 'none' suppresses the form entirely.
-  const showSubmitForm = submissionMode !== 'none' && !!(
-    canDirectSubmit || submitAction
-  );
+  const showSubmitForm = preShowSubmitForm;
 
   // The whole section shows if there's a form or existing submission history.
   const showSubmissionSection = !!(
@@ -1035,6 +1052,13 @@ export default function StageActions() {
                     <FontAwesome name="clipboard" size={11} color={colors.primary} />
                     <Text className="text-brand-primary text-[10px] font-black uppercase ml-1.5">Paste Image</Text>
                   </TouchableOpacity>
+
+                  <TaskFilePasteTargetButton
+                    label="Stage evidence"
+                    isArmed={isEvidencePasteArmed}
+                    disabled={isUploading}
+                    onPress={armEvidencePaste}
+                  />
                 </View>
 
                 <TouchableOpacity
