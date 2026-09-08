@@ -2721,7 +2721,7 @@ function FileHubDesktopInner() {
           <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">Intelligence Hub</Text>
           <Text className="text-typography-main text-3xl font-black tracking-tighter">File Hub</Text>
         </View>
-        <View className="flex-row items-center gap-3 flex-wrap justify-end">
+        <View className="flex-row items-center gap-3 flex-nowrap justify-end">
           <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[280px] min-w-[200px]">
             <FontAwesome name="search" size={12} color={colors.textMuted} />
             <TextInput

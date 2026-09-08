@@ -137,35 +137,33 @@ export default function FileHubOverview({
     sizeBytes: f.size_bytes,
     onPress: () => previewRecent(f),
   }));
+  const assignedTiles: FileTile[] = assigned.map(f => ({
+    key: `${f.source}-${f.file_id}`,
+    fileName: f.file_name,
+    mimeType: f.mime_type,
+    subtitle: [f.task_title, f.project_name, formatSize(f.size_bytes)].filter(Boolean).join(' · '),
+    imageUri: isImage(f.mime_type) ? signedUrls[`a:${f.file_id}`] : undefined,
+    sizeBytes: f.size_bytes,
+    actions: [
+      { icon: 'download', label: 'Download', onPress: () => openStorageFile(f.bucket, f.storage_path, f.file_name, f.mime_type) },
+      { icon: 'share', label: 'Share', onPress: () => shareRow({ ...f, name: f.file_name }) },
+      { icon: 'external-link', label: 'View task', onPress: () => router.push(`/task/${f.task_id}` as any) },
+    ],
+    onPress: () => handlePress({ id: `a:${f.file_id}`, name: f.file_name, storagePath: f.storage_path, mimeType: f.mime_type, bucket: f.bucket, sizeBytes: f.size_bytes }),
+  }));
 
   const RecentlyOpened = (
     <Card icon="clock-o" title="Recently Opened" colors={colors}>
       {recent.length === 0
         ? <Empty text="Files you open show up here." />
-        : <FilePreviewGrid items={recentTiles} minTileWidth={150} />}
+        : <FilePreviewGrid items={recentTiles} minTileWidth={150} singleRow />}
     </Card>
   );
 
   const RecentlyAssigned = (
     <Card icon="user" title="Recently Assigned" colors={colors}>
       {assigned.length === 0 ? <Empty text="Files on tasks assigned to you show up here." /> : (
-        <View className="gap-2">
-          {assigned.map(r => (
-            <FileRow
-              key={`${r.source}-${r.file_id}`}
-              icon={fileIcon(r.mime_type)}
-              title={r.file_name}
-              subtitle={[r.task_title, r.project_name, formatSize(r.size_bytes)].filter(Boolean).join(' · ')}
-              onPress={() => handlePress({ id: `a:${r.file_id}`, name: r.file_name, storagePath: r.storage_path, mimeType: r.mime_type, bucket: r.bucket, sizeBytes: r.size_bytes })}
-              actions={[
-                { icon: 'download', label: 'Download', onPress: () => openStorageFile(r.bucket, r.storage_path, r.file_name, r.mime_type) },
-                { icon: 'share', label: 'Share', onPress: () => shareRow({ ...r, name: r.file_name }) },
-                { icon: 'external-link', label: 'View task', onPress: () => router.push(`/task/${r.task_id}` as any) },
-              ]}
-              colors={colors}
-            />
-          ))}
-        </View>
+        <FilePreviewGrid items={assignedTiles} minTileWidth={150} singleRow />
       )}
     </Card>
   );
@@ -226,6 +224,7 @@ export default function FileHubOverview({
       )}
     </Card>
   );
+  const hasRightColumn = orderedChannels.length > 0 || inbox.length > 0;
 
   return (
     <View className="flex-1">
@@ -263,14 +262,16 @@ export default function FileHubOverview({
             flex-col stack there's no bounded main-axis size to grow into inside
             a ScrollView, so it's dropped there to avoid the two columns
             collapsing/overlapping instead of stacking by content height. */}
-        <View style={compact ? undefined : { flexGrow: 1.6, flexBasis: 0, minWidth: 0 }} className="w-full gap-5">
+        <View style={compact ? undefined : hasRightColumn ? { flexGrow: 1.6, flexBasis: 0, minWidth: 0 } : { flexGrow: 1, minWidth: 0 }} className="w-full gap-5">
           {RecentlyOpened}
           {RecentlyAssigned}
         </View>
-        <View style={compact ? undefined : { flexGrow: 1, flexBasis: 0, minWidth: 0 }} className="w-full gap-5">
-          {Channels}
-          {SharedWithYou}
-        </View>
+        {hasRightColumn && (
+          <View style={compact ? undefined : { flexGrow: 1, flexBasis: 0, minWidth: 0 }} className="w-full gap-5">
+            {Channels}
+            {SharedWithYou}
+          </View>
+        )}
       </View>
     </ScrollView>
     {viewer}

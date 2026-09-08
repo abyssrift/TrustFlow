@@ -24,6 +24,7 @@ export type FileTile = {
   imageUri?: string;
   previewUri?: string;
   sizeBytes?: number;
+  actions?: { icon: string; label: string; onPress: () => void }[];
   onPress: () => void;
 };
 
@@ -39,6 +40,7 @@ export function FilePreviewCard({
   imageUri,
   previewUri,
   sizeBytes,
+  actions,
   width,
   previewHeight = 104,
   onPress,
@@ -94,7 +96,7 @@ export function FilePreviewCard({
           className="flex-row items-center px-2.5 py-2 gap-2 border-t border-surface-border/40"
         >
           <FontAwesome name={icon as any} size={12} color={color} />
-          <View className="flex-1">
+          <View className="flex-1 min-w-0">
             <Text className="text-typography-main text-[11px] font-bold" numberOfLines={1}>{fileName}</Text>
             {!!subtitle && <Text className="text-typography-muted text-[9px] mt-0.5" numberOfLines={1}>{subtitle}</Text>}
           </View>
@@ -105,6 +107,20 @@ export function FilePreviewCard({
           />
         </TouchableOpacity>
       </Tooltip>
+      {!!actions?.length && (
+        <View className="flex-row border-t border-surface-border/40">
+          {actions.map((action, index) => (
+            <Tooltip key={action.label} label={action.label} className="flex-1">
+              <TouchableOpacity
+                onPress={(e: any) => { e?.stopPropagation?.(); action.onPress(); }}
+                className={`h-11 w-full items-center justify-center ${index > 0 ? 'border-l border-surface-border/40' : ''}`}
+              >
+                <FontAwesome name={action.icon as any} size={12} color={colors.textMuted} />
+              </TouchableOpacity>
+            </Tooltip>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -117,10 +133,13 @@ export function FilePreviewGrid({
   items,
   minTileWidth = 150,
   previewHeight = 104,
+  singleRow = false,
 }: {
   items: FileTile[];
   minTileWidth?: number;
   previewHeight?: number;
+  /** When enabled, show only the cards that fit in the measured first row. */
+  singleRow?: boolean;
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const gap = 10;
@@ -128,16 +147,17 @@ export function FilePreviewGrid({
   let cols = Math.floor((avail + gap) / (minTileWidth + gap));
   if (cols < 1) cols = 1;
   const tileWidth = Math.floor((avail - gap * (cols - 1)) / cols);
+  const visibleItems = singleRow ? items.slice(0, cols) : items;
 
   if (items.length === 0) return null;
 
   return (
     <View
       onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
-      className="flex-row flex-wrap"
+      className={singleRow ? 'flex-row flex-nowrap overflow-hidden' : 'flex-row flex-wrap'}
       style={{ gap }}
     >
-      {items.map(({ key, ...tile }) => (
+      {visibleItems.map(({ key, ...tile }) => (
         <FilePreviewCard key={key} width={tileWidth} previewHeight={previewHeight} {...tile} />
       ))}
     </View>
