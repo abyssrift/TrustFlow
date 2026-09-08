@@ -203,7 +203,7 @@ export default function Popup({
                 put, so the actions are reachable at any window height. */}
             {scrollBody ? (
               <ScrollView
-                style={{ flexShrink: 1 }}
+                style={{ flexGrow: 0, flexShrink: 1 }}
                 contentContainerStyle={{ flexGrow: 0 }}
                 showsVerticalScrollIndicator={false}
               >
