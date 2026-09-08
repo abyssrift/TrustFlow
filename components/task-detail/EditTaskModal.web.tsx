@@ -1,6 +1,7 @@
 import DraggableSheet from '@/components/common/DraggableSheet';
 import Popup from '@/components/common/Popup';
 import SidebarLayout from '@/components/common/SidebarLayout';
+import ClipboardControls from '@/components/common/ClipboardControls';
 import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import Tooltip from '@/components/common/Tooltip';
 import RichDescriptionEditor from '@/components/common/RichDescriptionEditor';
@@ -313,7 +314,10 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
             {/* Title */}
             <View>
-              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Title</Text>
+              <View className="flex-row items-center justify-between mb-2 ml-1">
+                <Text className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: colors.textMuted }}>Title</Text>
+                <ClipboardControls value={title} onPaste={setTitle} />
+              </View>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
@@ -326,7 +330,10 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
             {/* Category */}
             <View>
-              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Category</Text>
+              <View className="flex-row items-center justify-between mb-2 ml-1">
+                <Text className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: colors.textMuted }}>Category</Text>
+                <ClipboardControls value={category} onPaste={setCategory} />
+              </View>
               <TextInput
                 value={category}
                 onChangeText={setCategory}
@@ -339,7 +346,13 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
             {/* Description */}
             <View>
-              <Text className="text-[10px] font-black uppercase tracking-[0.15em] mb-2" style={{ color: colors.textMuted }}>Description</Text>
+              <View className="flex-row items-center justify-between mb-2 ml-1">
+                <Text className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: colors.textMuted }}>Description</Text>
+                <ClipboardControls
+                  value={description}
+                  onPaste={t => setDescription(description ? `${description}\n${t}` : t)}
+                />
+              </View>
               <RichDescriptionEditor
                 value={description}
                 onChangeText={setDescription}
@@ -660,7 +673,10 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
                   {/* Title */}
                   <View>
-                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Title</Text>
+                    <View className="flex-row items-center justify-between mb-2.5 ml-1">
+                      <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Title</Text>
+                      <ClipboardControls value={title} onPaste={setTitle} />
+                    </View>
                     <TextInput
                       value={title}
                       onChangeText={setTitle}
@@ -704,7 +720,10 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
                   {/* Category */}
                   <View>
-                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Category</Text>
+                    <View className="flex-row items-center justify-between mb-2.5 ml-1">
+                      <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Category</Text>
+                      <ClipboardControls value={category} onPaste={setCategory} />
+                    </View>
                     <TextInput
                       value={category}
                       onChangeText={setCategory}
@@ -741,7 +760,13 @@ export default function EditTaskModalWeb({ visible, onClose, focusField }: Props
 
                   {/* Description */}
                   <View>
-                    <Text className="text-[10px] font-black uppercase tracking-widest mb-2.5 ml-1" style={{ color: colors.textMuted }}>Description</Text>
+                    <View className="flex-row items-center justify-between mb-2.5 ml-1">
+                      <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Description</Text>
+                      <ClipboardControls
+                        value={description}
+                        onPaste={t => setDescription(description ? `${description}\n${t}` : t)}
+                      />
+                    </View>
                     <RichDescriptionEditor
                       value={description}
                       onChangeText={setDescription}
