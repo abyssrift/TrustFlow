@@ -27,6 +27,7 @@ import { SubmissionProvider } from '@/contexts/SubmissionContext';
 import { ThemeProvider as AppThemeProvider } from '@/contexts/ThemeContext';
 import { TimerProvider } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { UndoActionProvider } from '@/contexts/UndoActionContext';
 import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
 import { PingHighlightProvider } from '@/contexts/PingHighlightContext';
 import { ModalDispatchProvider } from '@/contexts/ModalDispatchContext';
@@ -70,11 +71,13 @@ export default function RootLayout() {
             <AlertProvider>
               <SubmissionProvider>
                 <ToastProvider>
-                  <IslandProvider>
-                    <UploadManagerProvider>
-                      <RootLayoutNav />
-                    </UploadManagerProvider>
-                  </IslandProvider>
+                  <UndoActionProvider>
+                    <IslandProvider>
+                      <UploadManagerProvider>
+                        <RootLayoutNav />
+                      </UploadManagerProvider>
+                    </IslandProvider>
+                  </UndoActionProvider>
                 </ToastProvider>
               </SubmissionProvider>
             </AlertProvider>

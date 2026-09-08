@@ -9,6 +9,7 @@ import { useTaskDetail } from '@/contexts/TaskDetailContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useUndoAction } from '@/contexts/UndoActionContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { supabase } from '@/lib/supabase';
@@ -65,6 +66,7 @@ export default function TaskHeader() {
   const router = useRouter();
   const { successToast, errorToast, infoToast } = useToast();
   const { showConfirm } = useAlert();
+  const { registerUndo } = useUndoAction();
   const colors = useThemeColors();
 
   // Scroll-linked collapse (#306): once the task body scrolls past ~64px this
@@ -93,9 +95,31 @@ export default function TaskHeader() {
     if (!data) return;
     try {
       setArchiving(true);
-      const { error } = await supabase.rpc('rpc_archive_task', { p_task_id: data.task.id });
+      const { data: archiveResult, error } = await supabase.rpc('rpc_archive_task', { p_task_id: data.task.id });
       if (error) throw error;
-      successToast('Task archived.');
+
+      // rpc_archive_task returns the archive UUID directly. Keep this exact
+      // value for undo rather than deriving an ID from the task snapshot.
+      const archiveId = typeof archiveResult === 'string'
+        ? archiveResult
+        : (archiveResult as any)?.id ?? (archiveResult as any)?.archive_id;
+      if (!archiveId) throw new Error('Archive completed without returning an archive ID.');
+
+      const canUndoArchive = data.permissions.is_owner || hasPermission('archive.restore');
+      if (canUndoArchive) {
+        const taskId = data.task.id;
+        registerUndo({
+          label: 'Task archived.',
+          undo: async () => {
+            const { error: restoreError } = await supabase.rpc('rpc_restore_archive', {
+              p_archive_id: archiveId,
+            });
+            if (restoreError) throw restoreError;
+            router.replace(`/task/${taskId}` as any);
+          },
+        });
+      }
+      if (!canUndoArchive) successToast('Task archived.');
       setShowArchiveConfirm(false);
       router.replace('/(tabs)/tasks' as any);
     } catch (err: any) {

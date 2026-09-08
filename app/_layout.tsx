@@ -43,6 +43,7 @@ import TimerIsland from '@/components/TimerIsland';
 import WelcomeTour from '@/components/onboarding/WelcomeTour';
 import { TimerProvider, useTimer } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { UndoActionProvider } from '@/contexts/UndoActionContext';
 import { usePathname, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
@@ -218,11 +219,13 @@ function RootLayoutNav() {
             <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
               <NotificationsProvider>
                 <ToastProvider>
-                  <PingHighlightProvider>
-                    <ModalDispatchProvider>
-                      <ThemedRoot />
-                    </ModalDispatchProvider>
-                  </PingHighlightProvider>
+                  <UndoActionProvider>
+                    <PingHighlightProvider>
+                      <ModalDispatchProvider>
+                        <ThemedRoot />
+                      </ModalDispatchProvider>
+                    </PingHighlightProvider>
+                  </UndoActionProvider>
                 </ToastProvider>
               </NotificationsProvider>
             </ThemeProvider>

@@ -57,6 +57,18 @@ export default function GlobalToastOverlay({ toasts, onDismiss }: Props) {
                     <Text style={{ color: colors.textMain }} className="text-sm font-black mb-0.5">{toast.title}</Text>
                   ) : null}
                   <Text style={{ color: colors.textMuted }} className="text-xs font-semibold leading-4">{toast.message}</Text>
+                  {toast.onPress && (
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => { toast.onPress!(); onDismiss(toast.id); }}
+                      className="self-start mt-2 rounded-full px-3 py-1"
+                      style={{ backgroundColor: addAlpha(palette.accent, 0.16) }}
+                    >
+                      <Text style={{ color: palette.accent }} className="text-[10px] font-black uppercase tracking-wider">
+                        {toast.actionLabel ?? 'View →'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 <TouchableOpacity onPress={() => onDismiss(toast.id)} className="rounded-full p-1">

@@ -1,0 +1,27 @@
+import assert from 'node:assert';
+import fs from 'node:fs';
+
+const source = fs.readFileSync('contexts/UndoActionContext.web.tsx', 'utf8');
+const genericLayout = fs.readFileSync('app/_layout.tsx', 'utf8');
+const webLayout = fs.readFileSync('app/_layout.web.tsx', 'utf8');
+const shared = fs.readFileSync('contexts/UndoActionContext.shared.ts', 'utf8');
+const native = fs.readFileSync('contexts/UndoActionContext.tsx', 'utf8');
+assert.match(source, /UndoActionContext\.shared/);
+assert.match(native, /UndoActionContext\.shared/);
+assert.match(shared, /createContext<UndoActionContextValue \| null>\(null\)/);
+assert.match(native, /useContext\(UndoActionContext\) \?\? noopUndo/);
+assert.match(genericLayout, /UndoActionProvider/);
+assert.match(webLayout, /UndoActionProvider/);
+assert.match(source, /DEFAULT_UNDO_TTL_MS\s*=\s*10_000/);
+assert.match(source, /activeRef\.current\s*=\s*null/);
+assert.match(source, /registration\.ttlMs \?\? DEFAULT_UNDO_TTL_MS/);
+assert.match(source, /clearActive\(\);[\s\S]*?const ttlMs =/, 'a new registration must replace the previous entry');
+assert.match(source, /const active = clearActive\(\);[\s\S]*?await active\.undo\(\)/, 'undo must be consumed before async execution');
+assert.match(source, /input, textarea, select, \[contenteditable\]/);
+assert.match(source, /event\.metaKey \|\| event\.ctrlKey/);
+assert.match(source, /event\.altKey \|\| event\.shiftKey/, 'redo and modified shortcuts must not be intercepted');
+assert.match(source, /if \(!activeRef\.current\) return;[\s\S]*?event\.preventDefault\(\)/, 'native undo must only be prevented when an app undo exists');
+assert.match(source, /await active\.undo\(\)/);
+assert.match(source, /errorToast\(message/);
+assert.match(source, /actionLabel: 'Undo',[\s\S]*?onPress: \(\) => \{ void executeUndo\(\); \}/, 'Undo toast must carry both an exact action label and callback');
+console.log('UndoActionContext source check: ok');
