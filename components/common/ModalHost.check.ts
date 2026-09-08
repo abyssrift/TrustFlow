@@ -6,6 +6,8 @@
 // ...>` fails `tsc` if a ModalType gains no entry, and the runtime asserts
 // below fail if the mirror drifts from what ModalHost actually wires.
 import type { ModalType } from '../../contexts/ModalDispatchContext';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 type Wiring = 'wired' | 'stub';
 
@@ -35,5 +37,9 @@ for (const t of types) {
     `ModalType ${t} has no wiring decision`,
   );
 }
+
+const hostSource = readFileSync(join(process.cwd(), 'components/common/ModalHost.tsx'), 'utf8');
+console.assert(/initialFiles=\{active\.payload\.initialFiles\}/.test(hostSource), 'upload initialFiles seed not forwarded');
+console.assert(/activeGroup=\{active\.payload\.activeGroup\}/.test(hostSource), 'upload activeGroup seed not forwarded');
 
 console.log('ModalHost.check: ok', MAPPING);

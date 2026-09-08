@@ -12,7 +12,7 @@ import { usePipelineAssignmentPreview } from '@/lib/usePipelineAssignmentPreview
 import { useAuth } from '@/contexts/AuthContext';
 import { useTaskCreation, type StagedBriefFile } from '@/contexts/TaskCreationContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { getPastedImageFile, fileToStaged, applyTaskSeed } from '@/lib/pasteImage';
+import { getPastedImageFile, fileToStaged, applyTaskSeed, taskSeedKey } from '@/lib/pasteImage';
 import { useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
 import { supabase } from '@/lib/supabase';
 import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
@@ -260,6 +260,8 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId, i
   const [showPipelineDropdown, setShowPipelineDropdown] = useState(false);
   const pipelineButtonRef                               = useRef<any>(null);
   const [pipelineDropdownPos, setPipelineDropdownPos]   = useState({ top: 0, left: 0, width: 0 });
+  const appliedSeedKeyRef = useRef<string | null>(null);
+  const wasVisibleRef = useRef(false);
 
   // Project dropdown
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
@@ -314,17 +316,28 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId, i
   );
 
   // Phase 3: seed title/description/brief files from a screen-level paste or
-  // drop that opened this composer. Runs once per open (visible false→true).
+  // drop that opened this composer. Each distinct seed applies once, including
+  // one that arrives after visibility; stable props remain idempotent.
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      appliedSeedKeyRef.current = null;
+      wasVisibleRef.current = false;
+      return;
+    }
+    const opening = !wasVisibleRef.current;
+    wasVisibleRef.current = true;
+    const seedKey = taskSeedKey(initialText, initialFiles);
+    if (appliedSeedKeyRef.current === seedKey) return;
+    appliedSeedKeyRef.current = seedKey;
     applyTaskSeed(
       { initialText, initialFiles },
       { title: draft.title, description: draft.description },
       setDraft,
       (files) => setBriefFiles(prev => [...prev, ...files]),
+      opening,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, initialText, initialFiles, draft.title, draft.description, setDraft, setBriefFiles]);
 
   useEffect(() => {
     if (visible) {

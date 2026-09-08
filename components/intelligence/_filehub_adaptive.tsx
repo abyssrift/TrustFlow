@@ -31,10 +31,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Popup from '@/components/common/Popup';
+import { FileDropOverlay } from '@/components/common/FileDropOverlay';
 import { useDoubleTap } from '@/hooks/useDoubleTap';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useModalDispatch } from '@/contexts/ModalDispatchContext';
+import { SMART_FOLDER_PASTE_WARNING_MESSAGE, SMART_FOLDER_PASTE_WARNING_TITLE, useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
 import AdaptiveFileGrid from '../common/AdaptiveFileGrid';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from '../common/FilePreview';
 import UserLink from '../common/UserLink';
@@ -44,9 +47,6 @@ import FileHubOverview from './FileHubOverview';
 import FileHubBrowse from './FileHubBrowse';
 import { useShareFile } from '../common/ShareFile';
 import TaskFileResults from './TaskFileResults';
-
-
-
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 // Shared byte-identical helpers (formatFileSize, expiresInDays, getInitials,
@@ -2496,6 +2496,7 @@ function TagsManageSheet({ visible, onClose, onChanged }: {
 function FileHubAdaptiveInner() {
   const { hasPermission, user, profile } = useAuth();
   const { showConfirm, showAlert } = useAlert();
+  const { active, summon } = useModalDispatch();
   const {
     mode, setMode,
     search, setSearch,
@@ -2558,6 +2559,41 @@ function FileHubAdaptiveInner() {
   const activeGroup = useMemo(
     () => groups.find(g => g.id === activeGroupId) ?? null,
     [groups, activeGroupId]
+  );
+
+  // Keep the channel override guard identical to the upload affordance below:
+  // view-only override channels and the channel list itself cannot accept files.
+  const canUpload = mode !== 'groups' || (!!activeGroupId && (!activeGroup?.is_override || canManageOverride));
+  const uploadModalActive = active?.type === 'upload';
+
+  const openUpload = useCallback((initialFiles?: File[]) => {
+    if (!canUpload) return;
+    if (Platform.OS === 'web') {
+      summon('upload', {
+        folderId: selectedFolderId ?? undefined,
+        initialFiles: initialFiles?.length ? initialFiles : undefined,
+        activeGroup: activeGroup
+          ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color }
+          : null,
+      });
+      return;
+    }
+    setShowUpload(true);
+  }, [activeGroup, canUpload, selectedFolderId, summon]);
+
+  // Web-only screen-level intake. The global modal owns the composer while it
+  // is open, so this screen listener yields to it and cannot compete for paste.
+  const { ref: fileDropRef, isOver: fileDropOver, isDragActive: fileDropActive } = useFileDrop(
+    (files) => openUpload(files),
+    canUpload && !uploadModalActive,
+  );
+  useSmartPaste(
+    { onFiles: (files) => openUpload(files) },
+    canUpload && !uploadModalActive,
+    {
+      resolveDirectories: true,
+      onDiagnostics: () => showAlert(SMART_FOLDER_PASTE_WARNING_TITLE, SMART_FOLDER_PASTE_WARNING_MESSAGE),
+    },
   );
 
   // Restore tab from URL param on mount
@@ -2764,7 +2800,14 @@ function FileHubAdaptiveInner() {
   };
 
   return (
-    <View className="flex-1 bg-surface-background">
+    <View ref={fileDropRef} className="flex-1 bg-surface-background">
+      {Platform.OS === 'web' && canUpload && !uploadModalActive && (
+        <FileDropOverlay
+          active={fileDropActive}
+          over={fileDropOver}
+          label={`Drop to upload${selectedFolderId ? ` to ${folders.find(f => f.id === selectedFolderId)?.name ?? 'this folder'}` : ''}`}
+        />
+      )}
       {/* ── Header ── */}
       {(!activeGroupId || mode !== 'groups') && (
         <View className={`px-6 pb-4 ${Platform.OS === 'web' ? 'pt-6' : 'pt-14'}`}>
@@ -2910,7 +2953,7 @@ function FileHubAdaptiveInner() {
         <FileHubOverview
           key={`overview-${refreshKey}`}
           compact
-          onUpload={() => setShowUpload(true)}
+          onUpload={openUpload}
           onNewChannel={() => setShowCreateGroup(true)}
           onGoTab={handleTabChange}
         />
@@ -3194,7 +3237,7 @@ function FileHubAdaptiveInner() {
       ) : (
         (mode !== 'groups' || (activeGroupId && (!activeGroup?.is_override || canManageOverride))) && (
           <TouchableOpacity
-            onPress={() => setShowUpload(true)}
+            onPress={() => openUpload()}
             className="absolute right-6 w-14 h-14 bg-brand-primary rounded-full items-center justify-center premium-shadow"
             style={{ bottom: tabBarClearance }}
           >
@@ -3223,15 +3266,17 @@ function FileHubAdaptiveInner() {
       />
 
       {/* ── Upload sheet ── */}
-      <UploadSheet
-        visible={showUpload}
-        onClose={() => setShowUpload(false)}
-        onUploaded={() => { mode === 'groups' && activeGroupId ? refreshGroupFiles() : refresh(); }}
-        hasPermission={hasPermission}
-        profile={profile}
-        activeGroup={activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : null}
-        defaultFolderId={selectedFolderId}
-      />
+      {Platform.OS !== 'web' && (
+        <UploadSheet
+          visible={showUpload}
+          onClose={() => setShowUpload(false)}
+          onUploaded={() => { mode === 'groups' && activeGroupId ? refreshGroupFiles() : refresh(); }}
+          hasPermission={hasPermission}
+          profile={profile}
+          activeGroup={activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : null}
+          defaultFolderId={selectedFolderId}
+        />
+      )}
 
       {/* ── Group create sheet ── */}
       <GroupCreateSheet

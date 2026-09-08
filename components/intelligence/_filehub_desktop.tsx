@@ -2,13 +2,14 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileActivity, FileHubFile, FileHubFolder, FileHubFolderScope, FileHubGroup, FileHubGroupMember, FileHubMode, FileHubProvider, FileHubShareLink, FileVersion, FolderVersion, folderAncestors, folderDescendantIds, folderPath, shareLinkUrl, useFileHub } from '@/contexts/FileHubContext';
 import { useToast } from '@/contexts/ToastContext';
-import { useUploadJob, useUploadManager, type UploadJobState } from '@/contexts/UploadManagerContext';
+import { useUploadManager } from '@/contexts/UploadManagerContext';
+import { useModalDispatch } from '@/contexts/ModalDispatchContext';
 import * as Clipboard from 'expo-clipboard';
 import { useDoubleTap } from '@/hooks/useDoubleTap';
-import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useImageLightbox } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { useDragSource, useDropPulse, useDropTarget, useFileDrop, useMarqueeSelect, useSmartPaste } from '@/hooks/useWebDnd';
+import { SMART_FOLDER_PASTE_WARNING_MESSAGE, SMART_FOLDER_PASTE_WARNING_TITLE, useDragSource, useDropPulse, useDropTarget, useFileDrop, useMarqueeSelect, useSmartPaste } from '@/hooks/useWebDnd';
+import { useObjectUrlMap } from '@/hooks/useObjectUrlMap';
 import { FilePreviewModal, FilePreviewTeaser, getPreviewKind, type PreviewKind } from './../common/FilePreview';
 import Popup from '../common/Popup';
 import { FileDropOverlay } from '../common/FileDropOverlay';
@@ -23,7 +24,6 @@ import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/fileh
 import FolderTreePicker from './FolderTreePicker';
 import { ACTIVITY_META, ALLOWED_EXTENSIONS, ALLOWED_TYPES_MESSAGE, expiresInDays, formatFileSize, getInitials, getTagColor, GROUP_COLORS, isAllowedFile, TAG_PALETTE } from './filehubShared';
 import { randomId } from '@/lib/randomId';
-import { noticeReducedMotion } from '@/lib/reducedMotionNotice';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { isMultiSelectModifierActive } from '@/lib/webModifierKeys';
 import { useShareFile } from '../common/ShareFile';
@@ -45,6 +45,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+
 import { useReducedMotion } from 'react-native-reanimated';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -107,6 +108,11 @@ function AdaptiveFileGrid({
   if (numCols < 2) numCols = 2;
   const exactSquareSize = Math.floor((containerWidth - (gap * (numCols - 1))) / numCols);
 
+  const previewUrls = useObjectUrlMap(
+    files,
+    (file, index) => `${index}:${file.name}:${file.size}:${file.lastModified}`,
+    file => file.type?.toLowerCase().startsWith('image/') ? file : null,
+  );
   if (files.length === 0) return null;
 
   // A picked folder renders as one tile, not one per nested file.
@@ -155,7 +161,7 @@ function AdaptiveFileGrid({
         const { icon, color } = getMimeIcon(pf.type || null);
         
         // Convert the native DOM File into a temporary blob URL for the web <Image>
-        const imageSource = isImage ? URL.createObjectURL(pf) : '';
+        const imageSource = isImage ? (previewUrls[`${idx}:${pf.name}:${pf.size}:${pf.lastModified}`] || '') : '';
 
         return (
           <View
@@ -205,932 +211,6 @@ function AdaptiveFileGrid({
         <FontAwesome name="plus" size={20} color="#94a3b8" />
         <Text className="text-typography-muted text-[10px] font-black mt-2 tracking-wide uppercase">Add More</Text>
       </TouchableOpacity>
-    </View>
-  );
-}
-
-// ─── Upload Modal ─────────────────────────────────────────────────────────────
-
-type UploadDraft = {
-  files: File[];
-  visibility: 'direct' | 'broadcast' | 'group';
-  recipientIds: string[];
-  folderId: string | null;
-  tags: string[];
-  tagInput: string;
-  caption: string;
-};
-
-const EMPTY_DRAFT = (defaultVisibility: 'direct' | 'group' = 'direct'): UploadDraft => ({
-  files: [],
-  visibility: defaultVisibility,
-  recipientIds: [],
-  folderId: null,
-  tags: [],
-  tagInput: '',
-  caption: '',
-});
-
-// ─── Upload → island goo morph (web) ─────────────────────────────────────────
-// Minimising an in-flight upload used to just cut the card away. Instead the
-// card's footprint flies up and *fuses* with the topbar island through an SVG
-// metaball filter — a heavy blur followed by an alpha threshold, which snaps
-// the two blurred shapes back into one hard-edged liquid blob wherever they
-// overlap. The eye then tracks a single continuous object from "uploading
-// here" to "docked up there" instead of two elements cutting past each other.
-//
-// What is deliberately NOT filtered: the card itself. Running a goo filter
-// over a live subtree is the expensive way to do this — it re-rasterises real
-// text and progress rings every frame. Three solid divs sized from the
-// measured rects give the same read for almost nothing, and the filter is
-// mounted only for the length of the transition, never persistently.
-
-type MorphRect = { top: number; left: number; width: number; height: number };
-
-const MORPH_MS = 480;
-const MODAL_EXIT_MS = 260; // Popup's Modal fades itself out over 250ms after visible flips
-const GOO_FILTER_ID = 'filehub-upload-goo';
-const GOO_BLUR = 8;   // stdDeviation — wide enough to bridge the blobs, tight enough to stay smooth
-const GOO_PAD = 30;   // slack around the travel box so the blur isn't clipped at its edges
-const GOO_EASE = 'cubic-bezier(0.62, 0, 0.2, 1)';
-
-const domRect = (el: HTMLElement): MorphRect => {
-  const r = el.getBoundingClientRect();
-  return { top: r.top, left: r.left, width: r.width, height: r.height };
-};
-
-function UploadGooMorph({ from, to, label, cardColor, accent }: {
-  from: MorphRect;
-  to: MorphRect;
-  label: string;
-  cardColor: string;
-  accent: string;
-}) {
-  const [settled, setSettled] = useState(false);
-
-  // Two frames: the first paints the "from" geometry, the second flips to
-  // "to" — a single frame isn't guaranteed to have painted yet, and a
-  // transition with nothing to transition from just snaps.
-  useEffect(() => {
-    let inner = 0;
-    const outer = requestAnimationFrame(() => { inner = requestAnimationFrame(() => setSettled(true)); });
-    return () => { cancelAnimationFrame(outer); if (inner) cancelAnimationFrame(inner); };
-  }, []);
-
-  // Filter region = just the box the blobs travel through, not the viewport.
-  const minX = Math.min(from.left, to.left) - GOO_PAD;
-  const minY = Math.min(from.top, to.top) - GOO_PAD;
-  const boxW = Math.max(from.left + from.width, to.left + to.width) + GOO_PAD - minX;
-  const boxH = Math.max(from.top + from.height, to.top + to.height) + GOO_PAD - minY;
-
-  const blobTransition = ['left', 'top', 'width', 'height', 'border-radius']
-    .map(p => `${p} ${MORPH_MS}ms ${GOO_EASE}`).join(', ');
-
-  // The card's own footprint, collapsing onto the island's measured rect.
-  const panel = settled
-    ? { left: to.left - minX, top: to.top - minY, width: to.width, height: to.height, borderRadius: 999 }
-    : { left: from.left - minX, top: from.top - minY, width: from.width, height: from.height, borderRadius: 32 };
-
-  // A droplet runs the same path slightly ahead of the panel, so something is
-  // always bridging the two ends while the gap is at its widest — that bridge
-  // is what makes the merge read as liquid rather than as a shrink.
-  const dropSize = Math.max(18, Math.min(34, to.height * 1.2));
-  const dropX = (settled ? to.left + to.width / 2 : from.left + from.width / 2) - minX - dropSize / 2;
-  const dropY = (settled ? to.top + to.height / 2 : from.top + from.height / 2) - minY - dropSize / 2;
-
-  return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, pointerEvents: 'none' }}>
-      {/* The modal's dim, taken over for the transition so it can fade rather
-          than cut — the blob has to land on a page that's already back. */}
-      <div
-        style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.7)',
-          opacity: settled ? 0 : 1,
-          transition: `opacity ${MORPH_MS - 120}ms ease`,
-        }}
-      />
-
-      {/* Filter def lives and dies with this component. */}
-      <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden="true">
-        <defs>
-          <filter id={GOO_FILTER_ID} x="-25%" y="-25%" width="150%" height="150%" colorInterpolationFilters="sRGB">
-            <feGaussianBlur in="SourceGraphic" stdDeviation={GOO_BLUR} result="blurred" />
-            <feColorMatrix
-              in="blurred"
-              type="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -11"
-            />
-          </filter>
-        </defs>
-      </svg>
-
-      <div
-        style={{
-          position: 'absolute', left: minX, top: minY, width: boxW, height: boxH,
-          // Glow chained after the goo filter, not before: a drop-shadow inside
-          // the alpha-threshold blur+colormatrix would get clamped away the same
-          // way any soft/low-alpha detail does — chaining it after lets it glow
-          // around the already-merged silhouette instead.
-          filter: `url(#${GOO_FILTER_ID}) drop-shadow(0 0 8px ${accent}) drop-shadow(0 0 20px ${accent})`,
-        }}
-      >
-        <div style={{ position: 'absolute', background: cardColor, willChange: 'left, top, width, height', transition: blobTransition, ...panel }} />
-        <div
-          style={{
-            position: 'absolute', width: dropSize, height: dropSize, borderRadius: 999, background: cardColor,
-            left: dropX, top: dropY, willChange: 'left, top',
-            transition: `left ${MORPH_MS - 90}ms ${GOO_EASE}, top ${MORPH_MS - 90}ms ${GOO_EASE}`,
-          }}
-        />
-        {/* The island end, swelling up to meet the incoming blob. */}
-        <div
-          style={{
-            position: 'absolute', width: to.width, height: to.height, borderRadius: 999, background: cardColor,
-            left: to.left - minX, top: to.top - minY, willChange: 'transform',
-            transform: settled ? 'scale(1)' : 'scale(0)',
-            transition: `transform ${MORPH_MS - 150}ms cubic-bezier(0.34, 1.3, 0.64, 1) 150ms`,
-          }}
-        />
-      </div>
-
-      {/* Progress read rides on top, outside the filter — the threshold would
-          eat the glyphs, and it carries the card's identity into the flight. */}
-      <div
-        style={{
-          position: 'absolute',
-          left: settled ? to.left + to.width / 2 : from.left + from.width / 2,
-          top: settled ? to.top + to.height / 2 : from.top + from.height / 2,
-          transform: `translate(-50%, -50%) scale(${settled ? 0.42 : 1})`,
-          opacity: settled ? 0 : 1,
-          color: accent, fontSize: 28, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
-          transition: `left ${MORPH_MS}ms ${GOO_EASE}, top ${MORPH_MS}ms ${GOO_EASE}, transform ${MORPH_MS}ms ${GOO_EASE}, opacity ${Math.round(MORPH_MS * 0.55)}ms ease`,
-        }}
-      >
-        {label}
-      </div>
-    </div>
-  );
-}
-
-function UploadModal({
-  visible,
-  folders,
-  onClose,
-  onUploaded,
-  checkDuplicate,
-  checkNameConflict,
-  replaceFile,
-  hasPermission,
-  profile,
-  activeGroup,
-  defaultFolderId = null,
-  initialFiles = null,
-}: {
-  visible: boolean;
-  folders: FileHubFolder[];
-  onClose: () => void;
-  onUploaded: () => void;
-  defaultFolderId?: string | null;
-  initialFiles?: File[] | null;
-  checkDuplicate: (hash: string, folderId: string | null) => Promise<any[]>;
-  checkNameConflict: (
-    name: string,
-    visibility: 'direct' | 'broadcast' | 'group',
-    groupId: string | null,
-    folderId: string | null
-  ) => Promise<any | null>;
-  replaceFile: (
-    targetId: string,
-    args: { storagePath: string; size: number; hash: string | null; mime: string | null; caption?: string | null }
-  ) => Promise<void>;
-  hasPermission: (key: string) => boolean;
-  profile: any;
-  activeGroup?: { id: string; name: string; avatar_color: string } | null;
-}) {
-  const { refreshFolders } = useFileHub();
-  const { startUpload, cancelUpload } = useUploadManager();
-  const { showAlert } = useAlert();
-  const fileInputRef = useRef<any>(null);
-  const folderInputRef = useRef<any>(null);
-  const [draft, setDraft] = useState<UploadDraft>(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
-  const maxFileSizeBytes = useFileSizeLimit();
-  const [recipientSearch, setRecipientSearch] = useState('');
-  const [memberResults, setMemberResults] = useState<any[]>([]);
-  const [searchingMembers, setSearchingMembers] = useState(false);
-  const [tagSuggestResults, setTagSuggestResults] = useState<string[]>([]);
-
-  // Once Upload is clicked the job runs in the background manager, but the modal
-  // stays open showing its live progress. Closing/minimizing morphs the card up
-  // into the topbar island (where the same job keeps tracking) rather than just
-  // vanishing — so the user sees where the upload "went".
-  const [launchedJobId, setLaunchedJobId] = useState<string | null>(null);
-  const job = useUploadJob(launchedJobId);
-  const uploading = launchedJobId !== null;
-  const { height: winHeight } = useWindowDimensions();
-  const reducedMotion = useReducedMotion();
-
-  // The upload job runs in the background UploadManager/IslandContext regardless
-  // of whether this modal is open — closing it (even instantly, no transition)
-  // doesn't stop the job or hide its progress in the topbar island. The morph
-  // below is therefore purely a visual hand-off: it only exists so the user can
-  // see WHERE the upload went, and any path that skips it is still correct.
-  // `morph` mounts the goo layer (and its filter) for exactly the flight; the
-  // separate `handingOff` flag outlives it, because the Modal keeps painting
-  // its backdrop through a 250ms exit fade and letting the dim snap back for
-  // that fade would flash black over the landing.
-  const [morph, setMorph] = useState<{ from: MorphRect; to: MorphRect; label: string } | null>(null);
-  const [handingOff, setHandingOff] = useState(false);
-  const morphTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const morphCardRef = useRef<any>(null);
-  const clearMorphTimers = useCallback(() => {
-    morphTimers.current.forEach(clearTimeout);
-    morphTimers.current = [];
-  }, []);
-  useEffect(() => clearMorphTimers, [clearMorphTimers]);
-
-  const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
-
-  // Folders are scoped: a channel's folders never appear outside it, and
-  // Direct/Broadcast are separate trees too — so the picker only ever offers
-  // folders matching whatever this upload will actually target.
-  const uploadScope: FileHubFolderScope = activeGroup ? 'group' : (draft.visibility === 'broadcast' ? 'broadcast' : 'direct');
-  const scopedFolders = useMemo(
-    () => folders.filter(f => f.scope === uploadScope && (f.group_id ?? null) === (activeGroup?.id ?? null)),
-    [folders, uploadScope, activeGroup?.id]
-  );
-
-  useEffect(() => {
-    if (!visible) {
-      setDraft(EMPTY_DRAFT(activeGroup ? 'group' : 'direct'));
-      setRecipientSearch('');
-      setMemberResults([]);
-      setLaunchedJobId(null);
-    } else {
-      // Smart leveling: open with the folder the user is currently viewing
-      // preselected, so uploads land where they're looking instead of at root.
-      setDraft(prev => ({ ...prev, visibility: activeGroup ? 'group' : prev.visibility, folderId: defaultFolderId ?? null }));
-      // Reopening inside the tail of a hand-off cancels what's left of it, so
-      // the card can't come back invisible.
-      clearMorphTimers();
-      setMorph(null);
-      setHandingOff(false);
-    }
-  }, [visible, activeGroup?.id, defaultFolderId, clearMorphTimers]);
-
-  // Seed the composer from an OS-file drop (parent hands over the dropped files
-  // when it opens the modal). Same allow-list filter as the manual picker.
-  useEffect(() => {
-    if (visible && initialFiles && initialFiles.length) {
-      const valid = processWebFiles(initialFiles as any);
-      if (valid.length) setDraft(prev => ({ ...prev, files: [...prev.files, ...valid] }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, initialFiles]);
-
-  const searchMembers = useCallback(async (query: string) => {
-    setRecipientSearch(query);
-    if (!query.trim()) { setMemberResults([]); return; }
-    setSearchingMembers(true);
-    try {
-      const { data } = await supabase.from('users').select('id, full_name, avatar_url').ilike('full_name', `%${query}%`).limit(8);
-      setMemberResults(data || []);
-    } finally {
-      setSearchingMembers(false);
-    }
-  }, []);
-
-  const fetchTagSuggestions = useCallback(async (prefix: string) => {
-    if (!prefix.trim()) { setTagSuggestResults([]); return; }
-    const { data } = await supabase.rpc('rpc_filehub_tag_suggestions', { p_prefix: prefix, p_limit: 8 });
-    setTagSuggestResults((data || []).filter((t: string) => !draft.tags.includes(t)));
-  }, [draft.tags]);
-
-  const toggleRecipient = (id: string) => {
-    patch({ recipientIds: draft.recipientIds.includes(id) ? draft.recipientIds.filter(r => r !== id) : [...draft.recipientIds, id] });
-  };
-
-  const addTag = (tag: string) => {
-    const clean = tag.trim().toLowerCase().replace(/\s+/g, '-');
-    if (!clean || draft.tags.includes(clean)) return;
-    patch({ tags: [...draft.tags, clean], tagInput: '' });
-    setTagSuggestResults([]);
-  };
-
-  const handleTagKeyPress = (e: any) => {
-    if (e.nativeEvent?.key === 'Enter' || e.nativeEvent?.key === ',') {
-      e.preventDefault?.();
-      addTag(draft.tagInput);
-    }
-  };
-
-  const processWebFiles = (fileList: FileList | null): File[] => {
-    if (!fileList || fileList.length === 0) return [];
-    const valid: File[] = [];
-    const rejected: string[] = [];
-    Array.from(fileList)
-      .filter(f => !f.name.startsWith('.'))
-      .forEach(file => {
-        if (isAllowedFile(file.name)) {
-          valid.push(file);
-        } else {
-          rejected.push(file.name);
-        }
-      });
-    if (rejected.length > 0) {
-      showAlert(
-        'Unsupported File Type',
-        `${rejected.length === 1 ? `"${rejected[0]}" is` : `${rejected.length} files are`} not supported.\n\nSupported types:\n${ALLOWED_TYPES_MESSAGE}`,
-      );
-    }
-    return valid;
-  };
-
-  const handleFileChange = (e: any) => {
-    const valid = processWebFiles(e.target?.files);
-    if (valid.length > 0) patch({ files: [...draft.files, ...valid] });
-    e.target.value = '';
-  };
-
-  const handleFolderChange = (e: any) => {
-    const valid = processWebFiles(e.target?.files);
-    if (valid.length > 0) patch({ files: [...draft.files, ...valid] });
-    e.target.value = '';
-  };
-
-  // The screen-level useFileDrop (in the FileHub browser) only fires before this
-  // modal is open — it seeds initialFiles and opens the composer. Once open, the
-  // modal sits in front of that drop zone, so dropping more files onto it needs
-  // its own listener; otherwise the OS drop target dies the moment the modal appears.
-  const { ref: modalDropRef, isOver: modalDropOver } = useFileDrop(
-    (files) => {
-      const valid = processWebFiles(files as any);
-      if (valid.length) setDraft(prev => ({ ...prev, files: [...prev.files, ...valid] }));
-    },
-    visible && !uploading,
-  );
-
-  const { iconScale: dropIconScale, glowOpacity: dropGlowOpacity } = useDropPulse(modalDropOver);
-
-  // One node, two consumers: the OS-file drop listener and the morph's "where is
-  // the card right now" measurement.
-  const setCardRef = useCallback((node: any) => {
-    morphCardRef.current = node;
-    modalDropRef(node);
-  }, [modalDropRef]);
-
-  // Measure both ends in the click's own frame, then hand off to the goo layer.
-  // getBoundingClientRect is synchronous — RN's measure() isn't, even on RNW,
-  // and a frame of lag here shows up as a visible snap. The island's rect is
-  // read live rather than hardcoded: it floats and slides with the top bar, so
-  // there is no fixed coordinate to aim at.
-  const morphToIsland = useCallback(() => {
-    if (handingOff) return;
-    const cardEl = morphCardRef.current as HTMLElement | null;
-    const islandEl = typeof document !== 'undefined'
-      ? (document.querySelector('[data-island-anchor]') as HTMLElement | null)
-      : null;
-    const from = cardEl?.getBoundingClientRect ? domRect(cardEl) : null;
-    const to = islandEl?.getBoundingClientRect ? domRect(islandEl) : null;
-    // Island not mounted, card already gone, anything unmeasurable — just close.
-    if (!from || !to || !from.width || !to.width) { onClose(); return; }
-    setHandingOff(true);
-    setMorph({ from, to, label: `${Math.round(job?.progress ?? 0)}%` });
-    morphTimers.current.push(
-      setTimeout(() => { setMorph(null); onClose(); }, MORPH_MS),
-      setTimeout(() => setHandingOff(false), MORPH_MS + MODAL_EXIT_MS),
-    );
-  }, [handingOff, onClose, job?.progress]);
-
-  // Web with motion allowed gets the merge; native and reduced-motion get the
-  // plain close they have today.
-  const handleDismiss = useCallback(() => {
-    if (uploading && Platform.OS === 'web' && !reducedMotion) morphToIsland();
-    else {
-      if (uploading && reducedMotion) noticeReducedMotion();
-      onClose();
-    }
-  }, [uploading, reducedMotion, morphToIsland, onClose]);
-
-  // The upload engine (worker pool, dup/conflict handling, per-file commit,
-  // progress, ETA, cancel) lives in UploadManagerContext so the job survives
-  // this modal closing. We hand off the draft and switch the modal to its live
-  // progress view — the user can watch it here, or minimize it into the topbar
-  // island (where the same job keeps tracking) and get on with their work. The
-  // parent FileHub screen refreshes its listing on completion via
-  // useUploadManager().lastCompletedAt.
-  const handleUpload = () => {
-    if (draft.files.length === 0) return;
-    const companyId = profile?.company_id;
-    if (!companyId) { showAlert('Error', 'Company not found.'); return; }
-    if (draft.visibility === 'group' && !activeGroup?.id) {
-      showAlert('Error', 'No channel selected.'); return;
-    }
-
-    const jobId = startUpload({
-      files: draft.files,
-      companyId,
-      visibility: draft.visibility,
-      folderId: draft.folderId,
-      recipientIds: draft.recipientIds,
-      groupId: draft.visibility === 'group' ? (activeGroup?.id ?? null) : null,
-      tags: draft.tags,
-      caption: draft.caption || null,
-      maxFileSizeBytes: maxFileSizeBytes ?? null,
-      // Snapshot the current scope's folders for the pre-upload dup/conflict
-      // checks; the real sub-tree is get-or-created server-side at commit.
-      scopedFolders,
-      label: draft.visibility === 'group' ? (activeGroup?.name ?? 'Channel') : (draft.visibility === 'broadcast' ? 'Broadcast' : 'Direct'),
-    });
-
-    setLaunchedJobId(jobId);
-  };
-
-  const totalDraftBytes = useMemo(() => draft.files.reduce((s, f) => s + f.size, 0), [draft.files]);
-
-  const canBroadcast = hasPermission('filehub:broadcast');
-  const colors = useThemeColors();
-
-  return (
-    <>
-    <Popup
-      visible={visible}
-      onClose={handleDismiss}
-      presentation="centered"
-      maxWidth={uploading ? 560 : 900}
-      maxHeight="90%"
-      containerClassName="rounded-[2rem] premium-shadow"
-      containerStyle={{
-        backgroundColor: colors.card,
-        borderWidth: modalDropOver ? 2 : 1,
-        borderColor: modalDropOver ? colors.primary : colors.border,
-        // While the goo layer is flying the card's footprint up to the island,
-        // the real card steps aside — the blob is standing in for it, pixel for
-        // pixel, so there's nothing to see underneath.
-        opacity: handingOff ? 0 : 1,
-      }}
-      // The dim moves into the goo layer for the duration of the morph, where a
-      // raw DOM node can fade it out in step with the flight — by the time we
-      // unmount, the island the blob landed on is the real one, already visible.
-      backdropStyle={handingOff ? { backgroundColor: 'rgba(0,0,0,0)' } : undefined}
-      overlays={morph ? (
-        <UploadGooMorph from={morph.from} to={morph.to} label={morph.label} cardColor={colors.card} accent={colors.primary} />
-      ) : undefined}
-      scrollable={false}
-    >
-        <View
-          ref={setCardRef}
-          style={{ maxHeight: '100%' }}
-        >
-          {modalDropOver && (
-            <Animated.View
-              pointerEvents="none"
-              className="absolute inset-0 rounded-[2rem] border-2"
-              style={{ borderColor: colors.primary, opacity: dropGlowOpacity }}
-            />
-          )}
-          <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b" style={{ borderColor: colors.border }}>
-            <Text className="text-xl font-black tracking-tight" style={{ color: colors.textMain }}>
-              {uploading ? 'Uploading' : activeGroup ? `Upload to ${activeGroup.name}` : 'Upload Files'}
-            </Text>
-            <View className="flex-row items-center gap-2">
-              {uploading && (
-                <TouchableOpacity
-                  onPress={handleDismiss}
-                  className="flex-row items-center gap-2 h-8 px-3 rounded-xl border"
-                  style={{ backgroundColor: colors.background, borderColor: colors.border }}
-                >
-                  <FontAwesome name="chevron-up" size={10} color={colors.textMuted} />
-                  <Text className="text-xs font-black" style={{ color: colors.textMuted }}>Minimize to island</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity onPress={handleDismiss} className="w-8 h-8 items-center justify-center rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                <FontAwesome name="times" size={12} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {uploading ? (
-            <UploadProgressPanel
-              job={job}
-              fileCount={draft.files.length}
-              totalBytes={totalDraftBytes}
-              onMinimize={handleDismiss}
-              onCancel={() => { if (launchedJobId) cancelUpload(launchedJobId); }}
-              onDone={() => { setLaunchedJobId(null); onClose(); }}
-            />
-          ) : (
-          <>
-          <View style={{ flexDirection: 'row', minHeight: 0 }}>
-          {/* Left column: file staging — grows with the batch, scrolls on its own */}
-          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, maxHeight: winHeight * 0.62 }} contentContainerStyle={{ padding: 28, gap: 20 }}>
-            {Platform.OS === 'web' && (
-              <>
-                <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
-                <input ref={folderInputRef} type="file" {...({ webkitdirectory: '', multiple: '' } as any)} style={{ display: 'none' }} onChange={handleFolderChange} />
-              </>
-            )}
-
-            {/* File picker area */}
-            {draft.files.length === 0 ? (
-              <View
-                className="border-2 border-dashed rounded-2xl items-center justify-center py-10 px-6 gap-4"
-                style={{ borderColor: modalDropOver ? colors.primary : colors.border, backgroundColor: modalDropOver ? colors.primary + '0d' : 'transparent' }}
-              >
-                <Animated.View
-                  className="w-14 h-14 rounded-2xl border items-center justify-center"
-                  style={{
-                    backgroundColor: colors.background,
-                    borderColor: modalDropOver ? colors.primary : colors.border,
-                    transform: [{ scale: dropIconScale }],
-                  }}
-                >
-                  <FontAwesome name="cloud-upload" size={24} color={modalDropOver ? colors.primary : colors.textMuted} />
-                </Animated.View>
-                <View className="items-center gap-1">
-                  <Text className="font-bold text-sm" style={{ color: modalDropOver ? colors.primary : colors.textMain }}>
-                    {modalDropOver ? 'Release to add files' : 'Drag and drop files here'}
-                  </Text>
-                  <Text className="text-xs" style={{ color: colors.textMuted }}>or choose below · up to 500 MB per file</Text>
-                </View>
-                <View className="flex-row gap-3">
-                  <TouchableOpacity
-                    onPress={() => fileInputRef.current?.click()}
-                    className="flex-row items-center gap-2 px-5 py-2.5 rounded-xl"
-                    style={{ backgroundColor: colors.primary }}
-                  >
-                    <FontAwesome name="files-o" size={12} color="#fff" />
-                    <Text className="text-white font-black text-sm">Files</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => folderInputRef.current?.click()}
-                    className="flex-row items-center gap-2 border px-5 py-2.5 rounded-xl"
-                    style={{ backgroundColor: colors.background, borderColor: colors.border }}
-                  >
-                    <FontAwesome name="folder-open-o" size={12} color={colors.textMuted} />
-                    <Text className="font-black text-sm" style={{ color: colors.textMuted }}>Folder</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <AdaptiveFileGrid
-                files={draft.files}
-                onRemove={(indices) => {
-                  const drop = new Set(indices);
-                  patch({ files: draft.files.filter((_, i) => !drop.has(i)) });
-                }}
-                onAddMore={() => fileInputRef.current?.click()}
-              />
-            )}
-          </ScrollView>
-
-          <View style={{ width: 1, backgroundColor: colors.border }} />
-
-          {/* Right column: destination + metadata — folder tree scrolls independently */}
-          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, maxHeight: winHeight * 0.62 }} contentContainerStyle={{ padding: 28, gap: 20 }}>
-            {/* Visibility — hidden when uploading to a group (locked to group) */}
-            {!activeGroup ? (
-              <View className="gap-2">
-                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Visibility</Text>
-                <View className="flex-row gap-2">
-                  {[
-                    { value: 'direct', label: 'Direct Send', icon: 'user' },
-                    ...(canBroadcast ? [{ value: 'broadcast', label: 'Broadcast', icon: 'bullhorn' }] : []),
-                  ].map(opt => (
-                    <TouchableOpacity
-                      key={opt.value}
-                      onPress={() => patch({ visibility: opt.value as any, recipientIds: [] })}
-                      className="flex-1 flex-row items-center justify-center gap-2 py-3 rounded-xl border"
-                      style={{
-                        backgroundColor: draft.visibility === opt.value ? colors.primary + '1a' : colors.background,
-                        borderColor: draft.visibility === opt.value ? colors.primary + '4d' : colors.border,
-                      }}
-                    >
-                      <FontAwesome
-                        name={opt.icon as any}
-                        size={12}
-                        color={draft.visibility === opt.value ? colors.primary : colors.textMuted}
-                      />
-                      <Text className="text-sm font-black" style={{ color: draft.visibility === opt.value ? colors.primary : colors.textMuted }}>
-                        {opt.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            ) : (
-              /* Group badge */
-              <View className="flex-row items-center gap-3 border rounded-xl px-4 py-3" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                <View
-                  className="w-9 h-9 rounded-xl items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: activeGroup.avatar_color + '22' }}
-                >
-                  <Text style={{ color: activeGroup.avatar_color, fontSize: 13, fontWeight: '900' }}>
-                    {getInitials(activeGroup.name)}
-                  </Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Sharing to channel</Text>
-                  <Text className="font-bold text-sm" style={{ color: colors.textMain }}>{activeGroup.name}</Text>
-                </View>
-                <View className="border rounded-full px-2.5 py-1" style={{ backgroundColor: colors.primary + '1a', borderColor: colors.primary + '33' }}>
-                  <Text className="text-[10px] font-black" style={{ color: colors.primary }}>Channel</Text>
-                </View>
-              </View>
-            )}
-
-            {/* Recipients */}
-            {draft.visibility === 'direct' && (
-              <View className="gap-2">
-                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Recipients</Text>
-                {draft.recipientIds.length > 0 && (
-                  <View className="flex-row flex-wrap gap-2 mb-1">
-                    {memberResults
-                      .filter(m => draft.recipientIds.includes(m.id))
-                      .map(m => (
-                        <View key={m.id} className="flex-row items-center gap-1.5 border rounded-full px-3 py-1" style={{ backgroundColor: colors.primary + '1a', borderColor: colors.primary + '33' }}>
-                          <Text className="text-xs font-bold" style={{ color: colors.primary }}>{m.full_name}</Text>
-                          <TouchableOpacity onPress={() => toggleRecipient(m.id)}>
-                            <FontAwesome name="times" size={9} color={colors.primary} />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                  </View>
-                )}
-                <View className="flex-row items-center border rounded-xl px-4 py-2.5 gap-2" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                  <FontAwesome name="search" size={11} color={colors.textMuted} />
-                  <TextInput
-                    value={recipientSearch}
-                    onChangeText={searchMembers}
-                    placeholder="Search team members..."
-                    placeholderTextColor={colors.textDim}
-                    className="flex-1 text-sm bg-transparent"
-                    style={{ color: colors.textMain }}
-                  />
-                  {searchingMembers && <ActivityIndicator size="small" color={colors.primary} />}
-                </View>
-                {memberResults.length > 0 && (
-                  <View className="border rounded-xl overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-                    {memberResults.map((m, i) => (
-                      <TouchableOpacity
-                        key={m.id}
-                        onPress={() => toggleRecipient(m.id)}
-                        className="flex-row items-center px-4 py-3 gap-3"
-                        style={i < memberResults.length - 1 ? { borderBottomWidth: 1, borderColor: colors.border + '80' } : undefined}
-                      >
-                        <View className="w-7 h-7 rounded-full border items-center justify-center" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                          <FontAwesome name="user" size={11} color={colors.textMuted} />
-                        </View>
-                        <Text className="flex-1 text-sm font-medium" style={{ color: colors.textMain }}>{m.full_name}</Text>
-                        {draft.recipientIds.includes(m.id) && <FontAwesome name="check" size={11} color={colors.primary} />}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Folder — explorer tree; hidden for group uploads when the group has none */}
-            {(!activeGroup || scopedFolders.length > 0) && (
-              <View className="gap-2">
-                <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Destination</Text>
-                {draft.folderId && (
-                  <Text className="text-[11px] font-bold" style={{ color: colors.primary }}>
-                    {folderPath(scopedFolders, draft.folderId)}
-                  </Text>
-                )}
-                <FolderTreePicker
-                  folders={scopedFolders}
-                  selectedId={draft.folderId}
-                  onSelect={(id) => patch({ folderId: id })}
-                  colors={colors}
-                />
-              </View>
-            )}
-
-            {/* Tags */}
-            <View className="gap-2">
-              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Tags</Text>
-              {draft.tags.length > 0 && (
-                <View className="flex-row flex-wrap gap-2">
-                  {draft.tags.map(tag => (
-                    <View key={tag} className="flex-row items-center gap-1.5 border rounded-full px-3 py-1" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                      <Text className="text-xs font-bold" style={{ color: colors.textMuted }}>{tag}</Text>
-                      <TouchableOpacity onPress={() => patch({ tags: draft.tags.filter(t => t !== tag) })}>
-                        <FontAwesome name="times" size={9} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
-              <View className="flex-row items-center border rounded-xl px-4 py-2.5 gap-2" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
-                <FontAwesome name="tag" size={11} color={colors.textMuted} />
-                <TextInput
-                  value={draft.tagInput}
-                  onChangeText={v => { patch({ tagInput: v }); fetchTagSuggestions(v); }}
-                  onKeyPress={handleTagKeyPress}
-                  onSubmitEditing={() => addTag(draft.tagInput)}
-                  placeholder="Add tag and press Enter..."
-                  placeholderTextColor={colors.textDim}
-                  className="flex-1 text-sm bg-transparent"
-                  style={{ color: colors.textMain }}
-                />
-              </View>
-              {tagSuggestResults.length > 0 && (
-                <View className="flex-row flex-wrap gap-2">
-                  {tagSuggestResults.map(t => (
-                    <TouchableOpacity key={t} onPress={() => addTag(t)} className="px-3 py-1 rounded-full border" style={{ backgroundColor: colors.primary + '0d', borderColor: colors.primary + '33' }}>
-                      <Text className="text-xs font-bold" style={{ color: colors.primary }}>{t}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Caption */}
-            <View className="gap-2">
-              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Caption</Text>
-              <TextInput
-                value={draft.caption}
-                onChangeText={v => patch({ caption: v })}
-                placeholder="Add a note or description..."
-                placeholderTextColor={colors.textDim}
-                multiline
-                numberOfLines={3}
-                className="border rounded-xl px-4 py-3 text-sm"
-                style={{ minHeight: 80, textAlignVertical: 'top', backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
-              />
-            </View>
-
-          </ScrollView>
-          </View>
-
-            {/* Actions. Upload hands off to the background manager and closes —
-                progress + any conflict prompts live in the topbar island now. */}
-            <View className="flex-row gap-3 px-8 py-5 border-t" style={{ borderColor: colors.border }}>
-              <TouchableOpacity
-                onPress={onClose}
-                className="flex-1 items-center justify-center py-3.5 rounded-xl border"
-                style={{ backgroundColor: colors.background, borderColor: colors.border }}
-              >
-                <Text className="font-black text-sm" style={{ color: colors.textMuted }}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleUpload}
-                disabled={draft.files.length === 0 || (draft.visibility === 'direct' && draft.recipientIds.length === 0)}
-                className="flex-[2] items-center justify-center py-3.5 rounded-xl"
-                style={{ backgroundColor: colors.primary, opacity: (draft.files.length === 0 || (draft.visibility === 'direct' && draft.recipientIds.length === 0)) ? 0.5 : 1 }}
-              >
-                <Text className="text-white font-black text-sm">
-                  {draft.files.length > 1
-                    ? `Upload ${draft.files.length} Files`
-                    : draft.visibility === 'group' ? 'Share to Channel' : 'Upload File'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </>
-          )}
-        </View>
-    </Popup>
-    </>
-  );
-}
-
-// ─── Upload Progress Panel (in-modal live view) ───────────────────────────────
-// Shown once Upload is clicked. Reads the live job snapshot from the background
-// UploadManager (same job that drives the island) so this view and the island
-// never disagree. Minimizing hands the card over to the island (see
-// UploadGooMorph) — the job, and the island's own progress display, keep
-// running in UploadManagerContext regardless of what the transition does.
-
-function UploadProgressPanel({
-  job, fileCount, totalBytes, onMinimize, onCancel, onDone,
-}: {
-  job: UploadJobState | undefined;
-  fileCount: number;
-  totalBytes: number;
-  onMinimize: () => void;
-  onCancel: () => void;
-  onDone: () => void;
-}) {
-  const colors = useThemeColors();
-  const pct = Math.min(100, Math.max(0, job?.progress ?? 0));
-  const status = job?.status ?? 'uploading';
-  const isDone = status === 'done';
-  const isError = status === 'error';
-  const isPartial = status === 'partial';
-  const isCancelled = status === 'cancelled';
-  const settled = isDone || isError || isPartial || isCancelled;
-  // A parked dup/name conflict — the same prompt the island shows, mirrored here
-  // so you can answer it without the modal getting in the way of the island.
-  const decisions = job?.decisions ?? [];
-  const waiting = decisions.length > 0;
-
-  const ringColor = waiting ? colors.warning : isError ? colors.danger : isPartial ? colors.warning : isDone ? colors.success : colors.primary;
-  const statusIcon = waiting ? 'question' : isError ? 'exclamation-triangle' : isPartial ? 'exclamation-circle' : isDone ? 'check' : isCancelled ? 'ban' : 'cloud-upload';
-
-  const toneColor = (tone?: string) =>
-    tone === 'danger' ? colors.danger : tone === 'warning' ? colors.warning
-      : tone === 'success' ? colors.success : tone === 'neutral' ? colors.textMuted : colors.primary;
-
-  // Inline SVG ring (web) for a big, satisfying progress read.
-  const size = 132, stroke = 10, r = (size - stroke) / 2, circ = 2 * Math.PI * r;
-
-  return (
-    <View style={{ padding: 32, gap: 22, alignItems: 'center' }}>
-      <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-        {Platform.OS === 'web' ? (
-          <svg width={size} height={size} style={{ position: 'absolute', transform: 'rotate(-90deg)' } as any}>
-            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={colors.border} strokeWidth={stroke} />
-            <circle
-              cx={size / 2} cy={size / 2} r={r} fill="none" stroke={ringColor} strokeWidth={stroke}
-              strokeDasharray={circ} strokeDashoffset={circ * (1 - pct / 100)} strokeLinecap="round"
-              style={{ transition: 'stroke-dashoffset 220ms ease, stroke 220ms ease' } as any}
-            />
-          </svg>
-        ) : (
-          <ActivityIndicator size="large" color={ringColor} />
-        )}
-        <View style={{ alignItems: 'center' }}>
-          {settled || waiting ? (
-            <FontAwesome name={statusIcon as any} size={34} color={ringColor} />
-          ) : (
-            <>
-              <Text style={{ color: colors.textMain, fontSize: 30, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{pct}%</Text>
-            </>
-          )}
-        </View>
-      </View>
-
-      <View style={{ alignItems: 'center', gap: 4 }}>
-        <Text className="text-base font-black" style={{ color: colors.textMain }}>
-          {waiting ? 'Needs your input' : job?.title ?? `Uploading ${fileCount} file${fileCount === 1 ? '' : 's'}`}
-        </Text>
-        <Text className="text-xs font-bold" style={{ textAlign: 'center', color: colors.textMuted }}>
-          {job?.subtitle ?? `${formatFileSize(totalBytes)} · starting…`}
-        </Text>
-      </View>
-
-      {/* Parked conflict prompt(s) — answer here, or from the island if minimized. */}
-      {waiting ? (
-        <View style={{ width: '100%', gap: 12 }}>
-          {decisions.map(d => (
-            <View
-              key={d.id}
-              style={{ width: '100%', padding: 14, borderRadius: 14, backgroundColor: colors.warning + '12', borderWidth: 1, borderColor: colors.warning + '33', gap: 10 }}
-            >
-              <Text className="text-sm font-black" style={{ color: colors.textMain }}>{d.title}</Text>
-              <Text className="text-xs font-semibold" style={{ color: colors.textMuted }}>{d.message}</Text>
-              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                {d.options.map(opt => (
-                  <TouchableOpacity
-                    key={opt.value}
-                    onPress={() => d.resolve(opt.value)}
-                    style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, backgroundColor: toneColor(opt.tone) + '18', borderWidth: 1, borderColor: toneColor(opt.tone) + '44' }}
-                  >
-                    <Text style={{ color: toneColor(opt.tone), fontSize: 12, fontWeight: '900' }}>{opt.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : (
-        /* Linear bar echoes the ring; steady, easy to glance. */
-        <View style={{ width: '100%', height: 8, borderRadius: 999, backgroundColor: colors.border, overflow: 'hidden' }}>
-          <View style={{ height: '100%', width: `${Math.max(2, pct)}%`, backgroundColor: ringColor, borderRadius: 999 }} />
-        </View>
-      )}
-
-      <View className="flex-row gap-3" style={{ width: '100%', paddingTop: 4 }}>
-        {settled ? (
-          <TouchableOpacity
-            onPress={onDone}
-            className="flex-1 items-center justify-center py-3.5 rounded-xl"
-            style={{ backgroundColor: colors.primary }}
-          >
-            <Text className="text-white font-black text-sm">Done</Text>
-          </TouchableOpacity>
-        ) : (
-          <>
-            <TouchableOpacity
-              onPress={onCancel}
-              className="flex-1 items-center justify-center py-3.5 rounded-xl border"
-              style={{ backgroundColor: colors.background, borderColor: colors.border }}
-            >
-              <Text className="font-black text-sm" style={{ color: colors.textMuted }}>Cancel upload</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={onMinimize}
-              className="flex-[2] flex-row items-center justify-center gap-2 py-3.5 rounded-xl"
-              style={{ backgroundColor: colors.primary }}
-            >
-              <FontAwesome name="chevron-up" size={12} color="#fff" />
-              <Text className="text-white font-black text-sm">Minimize to island</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
     </View>
   );
 }
@@ -3135,7 +2215,7 @@ function TagsManageModal({ visible, onClose, onChanged }: {
 function FileHubDesktopInner() {
   const colors = useThemeColors();
   const { hasPermission, user, profile } = useAuth();
-  const { showConfirm } = useAlert();
+  const { showConfirm, showAlert } = useAlert();
   const {
     mode, setMode,
     search, setSearch,
@@ -3146,9 +2226,6 @@ function FileHubDesktopInner() {
     inboxUnreadCount,
     refresh, refreshFolders,
     markAllRead,
-    checkDuplicate,
-    checkNameConflict,
-    replaceFile,
     groups, groupsLoading,
     channelOverrideMode, setChannelOverrideMode,
     activeGroupId, setActiveGroupId,
@@ -3164,6 +2241,7 @@ function FileHubDesktopInner() {
   // finish long after its modal closed. Re-pull the listing whenever any job
   // completes so newly-committed files + server-created folders show up.
   const { lastCompletedAt } = useUploadManager();
+  const { active, summon } = useModalDispatch();
   useEffect(() => {
     if (!lastCompletedAt) return;
     refresh();
@@ -3249,8 +2327,6 @@ function FileHubDesktopInner() {
   const [isDetailPanelExpanded, setIsDetailPanelExpanded] = useState(false);
   const [groupPanelGroup, setGroupPanelGroup] = useState<FileHubGroup | null>(null);
   const [isGroupPanelExpanded, setIsGroupPanelExpanded] = useState(false);
-  const [showUpload, setShowUpload] = useState(false);
-  const [droppedFiles, setDroppedFiles] = useState<File[] | null>(null);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageTags, setShowManageTags] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -3610,15 +2686,19 @@ function FileHubDesktopInner() {
   // drops arrive with webkitRelativePath set, so they nest exactly like the
   // Folder button.
   const { ref: fileDropRef, isOver: fileDropOver, isDragActive: fileDropActive } = useFileDrop(
-    (files) => { setDroppedFiles(files); setShowUpload(true); },
+    (files) => summon('upload', { folderId: selectedFolderId ?? undefined, initialFiles: files, activeGroup: activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : undefined }),
     canUpload,
   );
   // Paste counterpart of the screen-level useFileDrop above (web-only, native
-  // no-op): Ctrl+V a file/screenshot with no upload modal open → same
-  // droppedFiles → UploadModal.initialFiles path.
+  // no-op): Ctrl+V a file/screenshot with no canonical upload modal open →
+  // summon the shared composer pre-filled with the file.
   useSmartPaste(
-    { onFiles: (files) => { setDroppedFiles(files); setShowUpload(true); } },
-    canUpload && !showUpload,
+    { onFiles: (files) => summon('upload', { folderId: selectedFolderId ?? undefined, initialFiles: files, activeGroup: activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : undefined }) },
+    canUpload && active?.type !== 'upload',
+    {
+      resolveDirectories: true,
+      onDiagnostics: () => showAlert(SMART_FOLDER_PASTE_WARNING_TITLE, SMART_FOLDER_PASTE_WARNING_MESSAGE),
+    },
   );
 
   return (
@@ -3697,7 +2777,12 @@ function FileHubDesktopInner() {
               so the server would reject the upload. Manage-tier override can upload like any admin. */}
           {canUpload && (
             <TouchableOpacity
-              onPress={() => setShowUpload(true)}
+              onPress={() => summon('upload', {
+                folderId: selectedFolderId ?? undefined,
+                activeGroup: activeGroup
+                  ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color }
+                  : undefined,
+              })}
               className="flex-row items-center gap-2 bg-brand-primary px-5 py-2.5 rounded-xl shrink-0"
             >
               <FontAwesome name="upload" size={12} color="#fff" />
@@ -3759,7 +2844,7 @@ function FileHubDesktopInner() {
       {mode === 'overview' && (
         <FileHubOverview
           key={`overview-${refreshKey}`}
-          onUpload={() => setShowUpload(true)}
+          onUpload={() => summon('upload', { folderId: selectedFolderId ?? undefined, activeGroup: activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : undefined })}
           onNewChannel={() => setShowCreateGroup(true)}
           onGoTab={handleTabChange}
         />
@@ -4303,22 +3388,6 @@ function FileHubDesktopInner() {
         </View>
       </View>
       )}
-
-      {/* ── Upload Modal ── */}
-      <UploadModal
-        visible={showUpload}
-        folders={folders}
-        initialFiles={droppedFiles}
-        onClose={() => { setShowUpload(false); setDroppedFiles(null); }}
-        onUploaded={() => { mode === 'groups' && activeGroupId ? refreshGroupFiles() : refresh(); }}
-        checkDuplicate={checkDuplicate}
-        checkNameConflict={checkNameConflict}
-        replaceFile={replaceFile}
-        hasPermission={hasPermission}
-        profile={profile}
-        activeGroup={activeGroup ? { id: activeGroup.id, name: activeGroup.name, avatar_color: activeGroup.avatar_color } : null}
-        defaultFolderId={selectedFolderId}
-      />
 
       {/* ── Group Create Modal ── */}
       <GroupCreateModal

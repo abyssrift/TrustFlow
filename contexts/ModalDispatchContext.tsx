@@ -25,7 +25,12 @@ export type ModalPayloads = {
   'create-task': { projectId?: string; pipelineId?: string };
   'create-project': { portfolioId?: string };
   'create-portfolio': {};
-  'upload': { folderId?: string; taskId?: string };
+  'upload': {
+    folderId?: string;
+    taskId?: string;
+    initialFiles?: File[] | null;
+    activeGroup?: { id: string; name: string; avatar_color: string } | null;
+  };
   'generate-report': {};
   'new-role': {};
 };

@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Platform, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { FilePreviewModal, getPreviewKind, type PreviewKind } from './FilePreview';
 import ImageLightbox from './ImageLightbox';
+import { useObjectUrlMap } from '@/hooks/useObjectUrlMap';
 
 // Make sure you have these accessible in scope, or pass them as props
 // getMimeIcon, formatFileSize
@@ -27,6 +28,11 @@ function AdaptiveFileGrid({
   const [containerWidth, setContainerWidth] = useState(0);
   const [lightboxFile, setLightboxFile] = useState<{ uri: string; name: string } | null>(null);
   const [preview, setPreview] = useState<{ uri: string; name: string; kind: PreviewKind; sizeBytes?: number } | null>(null);
+  const previewUrls = useObjectUrlMap(
+    files,
+    (file, index) => `${index}:${file.id || file.name}`,
+    file => Platform.OS === 'web' && file.webFile ? file.webFile : null,
+  );
 
   // --- 1. Adaptive Padding Strategy ---
   // Large desktop (>1024px): 100px padding
@@ -102,12 +108,7 @@ function AdaptiveFileGrid({
             const idx = entry.index;
             const isImage = pf.type?.toLowerCase().startsWith('image/');
             const { icon, color } = getMimeIcon(pf.type ?? null);
-            let imageSource = pf.uri;
-
-            if (Platform.OS === 'web' && pf.webFile) {
-            // Create a temporary browser-readable URL for the image
-            imageSource = URL.createObjectURL(pf.webFile);
-            }
+            const imageSource = previewUrls[`${idx}:${pf.id || pf.name}`] || pf.uri;
             const kind = !isImage ? getPreviewKind(pf.type ?? null, pf.name) : null;
             const canPreview = isImage || !!kind;
             return (

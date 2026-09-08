@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Animated, Easing, Platform } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
-import { walkEntry } from '@/lib/fileDropEntries';
+import { collectDroppedFiles, type FileDropDiagnostic } from '@/lib/fileDropEntries';
 
 // react-native-web's View/TouchableOpacity only forward an allowlist of DOM
 // props (click/mouse/touch/pointer/aria) — draggable/onDragStart/onDrop are
@@ -259,6 +259,7 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled: boolean =
     const isFileDrag = isOsFileDrag;
 
     let depth = 0; // dragenter/leave fire per descendant; count to avoid flicker
+    let traversalController: AbortController | null = null;
     const onDragOver = (e: DragEvent) => { if (!isFileDrag(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; };
     const onDragEnter = (e: DragEvent) => { if (!isFileDrag(e)) return; e.preventDefault(); depth++; setIsOver(true); };
     const onDragLeave = () => { depth = Math.max(0, depth - 1); if (depth === 0) setIsOver(false); };
@@ -266,18 +267,33 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled: boolean =
       if (!isFileDrag(e)) return;
       e.preventDefault();
       depth = 0; setIsOver(false);
+      traversalController?.abort();
+      traversalController = new AbortController();
+      const signal = traversalController.signal;
       const dt = e.dataTransfer!;
-      const entries = dt.items && dt.items.length
-        ? Array.from(dt.items).map(it => (it as any).webkitGetAsEntry?.()).filter(Boolean)
-        : [];
-      let files: File[];
-      if (entries.length) {
-        const nested = await Promise.all(entries.map(en => walkEntry(en, '')));
-        files = nested.flat();
-      } else {
-        files = Array.from(dt.files || []);
+      const sources: any[] = [];
+      if (dt.items && dt.items.length) {
+        const pending: Promise<any>[] = [];
+        for (const item of Array.from(dt.items)) {
+          // File System Access API handles preserve directory names and avoid
+          // the legacy entry reader's browser-specific limitations.
+          if ((item as any).kind !== 'file') continue;
+          const getHandle = (item as any).getAsFileSystemHandle;
+          const entry = (item as any).getAsEntry?.() ?? (item as any).webkitGetAsEntry?.();
+          const file = (item as any).getAsFile?.();
+          if (typeof getHandle === 'function') {
+            // Capture all fallbacks synchronously, then resolve all handles in
+            // parallel after the event has been claimed.
+            pending.push(Promise.resolve(getHandle.call(item)).then(handle => handle || entry || file).catch(() => entry || file));
+          } else if (entry) sources.push(entry);
+          else if (file) sources.push(file);
+        }
+        sources.push(...await Promise.all(pending));
       }
-      if (files.length) onFilesRef.current(files);
+      if (!sources.length) sources.push(...Array.from(dt.files || []));
+      const result = await collectDroppedFiles(sources, { concurrency: 4, signal });
+      const files = result.files;
+      if (!signal.aborted && files.length) onFilesRef.current(files);
     };
 
     el.addEventListener('dragover', onDragOver);
@@ -285,6 +301,7 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled: boolean =
     el.addEventListener('dragleave', onDragLeave);
     el.addEventListener('drop', onDrop);
     return () => {
+      traversalController?.abort();
       el.removeEventListener('dragover', onDragOver);
       el.removeEventListener('dragenter', onDragEnter);
       el.removeEventListener('dragleave', onDragLeave);
@@ -356,41 +373,137 @@ export function extractClipboardPayload(dt: DataTransfer): { files: File[]; text
   return { files, text: dt.getData('text/plain') || '' };
 }
 
+export function routeClipboardPayload(
+  payload: { files: File[]; text: string },
+  editableTarget: boolean,
+  handlers: { onFiles?: (files: File[]) => void; onText?: (text: string) => void },
+  preventDefault: () => void,
+): 'files' | 'text' | 'passthrough' | 'noop' {
+  if (payload.files.length && handlers.onFiles) {
+    preventDefault();
+    handlers.onFiles(payload.files);
+    return 'files';
+  }
+  if (handlers.onText && payload.text) {
+    if (editableTarget) return 'passthrough';
+    preventDefault();
+    handlers.onText(payload.text);
+    return 'text';
+  }
+  return 'noop';
+}
+
+export function shouldInstallSmartPaste(platform: string, enabled: boolean, hasWindow: boolean): boolean {
+  return platform === 'web' && enabled && hasWindow;
+}
+
+/** Synchronously snapshot clipboard file items before any async resolution. */
+function looksLikeUnresolvedDirectoryFile(file: File | null | undefined): boolean {
+  return !!file && file.size === 0 && !file.type && !String(file.name || '').includes('.');
+}
+
+export function snapshotClipboardFileItems(dt: DataTransfer, resolveDirectories: boolean): {
+  sources: any[]; files: File[]; filesystemClaimed: boolean;
+} {
+  const sources: any[] = [], files: File[] = [];
+  let filesystemClaimed = false;
+  const items = Array.from(dt.items || []).filter(item => item.kind === 'file');
+  if (!resolveDirectories) return { sources, files: extractClipboardPayload(dt).files, filesystemClaimed };
+  for (const item of items) {
+    const getHandle = (item as any).getAsFileSystemHandle;
+    if (typeof getHandle === 'function') {
+      filesystemClaimed = true;
+      const entry = (item as any).getAsEntry?.() ?? (item as any).webkitGetAsEntry?.();
+      const file = (item as any).getAsFile?.();
+      const fallback = entry || (looksLikeUnresolvedDirectoryFile(file) ? null : file);
+      try { sources.push(Promise.resolve(getHandle.call(item)).then(handle => handle || fallback).catch(() => fallback)); }
+      catch { sources.push(Promise.resolve(fallback)); }
+      continue;
+    }
+    const entry = (item as any).getAsEntry?.() ?? (item as any).webkitGetAsEntry?.();
+    if (entry) { filesystemClaimed = true; sources.push(entry); continue; }
+    const file = (item as any).getAsFile?.();
+    // Without either filesystem API, a copied folder may be exposed as an
+    // empty, extensionless pseudo-File. It cannot be traversed or uploaded as
+    // meaningful bytes, so claim it and surface the Folder/drag fallback.
+    if (file && !looksLikeUnresolvedDirectoryFile(file)) files.push(file);
+    else filesystemClaimed = true;
+  }
+  return { sources, files, filesystemClaimed };
+}
+
+export type SmartPasteDiagnostic = FileDropDiagnostic | { kind: 'unsupported'; path: string; source?: unknown; error?: unknown };
+export const SMART_FOLDER_PASTE_WARNING_TITLE = 'Some pasted folders could not be included';
+export const SMART_FOLDER_PASTE_WARNING_MESSAGE = 'Some copied folders could not be included completely. They may be empty, unreadable, unsupported by this browser, or over the paste limit. Use the Folder picker or drag and drop to add the missing files.';
+export type SmartPasteOptions = {
+  /** FileHub-only opt-in; Tasks keep the historical getAsFile behavior. */
+  resolveDirectories?: boolean;
+  onDiagnostics?: (diagnostics: SmartPasteDiagnostic[]) => void;
+};
+
 export function useSmartPaste(
   handlers: { onFiles?: (files: File[]) => void; onText?: (text: string) => void },
   enabled: boolean = true,
+  options: SmartPasteOptions = {},
 ): void {
   // Ref so a new handlers object every render doesn't re-subscribe the listener.
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
+  const diagnosticsRef = useRef(options.onDiagnostics);
+  diagnosticsRef.current = options.onDiagnostics;
+  const traversalRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (Platform.OS !== 'web' || !enabled) return; // native: no `paste` event, no-op
-    if (typeof window === 'undefined') return;
+    if (!shouldInstallSmartPaste(Platform.OS, enabled, typeof window !== 'undefined')) return;
 
     const onPaste = (e: ClipboardEvent) => {
       const dt = e.clipboardData;
       if (!dt) return;
-      const { files, text } = extractClipboardPayload(dt);
       const { onFiles, onText } = handlersRef.current;
-
-      // Files win, even when a text field is focused — a textarea can't hold an image.
-      if (files.length && onFiles) {
+      const resolveDirectories = options.resolveDirectories === true;
+      // Snapshot every item synchronously; directory handles are resolved only
+      // after preventDefault has claimed the filesystem payload.
+      const snapshot = snapshotClipboardFileItems(dt, resolveDirectories);
+      const sources = snapshot.sources;
+      const looseFiles = snapshot.files;
+      const filesystemClaimed = snapshot.filesystemClaimed;
+      const text = dt.getData('text/plain') || '';
+      const el = document.activeElement as HTMLElement | null;
+      const tag = el?.tagName;
+      const editable = tag === 'INPUT' || tag === 'TEXTAREA' || !!el?.isContentEditable;
+      if (filesystemClaimed && onFiles) {
+        traversalRef.current?.abort();
+        const controller = new AbortController();
+        traversalRef.current = controller;
         e.preventDefault();
-        onFiles(files);
+        void (async () => {
+          const diagnostics: SmartPasteDiagnostic[] = [];
+          const resolved: any[] = [];
+          for (const source of sources) {
+            try {
+              const value = await source;
+              if (value) resolved.push(value);
+              else diagnostics.push({ kind: 'unsupported', path: '', source });
+            } catch (error) {
+              diagnostics.push({ kind: 'unreadable', path: '', source, error });
+            }
+          }
+          const result = await collectDroppedFiles([...resolved, ...looseFiles], { concurrency: 4, signal: controller.signal });
+          if (controller.signal.aborted) return;
+          diagnostics.push(...result.diagnostics);
+          if (result.files.length) handlersRef.current.onFiles?.(result.files);
+          else if (!diagnostics.length) diagnostics.push({ kind: 'unsupported', path: '' });
+          if (diagnostics.length) diagnosticsRef.current?.(diagnostics);
+        })();
         return;
       }
-      if (onText && text) {
-        const el = document.activeElement as HTMLElement | null;
-        const tag = el?.tagName;
-        const editable = tag === 'INPUT' || tag === 'TEXTAREA' || !!el?.isContentEditable;
-        if (editable) return; // let the browser paste into the focused field
-        e.preventDefault();
-        onText(text);
-      }
+      routeClipboardPayload({ files: looseFiles, text }, editable, { onFiles, onText }, () => e.preventDefault());
     };
 
     window.addEventListener('paste', onPaste);
-    return () => window.removeEventListener('paste', onPaste);
-  }, [enabled]);
+    return () => {
+      traversalRef.current?.abort();
+      window.removeEventListener('paste', onPaste);
+    };
+  }, [enabled, options.resolveDirectories]);
 }

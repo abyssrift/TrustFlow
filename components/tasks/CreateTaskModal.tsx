@@ -1,6 +1,6 @@
 import { useAlert } from '@/contexts/AlertContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { getPastedImageFile, applyTaskSeed } from '@/lib/pasteImage';
+import { getPastedImageFile, applyTaskSeed, taskSeedKey } from '@/lib/pasteImage';
 import type { StagedBriefFile } from '@/contexts/TaskCreationContext';
 import { FilePreviewModal, getPreviewKind, type PreviewKind } from '@/components/common/FilePreview';
 import ImageLightbox from '@/components/common/ImageLightbox';
@@ -180,20 +180,32 @@ export default function CreateTaskModal({ visible, onClose, initialPipelineId, i
   } = useCreateTaskWizard({ visible, initialPipelineId });
   const { preview: assignmentPreview } = usePipelineAssignmentPreview(draft.pipelineId);
   const dateConflict = !!(draft.startDate && draft.dueDate && draft.startDate > draft.dueDate);
+  const appliedSeedKeyRef = React.useRef<string | null>(null);
+  const wasVisibleRef = React.useRef(false);
 
   // Phase 3: seed from a screen-level paste/drop. Native screens don't pass
   // these today (no OS drag / bare-Ctrl+V idiom), so this is a harmless no-op
   // here — kept identical to the web modal in case a native caller ever seeds.
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      appliedSeedKeyRef.current = null;
+      wasVisibleRef.current = false;
+      return;
+    }
+    const opening = !wasVisibleRef.current;
+    wasVisibleRef.current = true;
+    const seedKey = taskSeedKey(initialText, initialFiles);
+    if (appliedSeedKeyRef.current === seedKey) return;
+    appliedSeedKeyRef.current = seedKey;
     applyTaskSeed(
       { initialText, initialFiles },
       { title: draft.title, description: draft.description },
       setDraft,
       (files) => setBriefFiles(prev => [...prev, ...files]),
+      opening,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+  }, [visible, initialText, initialFiles, draft.title, draft.description, setDraft, setBriefFiles]);
 
   const renderStep = () => {
     switch (step) {

@@ -8,6 +8,31 @@ export type PastedFile = {
   type: string;
 };
 
+/** Object URLs created for staged browser files are owned by the staging flow. */
+export function revokeObjectUrl(uri: string | null | undefined): void {
+  if (
+    typeof uri === 'string' &&
+    uri.startsWith('blob:') &&
+    typeof URL !== 'undefined' &&
+    typeof URL.revokeObjectURL === 'function'
+  ) {
+    URL.revokeObjectURL(uri);
+  }
+}
+
+export function revokeStagedFile(file: Pick<PastedFile, 'uri'> | null | undefined): void {
+  revokeObjectUrl(file?.uri);
+}
+
+export function revokeStagedFiles(files: readonly Pick<PastedFile, 'uri'>[]): void {
+  files.forEach(revokeStagedFile);
+}
+
+/** Stable identity for one opening-task seed; unchanged props must not reapply. */
+export function taskSeedKey(text: string | null | undefined, files: readonly Pick<PastedFile, 'id' | 'uri' | 'name' | 'size' | 'type'>[] | null | undefined): string {
+  return JSON.stringify([text ?? null, (files ?? []).map(file => [file.id, file.uri, file.name, file.size, file.type])]);
+}
+
 /**
  * Reads an image from the clipboard and returns it in the same shape the
  * brief/submission upload pipelines expect. The `data` URI rides the existing
@@ -41,13 +66,14 @@ export function applyTaskSeed(
   current: { title: string; description: string },
   setDraft: (updates: { title?: string; description?: string }) => void,
   addBriefFiles: (files: PastedFile[]) => void,
+  replaceTitle = false,
 ): void {
   const text = seed.initialText;
   if (text) {
     const nl = text.indexOf('\n');
     const firstLine = nl === -1 ? text : text.slice(0, nl);
     const rest = nl === -1 ? '' : text.slice(nl + 1);
-    if (!current.title) setDraft({ title: firstLine });
+    if (!current.title || replaceTitle) setDraft({ title: firstLine });
     if (rest) setDraft({ description: current.description ? current.description + '\n' + rest : rest });
   }
   if (seed.initialFiles && seed.initialFiles.length) addBriefFiles(seed.initialFiles);

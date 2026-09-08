@@ -101,6 +101,8 @@ export default function ModalHost() {
           onClose={dismiss}
           folderId={active.payload.folderId}
           taskId={active.payload.taskId}
+          initialFiles={active.payload.initialFiles}
+          activeGroup={active.payload.activeGroup}
         />
       );
 

@@ -22,7 +22,8 @@ import { FileHubFolder, FileHubFolderScope, folderPath } from '@/contexts/FileHu
 import { useUploadManager } from '@/contexts/UploadManagerContext';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
+import { SMART_FOLDER_PASTE_WARNING_MESSAGE, SMART_FOLDER_PASTE_WARNING_TITLE, useDropPulse, useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
+import { useObjectUrlMap } from '@/hooks/useObjectUrlMap';
 import { groupPickedFiles } from '@/lib/filehubFolderTree';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
@@ -47,6 +48,8 @@ export type UploadComposerModalProps = {
   visible: boolean;
   onClose: () => void;
   folderId?: string;
+  initialFiles?: File[] | null;
+  activeGroup?: { id: string; name: string; avatar_color: string } | null;
   // ponytail: #340 follow-up — UploadManagerContext's UploadJobInput has no
   // task field (FileHub uploads are direct/broadcast/group, never task-attached),
   // so there is nowhere to route this yet. Accepted so the payload type and deep
@@ -56,7 +59,7 @@ export type UploadComposerModalProps = {
 
 type UploadDraft = {
   files: File[];
-  visibility: 'direct' | 'broadcast';
+  visibility: 'direct' | 'broadcast' | 'group';
   recipientIds: string[];
   folderId: string | null;
   tags: string[];
@@ -64,9 +67,9 @@ type UploadDraft = {
   caption: string;
 };
 
-const EMPTY_DRAFT = (folderId: string | null): UploadDraft => ({
+const EMPTY_DRAFT = (folderId: string | null, activeGroup?: UploadComposerModalProps['activeGroup']): UploadDraft => ({
   files: [],
-  visibility: 'direct',
+  visibility: activeGroup ? 'group' : 'direct',
   recipientIds: [],
   folderId,
   tags: [],
@@ -88,8 +91,8 @@ function getMimeIcon(mimeType: string | null): { icon: string; color: string } {
   return { icon: 'file-o', color: '#94a3b8' };
 }
 
-// Picked-file preview grid — copied verbatim from _filehub_desktop.tsx's local
-// AdaptiveFileGrid (it was never exported). A picked folder collapses to one tile.
+// Picked-file preview grid. A picked folder collapses to one tile, and fixed
+// flex bounds avoid measurement-driven width/height feedback while pasting.
 function AdaptiveFileGrid({
   files,
   onRemove,
@@ -99,33 +102,30 @@ function AdaptiveFileGrid({
   onRemove: (indices: number[]) => void;
   onAddMore: () => void;
 }) {
-  const [containerWidth, setContainerWidth] = useState(496);
-  const gap = 12;
-  const minSquareSize = 100;
-  let numCols = Math.floor((containerWidth + gap) / (minSquareSize + gap));
-  if (numCols < 2) numCols = 2;
-  const exactSquareSize = Math.floor((containerWidth - (gap * (numCols - 1))) / numCols);
-
+  const previewUrls = useObjectUrlMap(
+    files,
+    (file, index) => `${index}:${file.name}:${file.size}:${file.lastModified}`,
+    file => file.type?.toLowerCase().startsWith('image/') ? file : null,
+  );
   if (files.length === 0) return null;
 
   const entries = groupPickedFiles(files, f => (f as any).webkitRelativePath, f => f.size);
 
   return (
     <View
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
       className="flex-row flex-wrap w-full bg-surface-card border border-surface-border rounded-2xl p-4"
-      style={{ gap }}
+      style={{ gap: 12 }}
     >
       {entries.map(entry => {
         if (entry.kind === 'folder') {
           return (
             <View
               key={`dir-${entry.name}`}
-              style={{ width: exactSquareSize, height: exactSquareSize }}
+              style={{ aspectRatio: 1, flexBasis: 100, flexGrow: 1, minWidth: 100, maxWidth: 140 }}
               className="rounded-xl overflow-hidden border border-surface-border bg-surface-background relative"
             >
               <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: '#f59e0b12' }}>
-                <FontAwesome name="folder-o" size={exactSquareSize > 100 ? 36 : 28} color="#f59e0b" />
+                <FontAwesome name="folder-o" size={36} color="#f59e0b" />
                 <View className="mt-3 bg-surface-background px-2 py-1 rounded-md border border-surface-border shadow-sm" style={{ maxWidth: '90%' }}>
                   <Text className="text-[10px] font-black text-typography-muted" numberOfLines={1}>
                     {entry.name}
@@ -151,12 +151,12 @@ function AdaptiveFileGrid({
         const idx = entry.index;
         const isImage = pf.type?.toLowerCase().startsWith('image/');
         const { icon, color } = getMimeIcon(pf.type || null);
-        const imageSource = isImage ? URL.createObjectURL(pf) : '';
+        const imageSource = isImage ? (previewUrls[`${idx}:${pf.name}:${pf.size}:${pf.lastModified}`] || '') : '';
 
         return (
           <View
             key={`${pf.name}-${idx}`}
-            style={{ width: exactSquareSize, height: exactSquareSize }}
+            style={{ aspectRatio: 1, flexBasis: 100, flexGrow: 1, minWidth: 100, maxWidth: 140 }}
             className="rounded-xl overflow-hidden border border-surface-border bg-surface-background relative"
           >
             {isImage ? (
@@ -167,7 +167,7 @@ function AdaptiveFileGrid({
               />
             ) : (
               <View className="flex-1 items-center justify-center p-2" style={{ backgroundColor: color + '12' }}>
-                <FontAwesome name={icon as any} size={exactSquareSize > 100 ? 36 : 28} color={color} />
+                <FontAwesome name={icon as any} size={36} color={color} />
                 <View className="mt-3 bg-surface-background px-2 py-1 rounded-md border border-surface-border shadow-sm">
                   <Text className="text-[10px] font-black uppercase text-typography-muted" numberOfLines={1}>
                     {pf.name.split('.').pop() || 'FILE'}
@@ -193,7 +193,7 @@ function AdaptiveFileGrid({
 
       <TouchableOpacity
         onPress={onAddMore}
-        style={{ width: exactSquareSize, height: exactSquareSize }}
+        style={{ aspectRatio: 1, flexBasis: 100, flexGrow: 1, minWidth: 100, maxWidth: 140 }}
         className="rounded-xl border-2 border-dashed border-surface-border bg-surface-background items-center justify-center hover:bg-surface-overlay transition-colors"
       >
         <FontAwesome name="plus" size={20} color="#94a3b8" />
@@ -203,21 +203,23 @@ function AdaptiveFileGrid({
   );
 }
 
-export default function UploadComposerModal({ visible, onClose, folderId }: UploadComposerModalProps) {
+export default function UploadComposerModal({ visible, onClose, folderId, initialFiles = null, activeGroup = null }: UploadComposerModalProps) {
   const { profile, hasPermission } = useAuth();
   const { startUpload } = useUploadManager();
   const { showAlert } = useAlert();
   const colors = useThemeColors();
   const maxFileSizeBytes = useFileSizeLimit();
-  const { height: winHeight } = useWindowDimensions();
+  const { height: winHeight, width: winWidth } = useWindowDimensions();
+  const isDesktop = winWidth >= 768;
 
   const fileInputRef = useRef<any>(null);
   const folderInputRef = useRef<any>(null);
-  const [draft, setDraft] = useState<UploadDraft>(() => EMPTY_DRAFT(folderId ?? null));
+  const [draft, setDraft] = useState<UploadDraft>(() => EMPTY_DRAFT(folderId ?? null, activeGroup));
   const [recipientSearch, setRecipientSearch] = useState('');
   const [memberResults, setMemberResults] = useState<any[]>([]);
   const [searchingMembers, setSearchingMembers] = useState(false);
   const [tagSuggestResults, setTagSuggestResults] = useState<string[]>([]);
+  const appliedSeedRef = useRef<string | null>(null);
 
   // Own copy of the folder tree — the context's fetchFolders, inlined. Cheap
   // one-shot select; the real destination sub-tree is get-or-created server-side
@@ -236,21 +238,28 @@ export default function UploadComposerModal({ visible, onClose, folderId }: Uplo
 
   const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
 
-  const uploadScope: FileHubFolderScope = draft.visibility === 'broadcast' ? 'broadcast' : 'direct';
+  const uploadScope: FileHubFolderScope = activeGroup
+    ? 'group'
+    : draft.visibility === 'broadcast' ? 'broadcast' : 'direct';
   const scopedFolders = useMemo(
-    () => folders.filter(f => f.scope === uploadScope && (f.group_id ?? null) === null),
-    [folders, uploadScope],
+    () => folders.filter(f => f.scope === uploadScope && (f.group_id ?? null) === (activeGroup?.id ?? null)),
+    [folders, uploadScope, activeGroup?.id],
   );
 
   useEffect(() => {
     if (!visible) {
-      setDraft(EMPTY_DRAFT(folderId ?? null));
+      setDraft(EMPTY_DRAFT(folderId ?? null, activeGroup));
       setRecipientSearch('');
       setMemberResults([]);
+      appliedSeedRef.current = null;
     } else {
-      setDraft(prev => ({ ...prev, folderId: folderId ?? null }));
+      setDraft(prev => ({
+        ...prev,
+        visibility: activeGroup ? 'group' : prev.visibility === 'group' ? 'direct' : prev.visibility,
+        folderId: folderId ?? null,
+      }));
     }
-  }, [visible, folderId]);
+  }, [visible, folderId, activeGroup]);
 
   const searchMembers = useCallback(async (query: string) => {
     setRecipientSearch(query);
@@ -288,7 +297,7 @@ export default function UploadComposerModal({ visible, onClose, folderId }: Uplo
     }
   };
 
-  const processWebFiles = (fileList: FileList | null): File[] => {
+  const processWebFiles = useCallback((fileList: FileList | File[] | null): File[] => {
     if (!fileList || fileList.length === 0) return [];
     const valid: File[] = [];
     const rejected: string[] = [];
@@ -305,7 +314,18 @@ export default function UploadComposerModal({ visible, onClose, folderId }: Uplo
       );
     }
     return valid;
-  };
+  }, [showAlert]);
+
+  // Apply a seed once per visible seed identity. The marker resets on close so
+  // intentionally reopening with the same files works without duplicate adds.
+  useEffect(() => {
+    if (!visible || !initialFiles?.length) return;
+    const seedKey = initialFiles.map(file => `${file.name}:${file.size}:${file.lastModified}:${(file as any).webkitRelativePath || ''}`).join('|');
+    if (appliedSeedRef.current === seedKey) return;
+    appliedSeedRef.current = seedKey;
+    const valid = processWebFiles(initialFiles);
+    if (valid.length) setDraft(prev => ({ ...prev, files: [...prev.files, ...valid] }));
+  }, [visible, initialFiles, processWebFiles]);
 
   const handleFileChange = (e: any) => {
     const valid = processWebFiles(e.target?.files);
@@ -328,6 +348,20 @@ export default function UploadComposerModal({ visible, onClose, folderId }: Uplo
   );
   const { iconScale: dropIconScale, glowOpacity: dropGlowOpacity } = useDropPulse(modalDropOver);
 
+  // File payloads are intercepted even while a text input is focused; the
+  // shared hook preserves normal text paste semantics otherwise.
+  useSmartPaste(
+    { onFiles: files => {
+      const valid = processWebFiles(files);
+      if (valid.length) setDraft(prev => ({ ...prev, files: [...prev.files, ...valid] }));
+    } },
+    visible,
+    {
+      resolveDirectories: true,
+      onDiagnostics: () => showAlert(SMART_FOLDER_PASTE_WARNING_TITLE, SMART_FOLDER_PASTE_WARNING_MESSAGE),
+    },
+  );
+
   const canBroadcast = hasPermission('filehub:broadcast');
 
   // Hand the draft to the background upload manager and close — progress, ETA,
@@ -344,12 +378,12 @@ export default function UploadComposerModal({ visible, onClose, folderId }: Uplo
       visibility: draft.visibility,
       folderId: draft.folderId,
       recipientIds: draft.recipientIds,
-      groupId: null,
+      groupId: activeGroup?.id ?? null,
       tags: draft.tags,
       caption: draft.caption || null,
       maxFileSizeBytes: maxFileSizeBytes ?? null,
       scopedFolders,
-      label: draft.visibility === 'broadcast' ? 'Broadcast' : 'Direct',
+      label: activeGroup?.name ?? (draft.visibility === 'broadcast' ? 'Broadcast' : 'Direct'),
     });
     onClose();
   };
@@ -360,7 +394,7 @@ export default function UploadComposerModal({ visible, onClose, folderId }: Uplo
     <Popup
       visible={visible}
       onClose={onClose}
-      presentation="centered"
+      presentation="auto"
       maxWidth={900}
       maxHeight="90%"
       containerClassName="rounded-[2rem] premium-shadow"
@@ -381,14 +415,14 @@ export default function UploadComposerModal({ visible, onClose, folderId }: Uplo
         )}
         <View className="flex-row items-center justify-between px-8 pt-7 pb-5 border-b" style={{ borderColor: colors.border }}>
           <Text className="text-xl font-black tracking-tight" style={{ color: colors.textMain }}>Upload Files</Text>
-          <TouchableOpacity onPress={onClose} className="w-8 h-8 items-center justify-center rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+          <TouchableOpacity onPress={onClose} className="w-11 h-11 items-center justify-center rounded-xl border" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
             <FontAwesome name="times" size={12} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
-        <View style={{ flexDirection: 'row', minHeight: 0 }}>
+        <View style={{ flexDirection: isDesktop ? 'row' : 'column', minHeight: 0 }}>
           {/* Left column: file staging */}
-          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, maxHeight: winHeight * 0.62 }} contentContainerStyle={{ padding: 28, gap: 20 }}>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: isDesktop ? 1 : 0, flexShrink: 1, maxHeight: winHeight * (isDesktop ? 0.62 : 0.46) }} contentContainerStyle={{ padding: isDesktop ? 28 : 20, gap: 20 }}>
             {Platform.OS === 'web' && (
               <>
                 <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
@@ -436,17 +470,19 @@ export default function UploadComposerModal({ visible, onClose, folderId }: Uplo
             )}
           </ScrollView>
 
-          <View style={{ width: 1, backgroundColor: colors.border }} />
+          {isDesktop && <View style={{ width: 1, backgroundColor: colors.border }} />}
 
           {/* Right column: destination + metadata */}
-          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1, maxHeight: winHeight * 0.62 }} contentContainerStyle={{ padding: 28, gap: 20 }}>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: isDesktop ? 1 : 0, flexShrink: 1, maxHeight: winHeight * (isDesktop ? 0.62 : 0.46) }} contentContainerStyle={{ padding: isDesktop ? 28 : 20, gap: 20 }}>
             <View className="gap-2">
               <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Visibility</Text>
               <View className="flex-row gap-2">
-                {[
+                {(activeGroup ? [
+                  { value: 'group', label: activeGroup.name, icon: 'users' },
+                ] : [
                   { value: 'direct', label: 'Direct Send', icon: 'user' },
                   ...(canBroadcast ? [{ value: 'broadcast', label: 'Broadcast', icon: 'bullhorn' }] : []),
-                ].map(opt => (
+                ]).map(opt => (
                   <TouchableOpacity
                     key={opt.value}
                     onPress={() => patch({ visibility: opt.value as any, recipientIds: [] })}

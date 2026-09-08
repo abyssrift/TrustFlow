@@ -19,6 +19,10 @@ export type UploadComposerModalProps = {
   onClose: () => void;
   folderId?: string;
   taskId?: string;
+  // Accepted for API parity with the web composer. Native redirects to the
+  // FileHub screen, whose local sheet owns native file objects and channels.
+  initialFiles?: File[] | null;
+  activeGroup?: { id: string; name: string; avatar_color: string } | null;
 };
 
 export default function UploadComposerModal({ visible, onClose }: UploadComposerModalProps) {

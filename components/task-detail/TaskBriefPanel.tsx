@@ -18,7 +18,8 @@ import { useShareFile } from '@/components/common/ShareFile';
 import UserLink from '@/components/common/UserLink';
 import CollapsibleCard from './CollapsibleCard';
 import { useDropPulse, useFileDrop } from '@/hooks/useWebDnd';
-import { fileToStaged } from '@/lib/pasteImage';
+import { fileToStaged, revokeStagedFiles } from '@/lib/pasteImage';
+import { useObjectUrlMap } from '@/hooks/useObjectUrlMap';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatSize(bytes: number | null) {
@@ -76,6 +77,11 @@ function AdaptiveFileGrid({
   let numCols = Math.floor((availableWidth + gap) / (minSquareSize + gap));
   if (numCols < 2) numCols = 2; 
   const exactSquareSize = Math.floor((availableWidth - (gap * (numCols - 1))) / numCols);
+  const localPreviewUrls = useObjectUrlMap(
+    files,
+    (file, index) => `${index}:${file.id || file.name}`,
+    file => Platform.OS === 'web' && file.uri instanceof File ? file.uri : null,
+  );
 
   if (files.length === 0) return null;
 
@@ -91,9 +97,7 @@ function AdaptiveFileGrid({
 
         // Local previews (web File during upload) use an object URL; stored attachments
         // need a signed URL since the bucket is private — a raw storage path won't load.
-        const localUri = Platform.OS === 'web' && pf.uri instanceof File
-            ? URL.createObjectURL(pf.uri)
-            : null;
+        const localUri = localPreviewUrls[`${files.indexOf(pf)}:${pf.id || pf.name}`] || null;
         const uri = localUri || signedUrls[pf.id] || '';
         const isResolving = isImage && !uri;
 
@@ -298,6 +302,7 @@ export default function TaskBriefPanel() {
     } catch (err: any) {
       setErrorMsg(err.message || 'Upload failed');
     } finally {
+      revokeStagedFiles(files);
       setUploading(false);
     }
   };

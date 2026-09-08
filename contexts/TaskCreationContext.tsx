@@ -5,6 +5,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
+import { useStagedFileLifecycle } from '@/hooks/useStagedFileLifecycle';
 
 export type TaskDraft = {
   title: string;
@@ -94,6 +95,7 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [briefFiles, setBriefFiles] = useState<StagedBriefFile[]>([]);
+  useStagedFileLifecycle(briefFiles);
 
   // Load draft on mount
   useEffect(() => {
@@ -163,6 +165,7 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
 
   const resetDraft = useCallback(async () => {
     setDraftState(INITIAL_DRAFT);
+    setBriefFiles([]);
     await AsyncStorage.removeItem(STORAGE_KEY);
   }, []);
 
