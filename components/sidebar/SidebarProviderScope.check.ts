@@ -1,5 +1,5 @@
 // Focused regression check for stable Sidebar/Slot identity across navigation.
-// Run with: npx tsx app/_layout.web.check.ts
+// Run with: npx tsx components/sidebar/SidebarProviderScope.check.ts
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
@@ -14,4 +14,4 @@ assert.doesNotMatch(layout, /<Sidebar[^>]*key=/);
 assert.doesNotMatch(layout, /<Slot[^>]*key=/);
 assert.doesNotMatch(sidebar, /key=\{pathname\}|key=\{.*pathname/);
 
-console.log('layout/sidebar regression check: all assertions passed');
+console.log('SidebarProviderScope.check: all assertions passed');
