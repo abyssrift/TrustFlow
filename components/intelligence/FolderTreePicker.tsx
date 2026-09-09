@@ -14,12 +14,14 @@ export default function FolderTreePicker({
   onSelect,
   colors,
   maxHeight = 220,
+  scrollable = true,
 }: {
   folders: FileHubFolder[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   colors: any;
   maxHeight?: number;
+  scrollable?: boolean;
 }) {
   const childrenOf = useMemo(() => {
     const map = new Map<string | null, FileHubFolder[]>();
@@ -67,7 +69,10 @@ export default function FolderTreePicker({
       <>
         <TouchableOpacity
           onPress={() => onSelect(id)}
-          className="flex-row items-center rounded-lg"
+          accessibilityRole="button"
+          accessibilityLabel={id === null ? 'Top level (no folder)' : folder!.name}
+          accessibilityState={{ selected: isSelected }}
+          className="min-h-11 flex-row items-center rounded-lg"
           style={{
             paddingVertical: 7,
             paddingRight: 10,
@@ -76,9 +81,14 @@ export default function FolderTreePicker({
           }}
         >
           <TouchableOpacity
-            onPress={() => folder && toggle(folder.id)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{ width: 18, alignItems: 'center' }}
+            onPress={(event) => {
+              event.stopPropagation();
+              if (folder) toggle(folder.id);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={folder ? `${isOpen ? 'Collapse' : 'Expand'} ${folder.name}` : undefined}
+            accessibilityState={{ expanded: folder ? isOpen : undefined, disabled: id === null || kids.length === 0 }}
+            className="min-h-11 min-w-11 items-center justify-center"
             disabled={id === null || kids.length === 0}
           >
             {id !== null && kids.length > 0 && (
@@ -105,9 +115,27 @@ export default function FolderTreePicker({
     );
   };
 
+  const containerStyle = {
+    ...(scrollable ? { maxHeight } : {}),
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+  };
+
+  if (!scrollable) {
+    return (
+      <View style={containerStyle}>
+        <View style={{ padding: 6 }}>
+          <Row folder={null} depth={0} />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <ScrollView
-      style={{ maxHeight, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.background }}
+      style={containerStyle}
       contentContainerStyle={{ padding: 6 }}
       showsVerticalScrollIndicator={false}
       nestedScrollEnabled

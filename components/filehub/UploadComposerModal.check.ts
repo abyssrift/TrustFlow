@@ -42,5 +42,15 @@ assert.match(source, /accessibilityLabel="Add more files"/, 'internal Add More t
 assert.match(source, /mobilePage === 'recipients'\) finishPicker/, 'audience switch must clean up recipient picker state');
 assert.match(source, /Left column:[\s\S]*flexGrow: 2, flexBasis: 0, minWidth: 0/, 'file pane must shrink and wrap instead of forcing metadata overflow');
 assert.match(source, /Right column:[\s\S]*flexGrow: 3, flexBasis: 0, minWidth: 0/, 'metadata pane must retain enough desktop width for its controls');
+assert.match(source, /desktopDestinationOpen/, 'desktop destination picker state missing');
+assert.match(source, /Choose destination folder/, 'desktop destination summary trigger missing');
+assert.match(source, /Choose destination[\s\S]*Back to upload form/, 'desktop picker needs an in-place back header');
+assert.match(source, /Search destination folders/, 'desktop destination picker needs controlled folder search');
+assert.match(source, /desktopDestinationSearch.*setDesktopDestinationSearch/s, 'desktop destination search must be controlled');
+assert.match(source, /folderAncestors\(scopedFolders, folder\.id\)/, 'folder search must retain matching ancestors');
+assert.match(source, /Select top level/, 'desktop picker needs explicit root selection');
+assert.match(source, /Selected destination/, 'desktop picker must show the selected full path');
+assert.match(source, /<ScrollView[\s\S]*<FolderTreePicker[\s\S]*scrollable=\{false\}/, 'desktop picker must own one bounded scroll around a non-scrolling tree');
+assert.equal((source.match(/<Popup\b/g) || []).length, 1, 'desktop destination must reuse the outer Popup');
 
 console.log('UploadComposerModal.check: ok');

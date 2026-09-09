@@ -18,7 +18,7 @@
 // No FileHubProvider needed. `taskId` is accepted but unused — see note on Props.
 import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { FileHubFolder, FileHubFolderScope, folderPath } from '@/contexts/FileHubContext';
+import { FileHubFolder, FileHubFolderScope, folderAncestors, folderPath } from '@/contexts/FileHubContext';
 import { useUploadManager } from '@/contexts/UploadManagerContext';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -229,6 +229,8 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
   const [recipientError, setRecipientError] = useState<string | null>(null);
   const recipientRequestRef = useRef(0);
   const [mobilePage, setMobilePage] = useState<'form' | 'recipients' | 'destination'>('form');
+  const [desktopDestinationOpen, setDesktopDestinationOpen] = useState(false);
+  const [desktopDestinationSearch, setDesktopDestinationSearch] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tagSuggestResults, setTagSuggestResults] = useState<string[]>([]);
   const appliedSeedRef = useRef<string | null>(null);
@@ -268,6 +270,21 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
     [folders, uploadScope, activeGroup?.id],
   );
 
+  // Keep matching folders and their ancestor chains so search never strands a
+  // result outside the hierarchy needed to navigate to it.
+  const desktopDestinationFolders = useMemo(() => {
+    const query = desktopDestinationSearch.trim().toLowerCase();
+    if (!query) return scopedFolders;
+    const keep = new Set<string>();
+    scopedFolders.forEach(folder => {
+      if (folder.name.toLowerCase().includes(query)) {
+        folderAncestors(scopedFolders, folder.id).forEach(ancestor => keep.add(ancestor.id));
+      }
+    });
+    return scopedFolders.filter(folder => keep.has(folder.id));
+  }, [desktopDestinationSearch, scopedFolders]);
+  const desktopDestinationChain = draft.folderId ? folderAncestors(scopedFolders, draft.folderId) : [];
+
   useEffect(() => {
     if (!visible) {
       setDraft(EMPTY_DRAFT(folderId ?? null, activeGroup, allowedVisibilitySeed));
@@ -277,6 +294,8 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
       setRecipientRecords(new Map());
       setRecipientError(null);
       setMobilePage('form');
+      setDesktopDestinationOpen(false);
+      setDesktopDestinationSearch('');
       setDetailsOpen(false);
       appliedSeedRef.current = null;
     } else {
@@ -502,7 +521,48 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
           <View className="mt-3 md:absolute md:right-20 md:top-7 md:mt-0">{audienceControls}</View>
         </View>
 
-        {!isDesktop && mobilePage !== 'form' ? (
+        {isDesktop && desktopDestinationOpen ? (
+          <View style={{ minHeight: Math.max(420, winHeight * 0.62), flex: 1 }}>
+            <View className="flex-row items-center gap-3 px-7 py-4 border-b" style={{ borderColor: colors.border }}>
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to upload form" onPress={() => { setDesktopDestinationOpen(false); setDesktopDestinationSearch(''); }} className="w-11 h-11 items-center justify-center rounded-xl border" style={{ borderColor: colors.border, backgroundColor: colors.background }}>
+                <FontAwesome name="chevron-left" size={11} color={colors.textMuted} />
+              </TouchableOpacity>
+              <View className="flex-1">
+                <Text className="font-black text-base" style={{ color: colors.textMain }}>Choose destination</Text>
+                <Text className="text-xs mt-1" style={{ color: colors.textMuted }}>Select where these files should be uploaded</Text>
+              </View>
+            </View>
+            <View className="px-7 pt-5 gap-3">
+              <TextInput
+                value={desktopDestinationSearch}
+                onChangeText={setDesktopDestinationSearch}
+                placeholder="Search folders..."
+                placeholderTextColor={colors.textDim}
+                accessibilityLabel="Search destination folders"
+                className="border rounded-xl px-4 py-3 text-sm"
+                style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
+              />
+              <View className="flex-row items-center flex-wrap gap-1.5" accessibilityRole="text">
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Select top level" onPress={() => patch({ folderId: null })} className="min-h-11 justify-center px-2">
+                  <Text className="text-xs font-black" style={{ color: colors.primary }}>Top level</Text>
+                </TouchableOpacity>
+                {desktopDestinationChain.map(folder => (
+                  <React.Fragment key={folder.id}>
+                    <FontAwesome name="chevron-right" size={9} color={colors.textMuted} />
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Select ${folder.name}`} onPress={() => patch({ folderId: folder.id })} className="min-h-11 justify-center px-2">
+                      <Text className="text-xs font-black" style={{ color: folder.id === draft.folderId ? colors.primary : colors.textMuted }}>{folder.name}</Text>
+                    </TouchableOpacity>
+                  </React.Fragment>
+                ))}
+              </View>
+              <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Selected destination</Text>
+              <Text className="text-sm font-bold" accessibilityRole="text" style={{ color: colors.textMain }}>{draft.folderId ? folderPath(scopedFolders, draft.folderId) : 'Top level (no folder)'}</Text>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={{ flex: 1, margin: 20, marginTop: 12 }} contentContainerStyle={{ padding: 6 }}>
+              <FolderTreePicker folders={desktopDestinationFolders} selectedId={draft.folderId} onSelect={(id) => patch({ folderId: id })} colors={colors} scrollable={false} />
+            </ScrollView>
+          </View>
+        ) : !isDesktop && mobilePage !== 'form' ? (
           <View style={{ minHeight: Math.max(320, winHeight * 0.62), flex: 1 }}>
             <View className="flex-row items-center gap-3 px-5 py-4 border-b" style={{ borderColor: colors.border }}>
               <TouchableOpacity accessibilityRole="button" accessibilityLabel="Back to upload form" onPress={finishPicker} className="w-11 h-11 items-center justify-center rounded-lg border" style={{ borderColor: colors.border, backgroundColor: colors.background }}>
@@ -596,8 +656,12 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
 
             {isDesktop && <View className="gap-2">
               <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Destination</Text>
-              {draft.folderId && <Text className="text-[11px] font-bold" style={{ color: colors.primary }}>{folderPath(scopedFolders, draft.folderId)}</Text>}
-              <FolderTreePicker folders={scopedFolders} selectedId={draft.folderId} onSelect={(id) => patch({ folderId: id })} colors={colors} />
+              <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: desktopDestinationOpen }} accessibilityLabel="Choose destination folder" onPress={() => setDesktopDestinationOpen(true)} className="min-h-11 flex-row items-center justify-between border rounded-xl px-4 py-3" style={{ borderColor: colors.border, backgroundColor: colors.background }}>
+                <View className="flex-1">
+                  <Text className="text-sm font-bold" style={{ color: colors.textMain }}>{draft.folderId ? folderPath(scopedFolders, draft.folderId) : 'Top level (no folder)'}</Text>
+                </View>
+                <FontAwesome name="chevron-right" size={11} color={colors.textMuted} />
+              </TouchableOpacity>
             </View>}
             <TouchableOpacity accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }} accessibilityLabel="Toggle upload details" onPress={() => setDetailsOpen(v => !v)} className="flex-row items-center justify-between border rounded-xl px-4 py-3" style={{ borderColor: colors.border, backgroundColor: colors.background }}>
               <View><Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Details</Text><Text className="text-xs font-bold mt-1" style={{ color: colors.textMain }}>{draft.tags.length === 0 && !draft.caption.trim() ? 'No details' : `${draft.tags.length} tag${draft.tags.length === 1 ? '' : 's'}${draft.caption.trim() ? ' · Caption added' : ''}`}</Text></View>
