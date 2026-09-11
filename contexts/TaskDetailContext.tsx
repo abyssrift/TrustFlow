@@ -1,8 +1,10 @@
 import { supabase, freshChannel } from '@/lib/supabase';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
+import { parseForwardStageUndo, type StageTransitionUndoMetadata } from '@/lib/stageTransitionUndo';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useToast } from './ToastContext';
+import { useUndoAction } from './UndoActionContext';
 
 // ─── Types ────────────────────────────────────────────
 type UserRef = { id: string; full_name: string | null; avatar_url: string | null; email?: string } | null;
@@ -182,17 +184,17 @@ export type TaskDetailPayload = {
   my_manual_time_entry: MyManualTimeEntry;
 };
 
-type TaskDetailContextType = {
+export type TaskDetailContextType = {
   taskId: string;
   data: TaskDetailPayload | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  executeAction: (actionId: string, payload?: any) => Promise<void>;
+  executeAction: (actionId: string, payload?: any) => Promise<StageTransitionUndoMetadata | null>;
   submitWork: (content: string, transitionId?: string | null, attachments?: any[]) => Promise<void>;
   addComment: (content: string, parentId?: string | null) => Promise<void>;
   deleteComment: (commentId: string) => Promise<void>;
-  advanceStage: (toStageId: string) => Promise<void>;
+  advanceStage: (toStageId: string) => Promise<StageTransitionUndoMetadata | null>;
   linkPipeline: (pipelineId: string) => Promise<void>;
   unlinkPipeline: (pipelineId: string) => Promise<void>;
   revertStage: (options?: { showSuccessToast?: boolean }) => Promise<string>;
@@ -222,6 +224,7 @@ export const useTaskDetail = () => {
 
 export const TaskDetailProvider = ({ taskId, children }: { taskId: string; children: React.ReactNode }) => {
   const { successToast, errorToast, infoToast, warningToast } = useToast();
+  const { registerUndo } = useUndoAction();
   const [data, setData] = useState<TaskDetailPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -314,6 +317,22 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     }
   }, [taskId]);
 
+  const registerForwardUndo = useCallback((metadata: StageTransitionUndoMetadata | null) => {
+    if (!metadata) return false;
+    registerUndo({
+      label: 'Task advanced.',
+      undo: async () => {
+        const { error: undoError } = await supabase.rpc('rpc_undo_forward_stage', {
+          p_task_id: taskId,
+          p_undo_token: metadata.undoToken,
+        });
+        if (undoError) throw undoError;
+        await fetchDetails();
+      },
+    });
+    return true;
+  }, [fetchDetails, registerUndo, taskId]);
+
   const executeAction = useCallback(async (actionId: string, payload?: any) => {
     try {
       taskFlowDebug('task-detail.executeAction:start', {
@@ -321,13 +340,15 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
         actionId,
         payloadKeys: payload ? Object.keys(payload) : [],
       });
-      const { error } = await supabase.rpc('rpc_execute_stage_action', {
+      const { data: result, error } = await supabase.rpc('rpc_execute_stage_action', {
         p_task_id: taskId, p_action_id: actionId, p_payload: payload ?? {},
       });
       if (error) throw error;
+      const undoMetadata = parseForwardStageUndo(result);
       await fetchDetails();
       taskFlowDebug('task-detail.executeAction:success', { taskId, actionId });
-      successToast('Task action completed.');
+      if (!registerForwardUndo(undoMetadata)) successToast('Task action completed.');
+      return undoMetadata;
     } catch (err: any) {
       taskFlowError('task-detail.executeAction:error', err, { taskId, actionId });
 
@@ -345,7 +366,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       errorToast(err.message || 'Could not complete task action.');
       throw err;
     }
-  }, [taskId, fetchDetails, successToast, errorToast]);
+  }, [taskId, fetchDetails, successToast, errorToast, registerForwardUndo]);
 
   const submitWork = useCallback(async (content: string, transitionId?: string | null, attachments: any[] = []) => {
     try {
@@ -409,17 +430,19 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
   const advanceStage = useCallback(async (toStageId: string) => {
     try {
       taskFlowDebug('task-detail.advanceStage:start', { taskId, toStageId });
-      const { error } = await supabase.rpc('rpc_advance_stage', { p_task_id: taskId, p_to_stage_id: toStageId });
+      const { data: result, error } = await supabase.rpc('rpc_advance_stage', { p_task_id: taskId, p_to_stage_id: toStageId });
       if (error) throw error;
+      const undoMetadata = parseForwardStageUndo(result);
       await fetchDetails();
       taskFlowDebug('task-detail.advanceStage:success', { taskId, toStageId });
-      successToast('Task advanced.');
+      if (!registerForwardUndo(undoMetadata)) successToast('Task advanced.');
+      return undoMetadata;
     } catch (err: any) {
       taskFlowError('task-detail.advanceStage:error', err, { taskId, toStageId });
       errorToast(err.message || 'Could not advance task.');
       throw err;
     }
-  }, [taskId, fetchDetails, successToast, errorToast]);
+  }, [taskId, fetchDetails, successToast, errorToast, registerForwardUndo]);
 
   const linkPipeline = useCallback(async (pipelineId: string) => {
     try {

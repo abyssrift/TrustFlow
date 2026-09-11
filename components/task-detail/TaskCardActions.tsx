@@ -5,9 +5,11 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTimer } from '@/contexts/TimerContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useUndoAction } from '@/contexts/UndoActionContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { supabase } from '@/lib/supabase';
+import { parseStageTransitionUndo } from '@/lib/stageTransitionUndo';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -104,6 +106,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
   const { hasPermission, profile } = useAuth();
   const { startWork } = useTimer();
   const { successToast, errorToast, warningToast } = useToast();
+  const { registerUndo } = useUndoAction();
   const { showAlert, showConfirm } = useAlert();
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [needsTimerActionId, setNeedsTimerActionId] = useState<string | null>(null);
@@ -169,6 +172,23 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       : s === 'primary' ? colors.primary
       : colors.muted;
 
+  const registerForwardStageUndo = (metadata: ReturnType<typeof parseStageTransitionUndo>) => {
+    if (!metadata) return false;
+    registerUndo({
+      label: 'Task advanced.',
+      undo: async () => {
+        const { error } = await supabase.rpc('rpc_undo_forward_stage', {
+          p_task_id: task.id,
+          p_undo_token: metadata.undoToken,
+        });
+        if (error) throw error;
+        onMoved?.(task.id, metadata.fromStageId);
+        onRefresh();
+      },
+    });
+    return true;
+  };
+
   // ─── Handlers ────────────────────────────────────────────
 
   // Execute a stage action via RPC
@@ -192,7 +212,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     setNeedsTimerActionId(null);
     setLoadingAction(action.id);
     try {
-      const { error } = await supabase.rpc('rpc_execute_stage_action', {
+      const { data: result, error } = await supabase.rpc('rpc_execute_stage_action', {
         p_task_id: task.id,
         p_action_id: action.id,
         p_payload: {}, // Use 3-arg overload to ensure correct dispatching
@@ -233,8 +253,10 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       console.log('[FXDBG] action rpc ok; onMoved?', !!onMoved, 'toStageId resolved?', toStageId ?? 'NO (transition_id: ' + action.transition_id + ')');
       if (toStageId) onMoved?.(task.id, toStageId);
       onRefresh();
-      // Show success toast for card-level actions
-      successToast(action.label || 'Action completed');
+      const undoMetadata = parseStageTransitionUndo(result);
+      // The server response, not the local action type, is the authority for
+      // whether this stage transition can be undone.
+      if (!registerForwardStageUndo(undoMetadata)) successToast(action.label || 'Action completed');
     } catch (err: any) {
       let displayMessage = err.message || 'Could not execute action.';
       
@@ -274,7 +296,7 @@ export default function TaskCardActions({ task, stages, stageActions, transition
     });
     setLoadingAction('__advance__');
     try {
-      const { error } = await supabase.rpc('rpc_advance_stage', {
+      const { data: result, error } = await supabase.rpc('rpc_advance_stage', {
         p_task_id: task.id,
         p_to_stage_id: nextStage.id,
       });
@@ -286,7 +308,10 @@ export default function TaskCardActions({ task, stages, stageActions, transition
       console.log('[FXDBG] advance rpc ok; onMoved?', !!onMoved, '→', nextStage.id);
       onMoved?.(task.id, nextStage.id);
       onRefresh();
-      successToast('Task advanced.');
+      const undoMetadata = parseStageTransitionUndo(result);
+      // Do not infer undoability from the fallback route; only an explicit
+      // server-confirmed undoable response may register the global action.
+      if (!registerForwardStageUndo(undoMetadata)) successToast('Task advanced.');
     } catch (err: any) {
       taskFlowError('task-card.fallbackAdvance:error', err, {
         taskId: task.id,

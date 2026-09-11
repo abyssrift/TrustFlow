@@ -113,6 +113,8 @@ export function FilePreviewCard({
             <Tooltip key={action.label} label={action.label} className="flex-1">
               <TouchableOpacity
                 onPress={(e: any) => { e?.stopPropagation?.(); action.onPress(); }}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
                 className={`h-11 w-full items-center justify-center ${index > 0 ? 'border-l border-surface-border/40' : ''}`}
               >
                 <FontAwesome name={action.icon as any} size={12} color={colors.textMuted} />
