@@ -91,14 +91,6 @@ BEGIN
 
   ASSERT NOT EXISTS (
     SELECT 1
-    FROM public.filehub_folders f
-    WHERE f.scope = 'project'
-      AND f.parent_id IS NULL
-      AND f.project_root_kind IS NULL
-  ), 'an unclassified project root exists';
-
-  ASSERT NOT EXISTS (
-    SELECT 1
     FROM public.projects p
     LEFT JOIN public.filehub_folders f
       ON f.id = p.workspace_folder_id

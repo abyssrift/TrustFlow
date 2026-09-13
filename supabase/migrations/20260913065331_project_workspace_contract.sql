@@ -65,6 +65,45 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_filehub_folders_project_root_live
     AND project_root_kind IS NOT NULL
     AND deleted_at IS NULL;
 
+-- Preserve the existing deliverable helper's body and permissions.  The only
+-- behavioral addition is the root classification required by the contract.
+CREATE OR REPLACE FUNCTION public.fn_project_ensure_deliverable_folder(p_project_id UUID)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_company_id UUID;
+    v_name       TEXT;
+    v_folder_id  UUID;
+BEGIN
+    SELECT company_id, deliverable_folder_id, left(name, 80)
+      INTO v_company_id, v_folder_id, v_name
+    FROM public.projects
+    WHERE id = p_project_id AND deleted_at IS NULL
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RETURN NULL;
+    END IF;
+
+    IF v_folder_id IS NOT NULL THEN
+        RETURN v_folder_id;
+    END IF;
+
+    INSERT INTO public.filehub_folders (
+        company_id, name, created_by, parent_id, scope, project_id, project_root_kind
+    )
+    VALUES (v_company_id, v_name, auth.uid(), NULL, 'project', p_project_id, 'deliverable')
+    RETURNING id INTO v_folder_id;
+
+    UPDATE public.projects SET deliverable_folder_id = v_folder_id WHERE id = p_project_id;
+
+    RETURN v_folder_id;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.fn_projects_workspace_folder_contract()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -156,46 +195,3 @@ BEFORE INSERT OR UPDATE OF company_id, project_id, scope, parent_id, project_roo
 ON public.filehub_folders
 FOR EACH ROW
 EXECUTE FUNCTION public.fn_filehub_folders_project_ancestry_contract();
-
--- Keep the already-shipped sealed-deliverable lifecycle compatible with the
--- root classification contract.  This function is trigger-driven and cannot
--- call the user-gated folder RPC, so preserve its existing security boundary
--- and only add the root kind to its insert.
-CREATE OR REPLACE FUNCTION public.fn_project_ensure_deliverable_folder(p_project_id UUID)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    v_company_id UUID;
-    v_name       TEXT;
-    v_folder_id  UUID;
-BEGIN
-    SELECT company_id, deliverable_folder_id, left(name, 80)
-      INTO v_company_id, v_folder_id, v_name
-    FROM public.projects
-    WHERE id = p_project_id AND deleted_at IS NULL
-    FOR UPDATE;
-
-    IF NOT FOUND THEN
-        RETURN NULL;
-    END IF;
-
-    IF v_folder_id IS NOT NULL THEN
-        RETURN v_folder_id;
-    END IF;
-
-    INSERT INTO public.filehub_folders (
-        company_id, name, created_by, parent_id, scope, project_id, project_root_kind
-    )
-    VALUES (
-        v_company_id, v_name, auth.uid(), NULL, 'project', p_project_id, 'deliverable'
-    )
-    RETURNING id INTO v_folder_id;
-
-    UPDATE public.projects SET deliverable_folder_id = v_folder_id WHERE id = p_project_id;
-
-    RETURN v_folder_id;
-END;
-$$;
