@@ -29,6 +29,23 @@ BEGIN
   ASSERT position('workspace_path' IN v_def) > 0, 'Browse must return workspace path';
   ASSERT position('fn_project_accessible' IN v_def) > 0, 'Browse must enforce project ACL through fn_project_accessible';
   ASSERT position('p_origins IS NULL OR' IN v_def) > 0, 'Browse must apply a server-side origin filter';
+  ASSERT position('filehub_file_version_id' IN pg_get_viewdef('public.files_index'::regclass, true)) > 0,
+    'files_index must derive alias identity from existing FileHub version pointers';
+
+  ASSERT NOT EXISTS (
+    SELECT 1
+    FROM public.files_index fi
+    LEFT JOIN public.filehub_file_versions fv ON fv.id = fi.canonical_version_id
+    WHERE fi.source IN ('task_brief', 'submission')
+      AND fi.canonical_file_id IS NOT NULL
+      AND (fv.id IS NULL OR fv.file_id IS DISTINCT FROM fi.canonical_file_id)
+  ), 'task/submission Browse aliases must preserve file-to-version identity';
+
+  ASSERT position('origin=''workspace''' IN v_def) > 0
+     AND position('fn_project_accessible(c.project_id)' IN v_def) > 0,
+    'Browse must exclude inaccessible project rows through the shared project ACL';
+  ASSERT position('visibility = ''project''' IN pg_get_functiondef('public.filehub_file_accessible(uuid)'::regprocedure)) > 0,
+    'filehub_file_accessible must retain the project visibility branch';
 
   ASSERT NOT EXISTS (
     SELECT 1 FROM public.files_index fi

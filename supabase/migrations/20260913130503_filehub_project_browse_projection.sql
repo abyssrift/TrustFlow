@@ -5,21 +5,24 @@
 -- The view is deliberately rebuilt so its append-only projection remains a
 -- single source for the legacy and canonical FileHub identities.
 CREATE OR REPLACE VIEW public.files_index AS
-WITH RECURSIVE workspace_tree AS (
+WITH RECURSIVE project_tree AS (
   SELECT p.id AS project_id, f.id AS folder_id, f.parent_id,
+         f.id AS root_folder_id, f.project_root_kind AS root_kind,
          f.name::text AS workspace_path
   FROM public.projects p
-  JOIN public.filehub_folders f ON f.id = p.workspace_folder_id
+  JOIN public.filehub_folders f
+    ON f.id = p.workspace_folder_id OR f.id = p.deliverable_folder_id
   WHERE f.company_id = p.company_id AND f.scope = 'project'
     AND f.project_id = p.id AND f.parent_id IS NULL
-    AND f.project_root_kind = 'workspace' AND f.deleted_at IS NULL
+    AND f.project_root_kind IN ('workspace', 'deliverable')
+    AND f.deleted_at IS NULL
   UNION ALL
-  SELECT wt.project_id, f.id, f.parent_id,
-         (wt.workspace_path || ' / ' || f.name)::text
-  FROM workspace_tree wt
-  JOIN public.filehub_folders f ON f.parent_id = wt.folder_id
-  WHERE f.company_id = (SELECT p.company_id FROM public.projects p WHERE p.id = wt.project_id)
-    AND f.scope = 'project' AND f.project_id = wt.project_id
+  SELECT pt.project_id, f.id, f.parent_id, pt.root_folder_id, pt.root_kind,
+         (pt.workspace_path || ' / ' || f.name)::text
+  FROM project_tree pt
+  JOIN public.filehub_folders f ON f.parent_id = pt.folder_id
+  WHERE f.company_id = (SELECT p.company_id FROM public.projects p WHERE p.id = pt.project_id)
+    AND f.scope = 'project' AND f.project_id = pt.project_id
     AND f.project_root_kind IS NULL AND f.deleted_at IS NULL
 )
 SELECT 'filehub'::text AS source, f.id AS file_id, f.company_id, f.bucket,
@@ -36,11 +39,11 @@ UNION ALL
 SELECT 'filehub'::text, f.id, f.company_id, f.bucket, f.storage_path,
   f.original_name, f.mime_type, f.size_bytes, NULL::text, f.uploaded_by,
   f.created_at, NULL::uuid, NULL::uuid, f.folder_id, f.group_id, f.visibility,
-  f.project_id, NULL::text, p.workspace_folder_id, wt.workspace_path,
+  f.project_id, NULL::text, pt.root_folder_id, pt.workspace_path,
   'workspace'::text, f.id, f.current_version_id
 FROM public.filehub_files f
 JOIN public.projects p ON p.id = f.project_id AND p.company_id = f.company_id
-JOIN workspace_tree wt ON wt.project_id = f.project_id AND wt.folder_id = f.folder_id
+JOIN project_tree pt ON pt.project_id = f.project_id AND pt.folder_id = f.folder_id
 WHERE f.deleted_at IS NULL AND f.visibility = 'project'
   AND p.deleted_at IS NULL
 UNION ALL

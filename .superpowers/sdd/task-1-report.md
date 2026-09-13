@@ -26,3 +26,9 @@ Added a rerunnable migration that rebuilds `files_index` with workspace rows and
 ## Self-review / concerns
 
 No React files or unrelated dirty files were changed. No live authenticated fixture data was available for an end-to-end caller impersonation assertion, so the check validates the projection/function definitions and current-row invariants rather than fabricating data. The final acceptance/integration decision remains with Sol.
+
+## Reviewer corrections
+
+- Included live project FileHub files beneath both the workspace and sealed deliverable roots in `files_index`; both receive project root/path metadata and remain read-only Browse projections gated by `fn_project_accessible`.
+- Strengthened `check_filehub_project_browse.sql` with a transactional `files_index` alias assertion: every task-brief/submission canonical version pointer must resolve to the same canonical file. It also structurally asserts Browse's project-origin ACL branch and the retained project branch in `filehub_file_accessible`, avoiding fabricated auth fixtures.
+- Fresh verification: migration applied twice with `psql -v ON_ERROR_STOP=1`; focused Browse check, project workspace contract check, and task/submission convergence check all passed and rolled back.
