@@ -4,7 +4,7 @@ import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import type { ExplorerBreadcrumb } from './ExplorerTypes';
 
 export default function ExplorerBreadcrumbs({ items, onNavigate }: { items: ExplorerBreadcrumb[]; onNavigate: (id: string | null) => void }) {
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerClassName="items-center gap-1">
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-grow-0" contentContainerClassName="items-center gap-1">
     <TouchableOpacity accessibilityLabel="Explorer root" onPress={() => onNavigate(null)} className="min-h-[44px] min-w-[44px] items-center justify-center rounded-xl hover:bg-surface-overlay">
       <FontAwesome name="home" size={14} className="text-typography-muted" />
     </TouchableOpacity>
