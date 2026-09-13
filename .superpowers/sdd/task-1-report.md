@@ -44,3 +44,9 @@ No React files or unrelated dirty files were changed. No live authenticated fixt
 - RED: the prior focused check failed closed on the current seed because no same-company non-owner existed.
 - GREEN: the fixture now retains the existing same-company owner for valid project/folder/file/version creation and stores `gen_random_uuid()` as `denied_subject`; under `SET LOCAL ROLE authenticated` it proves `fn_project_accessible(v_project)=false`, executes `rpc_filehub_browse` with both `workspace` and `deliverable` origins, and asserts the project is absent. All data/settings roll back.
 - Fresh results: migration applied twice with `psql -v ON_ERROR_STOP=1`; focused Browse check passed; project workspace contract and task/submission convergence checks passed. `files_index` currently reports `workspace=1` and `brief=5`; no seeded deliverable row exists, but the projection definition and origin assertions cover it.
+
+## ACL branch and behavioral origin correction
+
+- Updated every Browse ACL path (single-file lookup, paginated rows, and facets) so both `origin IN ('workspace','deliverable')` branches call `fn_project_accessible(project_id)`; deliverables cannot fall through to task ACL with a null task id.
+- Extended the rollback fixture with valid owner-authorized workspace and deliverable FileHub files plus versions. The check executes Browse under the owner subject and asserts both origins are returned, then switches to the random no-user subject and asserts zero rows for the same project. Settings and fixture data remain transaction-local and roll back.
+- Fresh results: migration applied twice with `psql -v ON_ERROR_STOP=1`; focused Browse check, project workspace contract check, and task/submission convergence check all passed and rolled back.

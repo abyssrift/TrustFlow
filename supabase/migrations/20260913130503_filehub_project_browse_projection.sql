@@ -132,7 +132,7 @@ BEGIN
       FROM public.files_index fi
       WHERE fi.company_id=v_company AND fi.file_id=p_file_id
         AND (p_origins IS NULL OR fi.origin=ANY(p_origins))
-        AND CASE WHEN fi.origin='workspace' THEN public.fn_project_accessible(fi.project_id)
+        AND CASE WHEN fi.origin IN ('workspace','deliverable') THEN public.fn_project_accessible(fi.project_id)
           WHEN fi.source='filehub' THEN public.filehub_file_accessible(fi.file_id)
           ELSE public.fn_task_file_accessible(fi.task_id) END
     ) x;
@@ -161,7 +161,7 @@ BEGIN
         (SELECT t.title FROM public.tasks t WHERE t.id=c.task_id) END AS task_title,
       c.workspace_folder_id,c.workspace_path,c.origin,c.canonical_file_id,c.canonical_version_id
     FROM pool c
-    WHERE CASE WHEN c.origin='workspace' THEN public.fn_project_accessible(c.project_id)
+    WHERE CASE WHEN c.origin IN ('workspace','deliverable') THEN public.fn_project_accessible(c.project_id)
       WHEN c.source='filehub' THEN public.filehub_file_accessible(c.file_id)
       ELSE public.fn_task_file_accessible(c.task_id) END
     ORDER BY c.created_at DESC LIMIT v_limit
@@ -175,7 +175,7 @@ BEGIN
       WHERE fi.company_id=v_company
         AND (p_sources IS NULL OR fi.source=ANY(p_sources))
         AND (p_origins IS NULL OR fi.origin=ANY(p_origins))
-        AND CASE WHEN fi.origin='workspace' THEN public.fn_project_accessible(fi.project_id)
+        AND CASE WHEN fi.origin IN ('workspace','deliverable') THEN public.fn_project_accessible(fi.project_id)
           WHEN fi.source='filehub' THEN public.filehub_file_accessible(fi.file_id)
           ELSE public.fn_task_file_accessible(fi.task_id) END
     )

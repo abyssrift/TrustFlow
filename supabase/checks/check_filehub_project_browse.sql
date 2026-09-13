@@ -41,9 +41,9 @@ BEGIN
       AND (fv.id IS NULL OR fv.file_id IS DISTINCT FROM fi.canonical_file_id)
   ), 'task/submission Browse aliases must preserve file-to-version identity';
 
-  ASSERT position('origin=''workspace''' IN v_def) > 0
+  ASSERT position('origin IN (''workspace'',''deliverable'')' IN v_def) > 0
      AND position('fn_project_accessible(c.project_id)' IN v_def) > 0,
-    'Browse must exclude inaccessible project rows through the shared project ACL';
+    'Browse must route both project origins through the shared project ACL';
   ASSERT position('visibility = ''project''' IN pg_get_functiondef('public.filehub_file_accessible(uuid)'::regprocedure)) > 0,
     'filehub_file_accessible must retain the project visibility branch';
 ASSERT position('deliverable' IN pg_get_viewdef('public.files_index'::regclass, true)) > 0,
@@ -71,7 +71,7 @@ END $$;
 -- SECURITY DEFINER Browse RPC, and roll everything back. If the seeded schema
 -- cannot supply both actors, fail closed instead of replacing this with text
 -- inspection.
-CREATE TEMP TABLE filehub_project_browse_check_ctx (project_id uuid, denied_subject uuid);
+CREATE TEMP TABLE filehub_project_browse_check_ctx (project_id uuid, owner_subject uuid, denied_subject uuid);
 GRANT SELECT, INSERT ON filehub_project_browse_check_ctx TO authenticated;
 SET LOCAL session_replication_role = replica;
 DO $$
@@ -84,6 +84,8 @@ DECLARE
   v_deliverable uuid;
   v_file uuid;
   v_version uuid;
+  v_workspace_file uuid;
+  v_workspace_version uuid;
 BEGIN
   SELECT company_id, id INTO v_company, v_owner
   FROM public.users WHERE is_owner AND company_id IS NOT NULL AND deleted_at IS NULL LIMIT 1;
@@ -104,18 +106,48 @@ BEGIN
     VALUES(v_file,v_company,1,'chk-filehub-browse/project.bin','filehub-files','project.bin',1,'application/octet-stream',v_owner)
     RETURNING id INTO v_version;
   UPDATE public.filehub_files SET current_version_id=v_version WHERE id=v_file;
-  INSERT INTO filehub_project_browse_check_ctx(project_id,denied_subject)
-    VALUES(v_project,v_denied);
+  INSERT INTO public.filehub_files(company_id,uploaded_by,storage_path,original_name,mime_type,size_bytes,visibility,folder_id,project_id)
+    VALUES(v_company,v_owner,'chk-filehub-browse/workspace.bin','workspace.bin','application/octet-stream',1,'project',v_workspace,v_project)
+    RETURNING id INTO v_workspace_file;
+  INSERT INTO public.filehub_file_versions(file_id,company_id,version_no,storage_path,bucket,original_name,size_bytes,mime_type,created_by)
+    VALUES(v_workspace_file,v_company,1,'chk-filehub-browse/workspace.bin','filehub-files','workspace.bin',1,'application/octet-stream',v_owner)
+    RETURNING id INTO v_workspace_version;
+  UPDATE public.filehub_files SET current_version_id=v_workspace_version WHERE id=v_workspace_file;
+  INSERT INTO filehub_project_browse_check_ctx(project_id,owner_subject,denied_subject)
+    VALUES(v_project,v_owner,v_denied);
 END $$;
 
 SET LOCAL ROLE authenticated;
 DO $$
 DECLARE
   v_project uuid;
+  v_owner uuid;
   v_denied uuid;
   v_result jsonb;
+  v_workspace_count integer;
+  v_deliverable_count integer;
 BEGIN
-  SELECT project_id,denied_subject INTO v_project,v_denied FROM filehub_project_browse_check_ctx;
+  SELECT project_id,owner_subject,denied_subject INTO v_project,v_owner,v_denied
+  FROM filehub_project_browse_check_ctx;
+  PERFORM set_config('request.jwt.claim.sub',v_owner::text,true);
+  IF NOT public.fn_project_accessible(v_project) THEN
+    RAISE EXCEPTION 'CHECK FAILED: owner fixture must pass fn_project_accessible';
+  END IF;
+  v_result := public.rpc_filehub_browse(
+    p_project_id := v_project,
+    p_origins := ARRAY['workspace','deliverable']::text[],
+    p_limit := 200
+  );
+  SELECT count(*) FILTER (WHERE item->>'origin'='workspace'),
+         count(*) FILTER (WHERE item->>'origin'='deliverable')
+  INTO v_workspace_count,v_deliverable_count
+  FROM jsonb_array_elements(v_result->'items') item;
+  IF v_workspace_count < 1 OR v_deliverable_count < 1 THEN
+    RAISE EXCEPTION 'CHECK FAILED: owner Browse must return both project origins (workspace %, deliverable %)',
+      v_workspace_count,v_deliverable_count;
+  END IF;
+
+  -- The same valid project is now queried as a subject with no public.users row.
   PERFORM set_config('request.jwt.claim.sub',v_denied::text,true);
   IF public.fn_project_accessible(v_project) THEN
     RAISE EXCEPTION 'CHECK FAILED: fixture actor unexpectedly passes fn_project_accessible';
