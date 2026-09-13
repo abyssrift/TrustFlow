@@ -1,4 +1,4 @@
-export type ExplorerOrigin = 'workspace' | 'shared' | 'brief' | 'submission';
+export type ExplorerOrigin = 'workspace' | 'deliverable' | 'shared' | 'brief' | 'submission';
 
 export type ExplorerMode =
   | { kind: 'project-workspace'; projectId: string }
