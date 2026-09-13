@@ -71,7 +71,7 @@ END $$;
 -- SECURITY DEFINER Browse RPC, and roll everything back. If the seeded schema
 -- cannot supply both actors, fail closed instead of replacing this with text
 -- inspection.
-CREATE TEMP TABLE filehub_project_browse_check_ctx (project_id uuid, owner_subject uuid, denied_subject uuid);
+CREATE TEMP TABLE filehub_project_browse_check_ctx (company_id uuid, project_id uuid, owner_subject uuid, denied_subject uuid);
 GRANT SELECT, INSERT ON filehub_project_browse_check_ctx TO authenticated;
 SET LOCAL session_replication_role = replica;
 DO $$
@@ -92,6 +92,11 @@ BEGIN
   IF v_company IS NULL OR v_owner IS NULL THEN
     RAISE EXCEPTION 'CHECK FAILED: need an existing same-company owner for the ACL fixture';
   END IF;
+  v_denied := gen_random_uuid();
+  INSERT INTO auth.users(id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+    VALUES(v_denied,'authenticated','authenticated',format('check-%s@test.invalid',v_denied),'{}'::jsonb,'{}'::jsonb,now(),now());
+  INSERT INTO public.users(id,company_id,email,is_owner,is_active)
+    VALUES(v_denied,v_company,format('check-%s@test.invalid',v_denied),false,true);
   INSERT INTO public.projects(company_id,name,created_by,owner_id)
     VALUES(v_company,'CHK FileHub Browse ACL',v_owner,v_owner) RETURNING id INTO v_project;
   INSERT INTO public.filehub_folders(company_id,name,created_by,scope,project_id,project_root_kind)
@@ -113,21 +118,22 @@ BEGIN
     VALUES(v_workspace_file,v_company,1,'chk-filehub-browse/workspace.bin','filehub-files','workspace.bin',1,'application/octet-stream',v_owner)
     RETURNING id INTO v_workspace_version;
   UPDATE public.filehub_files SET current_version_id=v_workspace_version WHERE id=v_workspace_file;
-  INSERT INTO filehub_project_browse_check_ctx(project_id,owner_subject,denied_subject)
-    VALUES(v_project,v_owner,v_denied);
+  INSERT INTO filehub_project_browse_check_ctx(company_id,project_id,owner_subject,denied_subject)
+    VALUES(v_company,v_project,v_owner,v_denied);
 END $$;
 
 SET LOCAL ROLE authenticated;
 DO $$
 DECLARE
   v_project uuid;
+  v_company uuid;
   v_owner uuid;
   v_denied uuid;
   v_result jsonb;
   v_workspace_count integer;
   v_deliverable_count integer;
 BEGIN
-  SELECT project_id,owner_subject,denied_subject INTO v_project,v_owner,v_denied
+  SELECT company_id,project_id,owner_subject,denied_subject INTO v_company,v_project,v_owner,v_denied
   FROM filehub_project_browse_check_ctx;
   PERFORM set_config('request.jwt.claim.sub',v_owner::text,true);
   IF NOT public.fn_project_accessible(v_project) THEN
@@ -147,8 +153,16 @@ BEGIN
       v_workspace_count,v_deliverable_count;
   END IF;
 
-  -- The same valid project is now queried as a subject with no public.users row.
+  -- The same valid project is now queried as a real same-company subject with
+  -- no role, assignment, or project.view_all permission.
   PERFORM set_config('request.jwt.claim.sub',v_denied::text,true);
+  PERFORM set_config('request.jwt.claims',json_build_object('sub',v_denied::text,'role','authenticated')::text,true);
+  IF auth.uid() IS DISTINCT FROM v_denied THEN
+    RAISE EXCEPTION 'CHECK FAILED: JWT subject did not resolve to denied fixture identity';
+  END IF;
+  IF public.my_company_id() IS DISTINCT FROM v_company THEN
+    RAISE EXCEPTION 'CHECK FAILED: negative subject did not resolve to the fixture company';
+  END IF;
   IF public.fn_project_accessible(v_project) THEN
     RAISE EXCEPTION 'CHECK FAILED: fixture actor unexpectedly passes fn_project_accessible';
   END IF;

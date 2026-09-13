@@ -50,3 +50,13 @@ No React files or unrelated dirty files were changed. No live authenticated fixt
 - Updated every Browse ACL path (single-file lookup, paginated rows, and facets) so both `origin IN ('workspace','deliverable')` branches call `fn_project_accessible(project_id)`; deliverables cannot fall through to task ACL with a null task id.
 - Extended the rollback fixture with valid owner-authorized workspace and deliverable FileHub files plus versions. The check executes Browse under the owner subject and asserts both origins are returned, then switches to the random no-user subject and asserts zero rows for the same project. Settings and fixture data remain transaction-local and roll back.
 - Fresh results: migration applied twice with `psql -v ON_ERROR_STOP=1`; focused Browse check, project workspace contract check, and task/submission convergence check all passed and rolled back.
+
+## Same-company negative-subject correction
+
+- Replaced the vacuous random-subject path with a transaction-local authenticated identity: the check inserts the generated UUID into `auth.users` and `public.users` under the existing fixture company, grants no role/assignment/view_all capability, stores it in the temp context, and sets both `request.jwt.claim.sub` and authenticated `request.jwt.claims` before `SET LOCAL ROLE authenticated` execution.
+- The check now asserts `my_company_id()` resolves to the fixture company, `fn_project_accessible(v_project)` is false, Browse returns zero project rows for both origins, and the owner-positive assertion still returns workspace and deliverable rows. Everything rolls back.
+
+## Same-company authenticated subject correction
+
+- The generated denied UUID is now inserted transaction-locally into both `auth.users` and `public.users` for the fixture company, with no role, assignment, or `project.view_all` grant. The check stores it in the temp context and sets both JWT subject and claims before running as `authenticated`.
+- Fresh focused result: `my_company_id()` resolved to the fixture company, `fn_project_accessible` was false, the owner returned both workspace and deliverable origins, and the denied subject returned zero project rows; the transaction rolled back. Migration was applied twice with `ON_ERROR_STOP=1`; focused and related checks passed.
