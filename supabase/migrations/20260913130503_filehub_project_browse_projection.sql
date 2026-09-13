@@ -40,7 +40,8 @@ SELECT 'filehub'::text, f.id, f.company_id, f.bucket, f.storage_path,
   f.original_name, f.mime_type, f.size_bytes, NULL::text, f.uploaded_by,
   f.created_at, NULL::uuid, NULL::uuid, f.folder_id, f.group_id, f.visibility,
   f.project_id, NULL::text, pt.root_folder_id, pt.workspace_path,
-  'workspace'::text, f.id, f.current_version_id
+  CASE WHEN pt.root_kind = 'deliverable' THEN 'deliverable' ELSE 'workspace' END::text,
+  f.id, f.current_version_id
 FROM public.filehub_files f
 JOIN public.projects p ON p.id = f.project_id AND p.company_id = f.company_id
 JOIN project_tree pt ON pt.project_id = f.project_id AND pt.folder_id = f.folder_id

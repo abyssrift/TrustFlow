@@ -32,3 +32,9 @@ No React files or unrelated dirty files were changed. No live authenticated fixt
 - Included live project FileHub files beneath both the workspace and sealed deliverable roots in `files_index`; both receive project root/path metadata and remain read-only Browse projections gated by `fn_project_accessible`.
 - Strengthened `check_filehub_project_browse.sql` with a transactional `files_index` alias assertion: every task-brief/submission canonical version pointer must resolve to the same canonical file. It also structurally asserts Browse's project-origin ACL branch and the retained project branch in `filehub_file_accessible`, avoiding fabricated auth fixtures.
 - Fresh verification: migration applied twice with `psql -v ON_ERROR_STOP=1`; focused Browse check, project workspace contract check, and task/submission convergence check all passed and rolled back.
+
+## Follow-up reviewer correction
+
+- Project-tree projection now carries `root_kind`; live files under the sealed deliverable root are included with `origin='deliverable'`, while workspace files remain `origin='workspace'`. The existing project ACL and read-only Browse behavior are unchanged, and `p_origins` accepts either value.
+- The focused check now creates valid throwaway project/folder/file/version rows from existing users, switches to `SET LOCAL ROLE authenticated`, impersonates a user that must fail `fn_project_accessible`, executes the real `rpc_filehub_browse`, and rolls back all settings/data. It fails closed when the database cannot provide both required actors.
+- Fresh results: the migration applied twice successfully with `ON_ERROR_STOP=1`. The focused check failed closed because the local seeded schema has owners only and no same-company non-owner actor; this is the required safe blocker, not a text-scan pass. Related workspace-contract and task/submission-convergence checks passed and rolled back.
