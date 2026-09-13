@@ -90,10 +90,11 @@ export default function ModalHost() {
 
     // #340: the FileHub upload composer, lifted out of _filehub_desktop.tsx's
     // screen-local UploadModal into components/filehub/UploadComposerModal.
-    // Web variant routes through UploadManagerContext (already an ancestor here
-    // via app/_layout.web.tsx) — no extra provider. Native variant is a stub
-    // that redirects to /filehub (no UploadManagerProvider on native; see the
-    // component's own #340 follow-up note).
+    // Both platform variants are mounted under UploadManagerProvider. Global
+    // native summons retain their /filehub redirect; project summons use the
+    // native composer and the manager with its scoped workspace snapshot.
+    // UploadManagerProvider is already an ancestor on both platforms.
+    // Project and global destinations are handled by their platform composer.
     case 'upload':
       return (
         <UploadComposerModal

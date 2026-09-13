@@ -11,6 +11,10 @@ assert.match(source, /destination\?: UploadDestination/, 'web composer destinati
 assert.match(source, /rpc\('rpc_project_files'/, 'project composer must load the authorized workspace');
 assert.match(source, /isProjectDestination \? 'project'/, 'project composer must use project visibility');
 assert.match(source, /destination,/, 'web composer must pass destination to the manager');
+assert.match(source, /audienceControls = isProjectDestination \? null/, 'project mode must hide audience controls');
+assert.match(source, /!isProjectDestination && draft\.visibility === 'direct'/, 'project mode must hide recipient controls');
+assert.match(source, /authorizedFolderIds\.has\(destination\.folderId\)/, 'project destination must validate the requested folder');
+assert.match(source, /isProjectDestination[\s\S]*scopedFolders\.some\(folder => folder\.id === draft\.folderId\)/, 'project upload must reject invalid folder ids');
 assert.match(source, /activeGroup \? 'group' : visibilitySeed \?\? 'direct'/, 'group/default visibility seed precedence missing');
 assert.match(source, /folder\.id === prev\.folderId/, 'folder scope validation missing');
 assert.match(source, /folderId: null/, 'invalid scoped folder is not cleared');
@@ -27,7 +31,7 @@ assert.doesNotMatch(source, /setRecipientRecords\(prev => \{[\s\S]*rows\.forEach
 assert.match(source, /className="w-11 h-11 items-center justify-center rounded-xl border"/, 'audience selector must use compact 44x44 controls');
 assert.doesNotMatch(source, /Direct Send/, 'large direct-send visibility control should be removed');
 assert.match(source, /isDesktop \|\| mobilePage === 'form'/, 'picker pages must omit the upload footer');
-assert.match(source, /isDesktop && draft\.visibility === 'direct'.*SearchableMultiSelect/s, 'full recipient picker must be desktop-only in form page');
+assert.match(source, /isDesktop && !isProjectDestination && draft\.visibility === 'direct'.*SearchableMultiSelect/s, 'full recipient picker must be desktop-only and global-only in form page');
 assert.match(source, /Destination[\s\S]*setDetailsOpen[\s\S]*Tags[\s\S]*Caption/, 'destination must remain outside optional details while tags/caption are inside');
 assert.match(source, /finishPicker.*w-11 h-11/, 'mobile picker back control must be 44x44');
 assert.match(source, /from\('users'\).*order\('full_name'\).*if \(query\)/s, 'blank recipient query must load default alphabetical members');
@@ -61,6 +65,13 @@ assert.match(nativeSource, /destination\?: UploadDestination/, 'native composer 
 assert.match(nativeSource, /rpc\('rpc_project_files'/, 'native composer must load the project workspace');
 assert.match(nativeSource, /visible && !isProject[\s\S]*router\.push\('\/filehub'/, 'global native redirect must be limited to non-project summons');
 assert.match(nativeSource, /startUpload\(/, 'native project composer must use UploadManagerContext');
+assert.match(nativeSource, /authorizedFolderIds\.has\(destination\.folderId\)/, 'native project destination must validate the requested folder');
+assert.match(nativeSource, /workspaceFolders\.some\(folder => folder\.id === folderId\)/, 'native upload must reject invalid folder ids');
 assert.match(nativeSource, /<Popup\b/, 'native composer must use Popup');
+
+const dispatchSource = readFileSync(join(process.cwd(), 'contexts/ModalDispatchContext.tsx'), 'utf8');
+const hostSource = readFileSync(join(process.cwd(), 'components/common/ModalHost.tsx'), 'utf8');
+assert.match(dispatchSource, /destination\?: UploadDestination/, 'modal dispatch must carry upload destinations');
+assert.match(hostSource, /destination=\{active\.payload\.destination\}/, 'modal host must propagate upload destinations');
 
 console.log('UploadComposerModal.check: ok');

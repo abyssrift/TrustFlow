@@ -30,6 +30,9 @@ assert.throws(
   () => normalizeUploadDestination({ kind: 'project', projectId: 'project-1', folderId: 'global-folder' }, new Set(['workspace-1'])),
   /authorized project workspace/,
 );
+assert.throws(() => normalizeUploadDestination({ kind: 'project', projectId: 'project-1', folderId: 'workspace-1' }), /authorized project workspace/);
+assert.throws(() => normalizeUploadDestination({ kind: 'project', projectId: 'project-1', folderId: null }, new Set(['workspace-1'])), /authorized project workspace/);
+assert.throws(() => normalizeUploadDestination({ kind: 'project', projectId: 'project-1', folderId: 'workspace-1' }, new Set()), /authorized project workspace/);
 
 {
   const target: UploadTarget = { kind: 'task', taskId: 'task-1', folderId: 'folder-1' };

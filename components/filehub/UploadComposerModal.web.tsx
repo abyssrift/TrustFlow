@@ -264,8 +264,12 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
         } else {
           setProjectLoadError(null);
           setFolders(projectFolders as FileHubFolder[]);
-          if (!destination.folderId && workspace.root?.id) {
-            setDraft(prev => ({ ...prev, folderId: prev.folderId ?? workspace.root.id }));
+          const authorizedFolderIds = new Set(projectFolders.map(folder => folder.id));
+          const nextFolderId = destination.folderId && authorizedFolderIds.has(destination.folderId)
+            ? destination.folderId
+            : workspace.root.id;
+          if (nextFolderId) {
+            setDraft(prev => ({ ...prev, folderId: nextFolderId }));
           }
         }
         setFoldersLoaded(true);
@@ -333,9 +337,10 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
     setDraft(prev => {
       if (!prev.folderId) return prev;
       const valid = scopedFolders.some(folder => folder.id === prev.folderId);
-      return valid ? prev : { ...prev, folderId: null };
+      if (valid || !isProjectDestination) return valid ? prev : { ...prev, folderId: null };
+      return { ...prev, folderId: scopedFolders[0]?.id ?? null };
     });
-  }, [visible, foldersLoaded, scopedFolders]);
+  }, [visible, foldersLoaded, scopedFolders, isProjectDestination]);
 
   useEffect(() => {
     const requestId = ++recipientRequestRef.current;
@@ -472,7 +477,7 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
   // cancel and any dup/name-conflict prompts all live in the topbar upload
   // island from here (UploadManagerContext.startUpload publishes to it).
   const handleUpload = () => {
-    if (draft.files.length === 0) return;
+    if (draft.files.length === 0 || (isProjectDestination && !draft.folderId) || (isProjectDestination && !scopedFolders.some(folder => folder.id === draft.folderId))) return;
     const companyId = profile?.company_id;
     if (!companyId) { showAlert('Error', 'Company not found.'); return; }
 
@@ -493,11 +498,11 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
     onClose();
   };
 
-  const disabled = draft.files.length === 0 || !!projectLoadError || (isProjectDestination ? !draft.folderId : (draft.visibility === 'direct' && selectedRecipientIds.length === 0));
+  const disabled = draft.files.length === 0 || !!projectLoadError || (isProjectDestination ? !draft.folderId || !scopedFolders.some(folder => folder.id === draft.folderId) : (draft.visibility === 'direct' && selectedRecipientIds.length === 0));
   const recipientItems: SearchableMultiSelectItem[] = useMemo(() => memberResults.map(m => ({ id: m.id, label: m.full_name || 'Unnamed member', avatarUrl: m.avatar_url })), [memberResults]);
   const selectedRecipientItems: SearchableMultiSelectItem[] = useMemo(() => Array.from(recipientRecords.values()).map(m => ({ id: m.id, label: m.full_name || 'Unnamed member', avatarUrl: m.avatar_url })), [recipientRecords]);
   const audienceModes: Array<'direct' | 'broadcast'> = canBroadcast ? ['direct', 'broadcast'] : ['direct'];
-  const audienceControls = activeGroup ? (
+  const audienceControls = isProjectDestination ? null : activeGroup ? (
     <Tooltip label={`Group: ${activeGroup.name}`}><View className="flex-row items-center gap-2 px-2.5 py-1.5 rounded-full" style={{ backgroundColor: colors.primary + '14' }}><FontAwesome name="users" size={11} color={colors.primary} /><Text className="text-[10px] font-black" style={{ color: colors.primary }}>{activeGroup.name}</Text></View></Tooltip>
   ) : (
     <View className="flex-row items-center gap-1">
@@ -562,9 +567,9 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
                 style={{ backgroundColor: colors.background, borderColor: colors.border, color: colors.textMain }}
               />
               <View className="flex-row items-center flex-wrap gap-1.5" accessibilityRole="text">
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Select top level" onPress={() => patch({ folderId: null })} className="min-h-11 justify-center px-2">
+                {!isProjectDestination && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Select top level" onPress={() => patch({ folderId: null })} className="min-h-11 justify-center px-2">
                   <Text className="text-xs font-black" style={{ color: colors.primary }}>Top level</Text>
-                </TouchableOpacity>
+                </TouchableOpacity>}
                 {desktopDestinationChain.map(folder => (
                   <React.Fragment key={folder.id}>
                     <FontAwesome name="chevron-right" size={9} color={colors.textMuted} />
@@ -657,7 +662,7 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
           <ScrollView showsVerticalScrollIndicator={false} style={isDesktop ? { flexGrow: 3, flexBasis: 0, minWidth: 0, maxHeight: winHeight * 0.62 } : { flexGrow: 0, flexShrink: 1, maxHeight: winHeight * 0.46 }} contentContainerStyle={{ padding: isDesktop ? 28 : 20, gap: 20 }}>
             {!isDesktop && (
               <View className="gap-2">
-                {draft.visibility === 'direct' && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose recipients" onPress={() => setMobilePage('recipients')} className="flex-row items-center justify-between border rounded-xl px-4 py-3" style={{ borderColor: colors.border, backgroundColor: colors.background }}>
+                {!isProjectDestination && draft.visibility === 'direct' && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose recipients" onPress={() => setMobilePage('recipients')} className="flex-row items-center justify-between border rounded-xl px-4 py-3" style={{ borderColor: colors.border, backgroundColor: colors.background }}>
                   <View><Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: colors.textMuted }}>Recipients</Text><Text className="text-sm font-bold mt-1" style={{ color: colors.textMain }}>{selectedRecipientIds.length ? `${selectedRecipientIds.length} selected` : 'Choose recipients'}</Text></View>
                   <FontAwesome name="chevron-right" size={11} color={colors.textMuted} />
                 </TouchableOpacity>}
@@ -667,7 +672,7 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
                 </TouchableOpacity>
               </View>
             )}
-            {isDesktop && draft.visibility === 'direct' && (
+            {isDesktop && !isProjectDestination && draft.visibility === 'direct' && (
               <View className="gap-2">
                 <SearchableMultiSelect title="Recipients" items={recipientItems} selectedIds={selectedRecipientIds} onToggle={toggleRecipient} query={recipientSearch} onQueryChange={setRecipientSearch} loading={searchingMembers} errorText={recipientError ?? undefined} selectedItems={selectedRecipientItems} searchPlaceholder="Search team members..." accent={colors.primary} />
               </View>

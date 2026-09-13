@@ -50,7 +50,8 @@ export default function UploadComposerModal({ visible, onClose, destination }: U
       } else {
         setError(null);
         setFolders(nextFolders as FileHubFolder[]);
-        setFolderId(destination.folderId ?? workspace.root.id);
+        const authorizedFolderIds = new Set(nextFolders.map(folder => folder.id));
+        setFolderId(destination.folderId && authorizedFolderIds.has(destination.folderId) ? destination.folderId : workspace.root.id);
       }
       setLoading(false);
     });
@@ -62,7 +63,7 @@ export default function UploadComposerModal({ visible, onClose, destination }: U
   }, [visible, isProject]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chooseAndUpload = async () => {
-    if (!isProject || !destination || destination.kind !== 'project' || !profile?.company_id || !folderId) return;
+    if (!isProject || !destination || destination.kind !== 'project' || !profile?.company_id || !folderId || !workspaceFolders.some(folder => folder.id === folderId)) return;
     const result = await DocumentPicker.getDocumentAsync({ type: '*/*', multiple: true, copyToCacheDirectory: true });
     if (result.canceled) return;
     try {

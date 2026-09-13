@@ -38,12 +38,12 @@ export function normalizeUploadDestination(
     };
   }
   if (!destination.projectId.trim()) throw new Error('Project upload destination is incomplete.');
-  if (destination.folderId && authorizedProjectFolderIds && !authorizedProjectFolderIds.has(destination.folderId)) {
+  if (!authorizedProjectFolderIds || authorizedProjectFolderIds.size === 0 || !destination.folderId || !authorizedProjectFolderIds.has(destination.folderId)) {
     throw new Error('Project upload folder is outside the authorized project workspace.');
   }
   return {
     visibility: 'project',
-    folderId: destination.folderId ?? null,
+    folderId: destination.folderId,
     recipientIds: [],
     groupId: null,
     taskId: null,
