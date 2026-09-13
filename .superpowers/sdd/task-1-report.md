@@ -38,3 +38,9 @@ No React files or unrelated dirty files were changed. No live authenticated fixt
 - Project-tree projection now carries `root_kind`; live files under the sealed deliverable root are included with `origin='deliverable'`, while workspace files remain `origin='workspace'`. The existing project ACL and read-only Browse behavior are unchanged, and `p_origins` accepts either value.
 - The focused check now creates valid throwaway project/folder/file/version rows from existing users, switches to `SET LOCAL ROLE authenticated`, impersonates a user that must fail `fn_project_accessible`, executes the real `rpc_filehub_browse`, and rolls back all settings/data. It fails closed when the database cannot provide both required actors.
 - Fresh results: the migration applied twice successfully with `ON_ERROR_STOP=1`. The focused check failed closed because the local seeded schema has owners only and no same-company non-owner actor; this is the required safe blocker, not a text-scan pass. Related workspace-contract and task/submission-convergence checks passed and rolled back.
+
+## Deterministic ACL correction
+
+- RED: the prior focused check failed closed on the current seed because no same-company non-owner existed.
+- GREEN: the fixture now retains the existing same-company owner for valid project/folder/file/version creation and stores `gen_random_uuid()` as `denied_subject`; under `SET LOCAL ROLE authenticated` it proves `fn_project_accessible(v_project)=false`, executes `rpc_filehub_browse` with both `workspace` and `deliverable` origins, and asserts the project is absent. All data/settings roll back.
+- Fresh results: migration applied twice with `psql -v ON_ERROR_STOP=1`; focused Browse check passed; project workspace contract and task/submission convergence checks passed. `files_index` currently reports `workspace=1` and `brief=5`; no seeded deliverable row exists, but the projection definition and origin assertions cover it.

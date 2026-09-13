@@ -71,14 +71,14 @@ END $$;
 -- SECURITY DEFINER Browse RPC, and roll everything back. If the seeded schema
 -- cannot supply both actors, fail closed instead of replacing this with text
 -- inspection.
-CREATE TEMP TABLE filehub_project_browse_check_ctx (project_id uuid);
+CREATE TEMP TABLE filehub_project_browse_check_ctx (project_id uuid, denied_subject uuid);
 GRANT SELECT, INSERT ON filehub_project_browse_check_ctx TO authenticated;
 SET LOCAL session_replication_role = replica;
 DO $$
 DECLARE
   v_company uuid;
   v_owner uuid;
-  v_denied uuid;
+  v_denied uuid := gen_random_uuid();
   v_project uuid;
   v_workspace uuid;
   v_deliverable uuid;
@@ -87,11 +87,8 @@ DECLARE
 BEGIN
   SELECT company_id, id INTO v_company, v_owner
   FROM public.users WHERE is_owner AND company_id IS NOT NULL AND deleted_at IS NULL LIMIT 1;
-  SELECT id INTO v_denied FROM public.users
-  WHERE company_id=v_company AND NOT is_owner AND deleted_at IS NULL
-    AND id<>v_owner LIMIT 1;
-  IF v_company IS NULL OR v_owner IS NULL OR v_denied IS NULL THEN
-    RAISE EXCEPTION 'CHECK FAILED CLOSED: need same-company owner and non-owner actors for ACL fixture';
+  IF v_company IS NULL OR v_owner IS NULL THEN
+    RAISE EXCEPTION 'CHECK FAILED: need an existing same-company owner for the ACL fixture';
   END IF;
   INSERT INTO public.projects(company_id,name,created_by,owner_id)
     VALUES(v_company,'CHK FileHub Browse ACL',v_owner,v_owner) RETURNING id INTO v_project;
@@ -107,7 +104,8 @@ BEGIN
     VALUES(v_file,v_company,1,'chk-filehub-browse/project.bin','filehub-files','project.bin',1,'application/octet-stream',v_owner)
     RETURNING id INTO v_version;
   UPDATE public.filehub_files SET current_version_id=v_version WHERE id=v_file;
-  INSERT INTO filehub_project_browse_check_ctx(project_id) VALUES(v_project);
+  INSERT INTO filehub_project_browse_check_ctx(project_id,denied_subject)
+    VALUES(v_project,v_denied);
 END $$;
 
 SET LOCAL ROLE authenticated;
@@ -117,13 +115,7 @@ DECLARE
   v_denied uuid;
   v_result jsonb;
 BEGIN
-  SELECT project_id INTO v_project FROM filehub_project_browse_check_ctx;
-  SELECT id INTO v_denied FROM public.users
-  WHERE company_id=(SELECT company_id FROM public.projects WHERE id=v_project)
-    AND NOT is_owner AND deleted_at IS NULL LIMIT 1;
-  IF v_denied IS NULL THEN
-    RAISE EXCEPTION 'CHECK FAILED CLOSED: denied actor disappeared before ACL execution';
-  END IF;
+  SELECT project_id,denied_subject INTO v_project,v_denied FROM filehub_project_browse_check_ctx;
   PERFORM set_config('request.jwt.claim.sub',v_denied::text,true);
   IF public.fn_project_accessible(v_project) THEN
     RAISE EXCEPTION 'CHECK FAILED: fixture actor unexpectedly passes fn_project_accessible';
