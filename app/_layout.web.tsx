@@ -21,6 +21,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { AlertProvider } from '@/contexts/AlertContext';
 import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
 import { IslandProvider } from '@/contexts/IslandContext';
+import { FileHubProvider } from '@/contexts/FileHubContext';
 import { UploadManagerProvider } from '@/contexts/UploadManagerContext';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import { SubmissionProvider } from '@/contexts/SubmissionContext';
@@ -71,17 +72,19 @@ export default function RootLayout() {
         <TimerProvider>
           <AppThemeProvider>
             <AlertProvider>
-              <SubmissionProvider>
-                <ToastProvider>
-                  <UndoActionProvider>
-                    <IslandProvider>
+              <ToastProvider>
+                <UndoActionProvider>
+                  <IslandProvider>
+                    <FileHubProvider>
                       <UploadManagerProvider>
-                        <RootLayoutNav />
+                        <SubmissionProvider>
+                          <RootLayoutNav />
+                        </SubmissionProvider>
                       </UploadManagerProvider>
-                    </IslandProvider>
-                  </UndoActionProvider>
-                </ToastProvider>
-              </SubmissionProvider>
+                    </FileHubProvider>
+                  </IslandProvider>
+                </UndoActionProvider>
+              </ToastProvider>
             </AlertProvider>
           </AppThemeProvider>
         </TimerProvider>

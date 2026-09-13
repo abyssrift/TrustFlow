@@ -59,6 +59,17 @@ BEGIN
       AND NOT tgisinternal
   ), 'project folder ancestry trigger is missing';
 
+  ASSERT position('deliverable_folder_id' IN pg_get_functiondef('public.fn_projects_workspace_folder_contract()'::regprocedure)) > 0,
+    'project root pointer trigger does not validate deliverable_folder_id';
+
+  ASSERT position('deleted_at' IN pg_get_triggerdef((
+    SELECT oid FROM pg_trigger
+    WHERE tgrelid = 'public.filehub_folders'::regclass
+      AND tgname = 'trg_filehub_folders_project_ancestry_contract'
+      AND NOT tgisinternal
+  ))) > 0,
+    'project root trigger does not fire for soft deletion';
+
   ASSERT EXISTS (
     SELECT 1
     FROM pg_proc p
@@ -119,6 +130,7 @@ BEGIN
         OR f.scope IS DISTINCT FROM 'project'
         OR f.parent_id IS NOT NULL
         OR f.project_root_kind IS DISTINCT FROM 'deliverable'
+        OR f.deleted_at IS NOT NULL
       )
   ), 'a deliverable pointer does not target its same-project deliverable root';
 

@@ -112,23 +112,38 @@ AS $$
 DECLARE
   v_folder public.filehub_folders%ROWTYPE;
 BEGIN
-  IF NEW.workspace_folder_id IS NULL THEN
-    RETURN NEW;
+  IF NEW.workspace_folder_id IS NOT NULL THEN
+    SELECT * INTO v_folder
+    FROM public.filehub_folders
+    WHERE id = NEW.workspace_folder_id;
+
+    IF NOT FOUND
+       OR v_folder.company_id IS DISTINCT FROM NEW.company_id
+       OR v_folder.project_id IS DISTINCT FROM NEW.id
+       OR v_folder.scope IS DISTINCT FROM 'project'
+       OR v_folder.parent_id IS NOT NULL
+       OR v_folder.project_root_kind IS DISTINCT FROM 'workspace'
+       OR v_folder.deleted_at IS NOT NULL THEN
+      RAISE EXCEPTION
+        'workspace_folder_id must reference a live same-company project workspace root';
+    END IF;
   END IF;
 
-  SELECT * INTO v_folder
-  FROM public.filehub_folders
-  WHERE id = NEW.workspace_folder_id;
+  IF NEW.deliverable_folder_id IS NOT NULL THEN
+    SELECT * INTO v_folder
+    FROM public.filehub_folders
+    WHERE id = NEW.deliverable_folder_id;
 
-  IF NOT FOUND
-     OR v_folder.company_id IS DISTINCT FROM NEW.company_id
-     OR v_folder.project_id IS DISTINCT FROM NEW.id
-     OR v_folder.scope IS DISTINCT FROM 'project'
-     OR v_folder.parent_id IS NOT NULL
-     OR v_folder.project_root_kind IS DISTINCT FROM 'workspace'
-     OR v_folder.deleted_at IS NOT NULL THEN
-    RAISE EXCEPTION
-      'workspace_folder_id must reference a live same-company project workspace root';
+    IF NOT FOUND
+       OR v_folder.company_id IS DISTINCT FROM NEW.company_id
+       OR v_folder.project_id IS DISTINCT FROM NEW.id
+       OR v_folder.scope IS DISTINCT FROM 'project'
+       OR v_folder.parent_id IS NOT NULL
+       OR v_folder.project_root_kind IS DISTINCT FROM 'deliverable'
+       OR v_folder.deleted_at IS NOT NULL THEN
+      RAISE EXCEPTION
+        'deliverable_folder_id must reference a live same-company project deliverable root';
+    END IF;
   END IF;
 
   RETURN NEW;
@@ -158,8 +173,9 @@ BEGIN
        OR NEW.scope IS DISTINCT FROM OLD.scope
        OR NEW.parent_id IS DISTINCT FROM OLD.parent_id
        OR NEW.project_root_kind IS DISTINCT FROM OLD.project_root_kind
+       OR (NEW.deleted_at IS DISTINCT FROM OLD.deleted_at AND NEW.deleted_at IS NOT NULL)
      ) THEN
-    RAISE EXCEPTION 'project roots cannot be moved, nested, or repurposed';
+    RAISE EXCEPTION 'project roots cannot be moved, nested, repurposed, or deleted';
   END IF;
 
   IF NEW.scope = 'project' AND NEW.parent_id IS NULL
@@ -191,7 +207,7 @@ $$;
 
 DROP TRIGGER IF EXISTS trg_filehub_folders_project_ancestry_contract ON public.filehub_folders;
 CREATE TRIGGER trg_filehub_folders_project_ancestry_contract
-BEFORE INSERT OR UPDATE OF company_id, project_id, scope, parent_id, project_root_kind
+BEFORE INSERT OR UPDATE OF company_id, project_id, scope, parent_id, project_root_kind, deleted_at
 ON public.filehub_folders
 FOR EACH ROW
 EXECUTE FUNCTION public.fn_filehub_folders_project_ancestry_contract();

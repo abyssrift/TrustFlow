@@ -1,11 +1,10 @@
-import { TASK_BRIEF_BUCKET } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImageManipulator from 'expo-image-manipulator';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
 import { useStagedFileLifecycle } from '@/hooks/useStagedFileLifecycle';
+import { useUploadManager, type UploadResult } from './UploadManagerContext';
 
 export type TaskDraft = {
   title: string;
@@ -40,6 +39,11 @@ const INITIAL_DRAFT: TaskDraft = {
 export type StagedBriefFile = {
   id: string; uri: string; name: string; size: number; type: string;
 };
+
+async function stagedFileToUpload(file: StagedBriefFile): Promise<File> {
+  const blob = await (await fetch(file.uri)).blob();
+  return new File([blob], file.name, { type: file.type || blob.type || 'application/octet-stream' });
+}
 
 type TaskCreationContextType = {
   draft: TaskDraft;
@@ -91,6 +95,7 @@ const normalizeDraft = (draft: Partial<TaskDraft> | null | undefined): TaskDraft
 export const TaskCreationProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
+  const { startUpload, waitForUpload } = useUploadManager();
   const [draft, setDraftState] = useState<TaskDraft>(INITIAL_DRAFT);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -228,43 +233,28 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
         try {
           const { data: companyRow } = await supabase.from('users').select('company_id').eq('id', user!.id).single();
           const companyId = companyRow?.company_id;
-          const uploaded: any[] = [];
-
-          for (const file of briefFiles) {
-            let finalUri = file.uri;
-            if (file.type.startsWith('image/')) {
-              try {
-                const result = await ImageManipulator.manipulateAsync(
-                  file.uri, [{ resize: { width: 2000 } }],
-                  { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-                );
-                finalUri = result.uri;
-              } catch { /* keep original */ }
-            }
-
-            const response = await fetch(finalUri);
-            const blob = await response.blob();
-            const ext = file.name.split('.').pop() || 'bin';
-            const path = `${companyId}/tasks/${taskId}/brief/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-
-            const { data: storageData, error: storageErr } = await supabase.storage
-              .from(TASK_BRIEF_BUCKET)
-              .upload(path, blob, { contentType: file.type, upsert: true });
-
-            if (storageErr) { console.error('Brief upload error:', storageErr); continue; }
-
-            const cat = file.type.startsWith('image/') ? 'image'
-              : file.type.includes('pdf') || file.type.includes('word') ? 'document'
-              : file.type.includes('sheet') || file.type.includes('excel') || file.type.includes('csv') ? 'spreadsheet'
-              : 'other';
-
-            uploaded.push({
-              file_name: file.name, file_url: storageData.path,
-              storage_path: storageData.path, file_size: file.size,
-              mime_type: file.type, category: cat,
-            });
-          }
-
+          if (!companyId) throw new Error('Company not found.');
+          const managerFiles = await Promise.all(briefFiles.map(stagedFileToUpload));
+          const jobId = startUpload({
+            files: managerFiles, companyId, visibility: 'task', folderId: null,
+            recipientIds: [], groupId: null, tags: [], caption: null, maxFileSizeBytes: null,
+            scopedFolders: [], target: { kind: 'task', taskId }, label: 'Task brief',
+          });
+          const results = await waitForUpload(jobId);
+          const fileRows = await supabase.from('filehub_files').select('id, storage_path, original_name, size_bytes, mime_type').in('id', results.map(r => r.fileId));
+          if (fileRows.error) throw fileRows.error;
+          const byId = new Map((fileRows.data || []).map(row => [row.id, row]));
+          const uploaded = results.map((result: UploadResult) => {
+            const row = byId.get(result.fileId);
+            const source = briefFiles.find(file => file.name === result.fileName);
+            return {
+              file_name: source?.name || row?.original_name || result.fileName,
+              file_url: row?.storage_path || '', storage_path: row?.storage_path || '',
+              file_size: source?.size || row?.size_bytes || 0, mime_type: source?.type || row?.mime_type,
+              category: source?.type?.startsWith('image/') ? 'image' : source?.type?.includes('pdf') || source?.type?.includes('word') ? 'document' : source?.type?.includes('sheet') || source?.type?.includes('excel') || source?.type?.includes('csv') ? 'spreadsheet' : 'other',
+              filehub_file_id: result.fileId, filehub_file_version_id: result.fileVersionId,
+            };
+          });
           if (uploaded.length > 0) {
             const { error: rpcErr } = await supabase.rpc('rpc_add_task_attachments', {
               p_task_id: taskId, p_attachments: uploaded,

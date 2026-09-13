@@ -1,9 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { taskFlowDebug, taskFlowError } from '@/lib/taskDebug';
-import * as ImageManipulator from 'expo-image-manipulator';
 import React, { createContext, useCallback, useContext, useState } from 'react';
 import { useAlert } from '@/contexts/AlertContext';
+import { useUploadManager, type UploadResult } from './UploadManagerContext';
 
 export type UploadJob = {
   taskId: string;
@@ -61,6 +61,7 @@ const SubmissionContext = createContext<SubmissionContextType | undefined>(undef
 export function SubmissionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { showAlert } = useAlert();
+  const { startUpload, waitForUpload } = useUploadManager();
   const [activeJobs, setActiveJobs] = useState<Record<string, UploadJob>>({});
 
   const updateJob = useCallback((taskId: string, updates: Partial<UploadJob>) => {
@@ -81,8 +82,9 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
     });
   }, []);
 
-  // Shared upload path: optimize images, upload to submission-attachments,
-  // return the jsonb attachment shape the RPCs accept. Used by submit + edit.
+  // Convert staged URI data into the File contract consumed by the single
+  // background uploader. Legacy metadata is reconstructed after the manager
+  // returns its immutable FileHub identities.
   const uploadFilesToStorage = async (
     taskId: string,
     companyId: string,
@@ -90,73 +92,42 @@ export function SubmissionProvider({ children }: { children: React.ReactNode }) 
     onFileDone?: (completed: number, total: number) => void
   ): Promise<any[]> => {
     if (!user) throw new Error('Auth required');
-    const uploadedAttachments: any[] = [];
     let completedCount = 0;
 
     const processAndUploadFile = async (file: any) => {
-      let finalUri = file.uri;
       const category = getFileCategory(file.type || '');
-
-      // 1. Optimize Images
-      if (category === 'image') {
-        try {
-          const result = await ImageManipulator.manipulateAsync(
-            file.uri,
-            [{ resize: { width: 2000 } }],
-            { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-          );
-          finalUri = result.uri;
-        } catch (e) {
-          console.warn('Optimization failed', e);
-        }
-      }
-
-      // 2. Convert URI to Blob (Crucial for Web compatibility)
-      const response = await fetch(finalUri);
-      const blob = await response.blob();
-
-      // 3. Upload to Storage
-      const fileExt = file.name.split('.').pop() || 'bin';
-      const filePath = `${companyId}/tasks/${taskId}/users/${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-
-      const { data, error: storageError } = await supabase.storage
-        .from('submission-attachments')
-        .upload(filePath, blob, {
-          contentType: file.type || 'application/octet-stream',
-          upsert: true
-        });
-
-      if (storageError) throw storageError;
+      const blob = await (await fetch(file.uri)).blob();
+      const uploadFile = new File([blob], file.name, { type: file.type || blob.type || 'application/octet-stream' });
 
       completedCount++;
       onFileDone?.(completedCount, files.length);
-
-      return {
-        file_name: file.name,
-        file_url: data.path,
-        storage_path: data.path,
-        file_size: file.size,
-        mime_type: file.type,
-        category: category
-      };
+      return { file, category, uploadFile };
     };
 
-    // Parallel Upload with Concurrency Limit 3
-    if (files.length > 0) {
-      const queue = [...files];
-      const workers = Array(Math.min(3, queue.length)).fill(null).map(async () => {
-        while (queue.length > 0) {
-          const file = queue.shift();
-          if (file) {
-            const result = await processAndUploadFile(file);
-            uploadedAttachments.push(result);
-          }
-        }
-      });
-      await Promise.all(workers);
-    }
-
-    return uploadedAttachments;
+    const prepared = await Promise.all(files.map(processAndUploadFile));
+    if (prepared.length === 0) return [];
+    const jobId = startUpload({
+      files: prepared.map(item => item.uploadFile), companyId, visibility: 'task', folderId: null,
+      recipientIds: [], groupId: null, tags: [], caption: null, maxFileSizeBytes: null,
+      scopedFolders: [], target: { kind: 'task', taskId }, label: 'Submission',
+    });
+    const results = await waitForUpload(jobId);
+    const { data: rows, error } = await supabase.from('filehub_files')
+      .select('id, storage_path, original_name, size_bytes, mime_type')
+      .in('id', results.map(result => result.fileId));
+    if (error) throw error;
+    const byId = new Map((rows || []).map(row => [row.id, row]));
+    return results.map((result: UploadResult) => {
+      const item = prepared.find(candidate => candidate.uploadFile.name === result.fileName);
+      const row = byId.get(result.fileId);
+      return {
+        file_name: item?.file.name || row?.original_name || result.fileName,
+        file_url: row?.storage_path || '', storage_path: row?.storage_path || '',
+        file_size: item?.file.size || row?.size_bytes || 0, mime_type: item?.file.type || row?.mime_type,
+        category: item?.category || getFileCategory(row?.mime_type || ''),
+        filehub_file_id: result.fileId, filehub_file_version_id: result.fileVersionId,
+      };
+    });
   };
 
   const submitWithEvidence = async ({

@@ -12,6 +12,8 @@ BEGIN
     'workspace ensure RPC is missing';
   ASSERT to_regprocedure('public.rpc_project_files(uuid)') IS NOT NULL,
     'project files RPC is missing';
+  ASSERT to_regprocedure('public.rpc_project_workspace_bin(uuid)') IS NOT NULL,
+    'project workspace Bin RPC is missing';
 
   SELECT pg_get_functiondef(to_regprocedure('public.rpc_project_ensure_workspace_folder(uuid)')) INTO v_def;
   ASSERT position('fn_project_accessible' IN v_def) > 0,
@@ -34,6 +36,8 @@ BEGIN
     'project files must expose typed workspace/capability data';
   ASSERT position('fn_project_accessible' IN v_def) > 0,
     'project files must use fn_project_accessible';
+  ASSERT position('filehub:view' IN v_def) > 0,
+    'project files must require FileHub visibility permission';
 
   ASSERT EXISTS (
     SELECT 1 FROM pg_attribute
@@ -52,6 +56,9 @@ BEGIN
   ), 'shared project mutation predicate is missing';
   ASSERT to_regprocedure('public.fn_project_workspace_descendant(uuid,uuid)') IS NOT NULL,
     'workspace ancestry helper is missing';
+  ASSERT NOT has_function_privilege('anon', 'public.fn_project_ensure_deliverable_folder(uuid)', 'EXECUTE')
+     AND NOT has_function_privilege('authenticated', 'public.fn_project_ensure_deliverable_folder(uuid)', 'EXECUTE'),
+    'deliverable root helper must not be directly callable by client roles';
 
   FOREACH v_def IN ARRAY ARRAY[
     'rpc_filehub_folder_create(text,uuid,text,uuid,uuid)',
@@ -78,9 +85,15 @@ BEGIN
   SELECT pg_get_functiondef(to_regprocedure('public.rpc_filehub_folder_delete(uuid)')) INTO v_def;
   ASSERT position('project roots cannot be deleted' IN lower(v_def)) > 0,
     'project folder delete must reject roots';
+  SELECT pg_get_functiondef(to_regprocedure('public.rpc_filehub_folder_restore(uuid)')) INTO v_def;
+  ASSERT position('v_deleted_at' IN v_def) > 0
+     AND position('Parent folder is in Bin under a different deletion event' IN v_def) > 0,
+    'folder restore must preserve deletion events and restore an addressable ancestor chain';
   SELECT pg_get_functiondef(to_regprocedure('public.rpc_project_filehub_upload_commit(uuid,text,text,uuid[],uuid,text[],text,text,text,bigint,text,uuid,uuid,text,uuid)')) INTO v_def;
   ASSERT position('p_rel_dir is unsupported' IN v_def) > 0,
     'project upload must explicitly reject p_rel_dir';
+  ASSERT pg_get_function_result(to_regprocedure('public.rpc_project_filehub_upload_commit(uuid,text,text,uuid[],uuid,text[],text,text,text,bigint,text,uuid,uuid,text,uuid)')) = 'jsonb',
+    'project upload must return the committed FileHub file/version identity';
 
   ASSERT EXISTS (
     SELECT 1 FROM pg_proc p

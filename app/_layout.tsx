@@ -48,6 +48,9 @@ import { usePathname, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { SubmissionProvider } from '../contexts/SubmissionContext';
+import { IslandProvider } from '@/contexts/IslandContext';
+import { FileHubProvider } from '@/contexts/FileHubContext';
+import { UploadManagerProvider } from '@/contexts/UploadManagerContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -215,21 +218,27 @@ function RootLayoutNav() {
     <AppThemeProvider>
       <AnalyticsProvider>
         <AlertProvider>
-          <SubmissionProvider>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <NotificationsProvider>
-                <ToastProvider>
-                  <UndoActionProvider>
-                    <PingHighlightProvider>
-                      <ModalDispatchProvider>
-                        <ThemedRoot />
-                      </ModalDispatchProvider>
-                    </PingHighlightProvider>
-                  </UndoActionProvider>
-                </ToastProvider>
-              </NotificationsProvider>
-            </ThemeProvider>
-          </SubmissionProvider>
+          <ToastProvider>
+            <UndoActionProvider>
+              <IslandProvider>
+                <FileHubProvider>
+                  <UploadManagerProvider>
+                    <SubmissionProvider>
+                      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                        <NotificationsProvider>
+                          <PingHighlightProvider>
+                            <ModalDispatchProvider>
+                              <ThemedRoot />
+                            </ModalDispatchProvider>
+                          </PingHighlightProvider>
+                        </NotificationsProvider>
+                      </ThemeProvider>
+                    </SubmissionProvider>
+                  </UploadManagerProvider>
+                </FileHubProvider>
+              </IslandProvider>
+            </UndoActionProvider>
+          </ToastProvider>
         </AlertProvider>
       </AnalyticsProvider>
     </AppThemeProvider>

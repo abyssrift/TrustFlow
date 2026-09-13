@@ -7,7 +7,6 @@ import { downloadFilesAsZip, logTaskFileActivity, openStorageFile, TASK_BRIEF_BU
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as DocumentPicker from 'expo-document-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -22,6 +21,7 @@ import { fileToStaged, revokeStagedFiles } from '@/lib/pasteImage';
 import { useObjectUrlMap } from '@/hooks/useObjectUrlMap';
 import { useTaskFilePasteTarget } from '@/contexts/TaskFilePasteContext';
 import TaskFilePasteTargetButton from './TaskFilePasteTargetButton';
+import { useUploadManager } from '@/contexts/UploadManagerContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatSize(bytes: number | null) {
@@ -198,11 +198,12 @@ function AdaptiveFileGrid({
 export default function TaskBriefPanel() {
   const {
     data, refresh,
-    replaceTaskAttachment, taskAttachmentVersions, restoreTaskAttachmentVersion,
+    taskAttachmentVersions, restoreTaskAttachmentVersion,
     deleteTaskAttachment, restoreTaskAttachment, listDeletedTaskAttachments,
   } = useTaskDetail();
   const { user } = useAuth();
   const { showConfirm } = useAlert();
+  const { startUpload, waitForUpload } = useUploadManager();
   const colors = useThemeColors();
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -212,13 +213,12 @@ export default function TaskBriefPanel() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   // Inline preview for non-image previewable files (spreadsheet / pdf / docx /
   // text) so they open in-app instead of bouncing to a browser/download.
-  const [preview, setPreview] = useState<{ uri: string; name: string; kind: PreviewKind; storagePath: string; sizeBytes?: number; mimeType?: string | null } | null>(null);
+  const [preview, setPreview] = useState<{ uri: string; name: string; kind: PreviewKind; storagePath: string; bucket?: string | null; sizeBytes?: number; mimeType?: string | null } | null>(null);
   const { share, shareSheet } = useShareFile();
 
-  // Brief attachments aren't filehub-native — no fileId, so no link fallback;
-  // the object still shares and activity logs against the pointer row by path.
-  const shareBriefFile = (f: { storagePath: string; name: string; mimeType?: string | null; sizeBytes?: number }) =>
-    share({ bucket: TASK_BRIEF_BUCKET, storagePath: f.storagePath, name: f.name, mimeType: f.mimeType, sizeBytes: f.sizeBytes });
+  const bucketFor = (value: { bucket?: string | null }) => value.bucket || TASK_BRIEF_BUCKET;
+  const shareBriefFile = (f: { bucket?: string | null; storagePath: string; name: string; mimeType?: string | null; sizeBytes?: number }) =>
+    share({ bucket: bucketFor(f), storagePath: f.storagePath, name: f.name, mimeType: f.mimeType, sizeBytes: f.sizeBytes });
 
   // Feature D: replace / history / soft-delete
   const [replacingId, setReplacingId] = useState<string | null>(null);
@@ -248,15 +248,21 @@ export default function TaskBriefPanel() {
     let cancelled = false;
     setSignedUrls({}); // clear stale URLs so tiles show the loading state while we fetch
     (async () => {
-      const paths = imageAttachments.map((a) => a.storage_path || a.file_url);
-      const { data: signed, error } = await supabase.storage
-        .from(TASK_BRIEF_BUCKET)
-        .createSignedUrls(paths, 3600);
-      if (cancelled || error || !signed) return;
       const map: Record<string, string> = {};
-      signed.forEach((s, i) => {
-        if (s.signedUrl) map[imageAttachments[i].id] = s.signedUrl;
+      const buckets = new Map<string, typeof imageAttachments>();
+      imageAttachments.forEach((a) => {
+        const bucket = bucketFor(a);
+        const group = buckets.get(bucket) || [];
+        group.push(a);
+        buckets.set(bucket, group);
       });
+      for (const [bucket, attachments] of buckets) {
+        const { data: signed, error } = await supabase.storage.from(bucket)
+          .createSignedUrls(attachments.map(a => a.storage_path || a.file_url), 3600);
+        if (error || !signed) continue;
+        signed.forEach((s, i) => { if (s.signedUrl) map[attachments[i].id] = s.signedUrl; });
+      }
+      if (cancelled) return;
       setSignedUrls(map);
     })();
     return () => {
@@ -278,22 +284,9 @@ export default function TaskBriefPanel() {
 
   const hasFiles = data.task_attachments.length > 0;
 
-  // Uploads one file to a fresh path in the brief bucket, returns the storage path.
-  const uploadOne = async (file: { uri: string; name: string; size: number; type: string }): Promise<string> => {
-    let finalUri = file.uri;
-    if (file.type.startsWith('image/')) {
-      try {
-        const result = await ImageManipulator.manipulateAsync(file.uri, [{ resize: { width: 2000 } }], { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG });
-        finalUri = result.uri;
-      } catch {}
-    }
-    const response = await fetch(finalUri);
-    const blob = await response.blob();
-    const ext = file.name.split('.').pop() || 'bin';
-    const path = `${data.task.company_id}/tasks/${data.task.id}/brief/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-    const { data: storageData, error: storageErr } = await supabase.storage.from(TASK_BRIEF_BUCKET).upload(path, blob, { contentType: file.type, upsert: true });
-    if (storageErr) throw storageErr;
-    return storageData.path;
+  const stagedFileToUpload = async (file: { uri: string; name: string; type: string }): Promise<File> => {
+    const blob = await (await fetch(file.uri)).blob();
+    return new File([blob], file.name, { type: file.type || blob.type || 'application/octet-stream' });
   };
 
   async function uploadFiles(files: { uri: string; name: string; size: number; type: string }[]): Promise<boolean> {
@@ -301,11 +294,28 @@ export default function TaskBriefPanel() {
     setUploading(true);
     setErrorMsg(null);
     try {
-      const uploaded: any[] = [];
-      for (const file of files) {
-        const path = await uploadOne(file);
-        uploaded.push({ file_name: file.name, file_url: path, storage_path: path, file_size: file.size, mime_type: file.type, category: getCategory(file.type) });
-      }
+      const managerFiles = await Promise.all(files.map(stagedFileToUpload));
+      const jobId = startUpload({
+        files: managerFiles, companyId: data.task.company_id, visibility: 'task', folderId: null,
+        recipientIds: [], groupId: null, tags: [], caption: null, maxFileSizeBytes: null,
+        scopedFolders: [], target: { kind: 'task', taskId: data.task.id }, label: 'Task brief',
+      });
+      const results = await waitForUpload(jobId);
+      const { data: rows, error: rowsError } = await supabase.from('filehub_files')
+        .select('id, storage_path, original_name, size_bytes, mime_type').in('id', results.map(result => result.fileId));
+      if (rowsError) throw rowsError;
+      const byId = new Map((rows || []).map(row => [row.id, row]));
+      const uploaded = results.map(result => {
+        const source = files.find(file => file.name === result.fileName);
+        const row = byId.get(result.fileId);
+        return {
+          file_name: source?.name || row?.original_name || result.fileName,
+          file_url: row?.storage_path || '', storage_path: row?.storage_path || '',
+          file_size: source?.size || row?.size_bytes || 0, mime_type: source?.type || row?.mime_type,
+          category: getCategory(source?.type || row?.mime_type || ''),
+          filehub_file_id: result.fileId, filehub_file_version_id: result.fileVersionId,
+        };
+      });
       const { error: rpcErr } = await supabase.rpc('rpc_add_task_attachments', { p_task_id: data.task.id, p_attachments: uploaded });
       if (rpcErr) throw rpcErr;
       await refresh();
@@ -336,8 +346,20 @@ export default function TaskBriefPanel() {
     setReplacingId(pf.id);
     setErrorMsg(null);
     try {
-      const path = await uploadOne({ uri: a.uri, name: a.name, size: a.size || 0, type: a.mimeType || 'application/octet-stream' });
-      await replaceTaskAttachment(pf.id, { storage_path: path, file_name: a.name, file_size: a.size || 0, mime_type: a.mimeType || 'application/octet-stream' });
+      // Preserve the attachment's stable name so the manager selects the
+      // dedicated task FileHub replacement RPC for this existing file.
+      const managerFile = await stagedFileToUpload({ uri: a.uri, name: pf.name, type: a.mimeType || 'application/octet-stream' });
+      const jobId = startUpload({
+        files: [managerFile], companyId: data.task.company_id, visibility: 'task', folderId: null,
+        recipientIds: [], groupId: null, tags: [], caption: null, maxFileSizeBytes: null,
+        scopedFolders: [], target: {
+          kind: 'task', taskId: data.task.id,
+          replaceFileId: pf.filehub_file_id || null,
+          replaceAttachmentId: pf.filehub_file_id ? null : pf.id,
+        }, label: 'Task brief replacement',
+      });
+      await waitForUpload(jobId);
+      await refresh();
     } catch (err: any) {
       setErrorMsg(err.message || 'Replace failed');
     } finally {
@@ -418,12 +440,12 @@ export default function TaskBriefPanel() {
   const downloadOne = (pf: any) => {
     const path = pf.storage_path || pf.uri;
     if (!path) return;
-    openStorageFile(TASK_BRIEF_BUCKET, path, pf.name);
+    openStorageFile(bucketFor(pf), path, pf.name);
   };
 
   const handlePressFile = async (pf: any) => {
     const openPath = pf.storage_path || pf.uri;
-    if (openPath) logTaskFileActivity(TASK_BRIEF_BUCKET, openPath, 'view');
+    if (openPath) logTaskFileActivity(bucketFor(pf), openPath, 'view');
     const isImage = pf.mime_type?.toLowerCase().includes('image');
     const signed = signedUrls[pf.id];
     // Images open in the lightbox (navigable, with format-convert downloads).
@@ -441,12 +463,12 @@ export default function TaskBriefPanel() {
     if (kind && path) {
       // Legacy records stored a full http(s) URL; use it as-is.
       if (String(path).startsWith('http')) {
-        setPreview({ uri: path, name: pf.name, kind, storagePath: path, sizeBytes: pf.size });
+        setPreview({ uri: path, name: pf.name, kind, storagePath: path, bucket: bucketFor(pf), sizeBytes: pf.size });
         return;
       }
-      const { data } = await supabase.storage.from(TASK_BRIEF_BUCKET).createSignedUrl(path, 3600);
+      const { data } = await supabase.storage.from(bucketFor(pf)).createSignedUrl(path, 3600);
       if (data?.signedUrl) {
-        setPreview({ uri: data.signedUrl, name: pf.name, kind, storagePath: path, sizeBytes: pf.size });
+        setPreview({ uri: data.signedUrl, name: pf.name, kind, storagePath: path, bucket: bucketFor(pf), sizeBytes: pf.size });
         return;
       }
     }
@@ -464,7 +486,7 @@ export default function TaskBriefPanel() {
       await downloadFilesAsZip(
         data.task_attachments.map(a => ({
           storage_path: a.storage_path || a.file_url,
-          bucket: TASK_BRIEF_BUCKET,
+          bucket: bucketFor(a),
           original_name: a.file_name,
         })),
         `task-brief-${data.task.id}`,
@@ -517,7 +539,7 @@ export default function TaskBriefPanel() {
 
       {hasFiles && (
         <AdaptiveFileGrid
-          files={data.task_attachments.map(a => ({ id: a.id, uri: a.file_url, storage_path: a.storage_path, name: a.file_name, size: a.file_size, mime_type: a.mime_type, version_count: a.version_count }))}
+          files={data.task_attachments.map(a => ({ id: a.id, uri: a.file_url, storage_path: a.storage_path, name: a.file_name, size: a.file_size, mime_type: a.mime_type, bucket: a.bucket, filehub_file_id: a.filehub_file_id, filehub_file_version_id: a.filehub_file_version_id, version_count: a.version_count }))}
           signedUrls={signedUrls}
           onPressFile={handlePressFile}
           onRemove={canUpload ? handleDelete : undefined}
@@ -624,13 +646,14 @@ export default function TaskBriefPanel() {
           onNext={() => setLightboxIndex((i) => (i != null && i < imageAttachments.length - 1 ? i + 1 : i))}
           onClose={() => setLightboxIndex(null)}
           onDownloadOriginal={() =>
-            openStorageFile(TASK_BRIEF_BUCKET, lightboxItem.storage_path || lightboxItem.file_url, lightboxItem.file_name)
+            openStorageFile(bucketFor(lightboxItem), lightboxItem.storage_path || lightboxItem.file_url, lightboxItem.file_name)
           }
           onShare={() => shareBriefFile({
             storagePath: lightboxItem.storage_path || lightboxItem.file_url,
             name: lightboxItem.file_name,
             mimeType: lightboxItem.mime_type,
-            sizeBytes: lightboxItem.file_size || undefined,
+             sizeBytes: lightboxItem.file_size || undefined,
+             bucket: bucketFor(lightboxItem),
           })}
         />
       )}
@@ -642,7 +665,7 @@ export default function TaskBriefPanel() {
           fileName={preview.name}
           kind={preview.kind}
           onClose={() => setPreview(null)}
-          onDownload={() => openStorageFile(TASK_BRIEF_BUCKET, preview.storagePath, preview.name)}
+           onDownload={() => openStorageFile(preview.bucket || TASK_BRIEF_BUCKET, preview.storagePath, preview.name)}
           onShare={() => shareBriefFile(preview)}
           sizeBytes={preview.sizeBytes}
         />
@@ -700,7 +723,7 @@ export default function TaskBriefPanel() {
 
                   {/* Every version stays downloadable — tap the file row */}
                   <TouchableOpacity
-                    onPress={() => v.storage_path && openStorageFile(TASK_BRIEF_BUCKET, v.storage_path, v.file_name || 'file')}
+                    onPress={() => v.storage_path && openStorageFile(v.bucket || historyFor?.bucket || TASK_BRIEF_BUCKET, v.storage_path, v.file_name || 'file')}
                     style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 2 }}
                   >
                     <FontAwesome name={icon as any} size={11} color={color} />

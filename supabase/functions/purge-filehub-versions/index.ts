@@ -92,12 +92,16 @@ interface TaskAttachmentVersionRow {
   bucket: string
   storage_path: string | null
   superseded_at: string | null
+  filehub_file_version_id: string | null
 }
 
 interface TaskAttachmentRow {
   id: string
   deleted_at: string | null
+  filehub_file_id: string | null
 }
+
+type PathClaim = { bucket: string; storage_path: string }
 
 serve(async (req: Request) => {
   const auth = req.headers.get('Authorization') ?? ''
@@ -156,6 +160,7 @@ async function purgeFilehubFileVersions(db: SupabaseClient, cutoffIso: string, s
 
     summary.batches += 1
     summary.eligible += rows.length
+    let batchDeleted = false
 
     for (const row of rows) {
       // Hard guard: never act on a current version, regardless of the query.
@@ -171,6 +176,31 @@ async function purgeFilehubFileVersions(db: SupabaseClient, cutoffIso: string, s
 
       const bucket = row.bucket || 'filehub-files'
 
+      const { data: claimed, error: claimErr } = await db.rpc('rpc_filehub_purge_claim_target', {
+        p_bucket: bucket,
+        p_storage_path: row.storage_path,
+        p_file_id: row.file_id,
+        p_version_id: row.id,
+      })
+      if (claimErr || claimed !== true) {
+        summary.errors.push(`skip claimed or referenced FileHub path ${row.id}${claimErr ? `: ${claimErr.message}` : ''}`)
+        continue
+      }
+
+      // FileHub versions can be referenced by task briefs, submission
+      // history, or project deliverables even when they are superseded. Ask
+      // the database-owned guard immediately before touching storage; a
+      // lookup failure is fail-closed.
+      const { data: safe, error: safetyErr } = await db.rpc('filehub_purge_is_safe', {
+        p_file_id: row.file_id,
+        p_version_id: row.id,
+      })
+      if (safetyErr || safe !== true) {
+        summary.errors.push(`skip referenced FileHub version ${row.id}${safetyErr ? `: ${safetyErr.message}` : ''}`)
+        await releaseClaim(db, { bucket, storage_path: row.storage_path }, summary)
+        continue
+      }
+
       // 1) Remove the storage object first. Tolerate already-missing objects:
       //    storage.remove() does not error on a non-existent path, so a
       //    success response with no error means we can proceed to row delete.
@@ -179,9 +209,19 @@ async function purgeFilehubFileVersions(db: SupabaseClient, cutoffIso: string, s
         // Could not remove the object — do NOT delete the row, so the next
         // run retries (avoids orphaning a row whose bytes still exist).
         summary.errors.push(`object remove failed ${row.id} (${row.storage_path}): ${rmErr.message}`)
+        await releaseClaim(db, { bucket, storage_path: row.storage_path }, summary)
         continue
       }
       summary.objects_removed += 1
+
+      const { data: safeAfter, error: safetyAfterErr } = await db.rpc('filehub_purge_is_safe', {
+        p_file_id: row.file_id,
+        p_version_id: row.id,
+      })
+      if (safetyAfterErr || safeAfter !== true) {
+        summary.errors.push(`skip FileHub version row delete after recheck ${row.id}${safetyAfterErr ? `: ${safetyAfterErr.message}` : ''}`)
+        continue
+      }
 
       // 2) Delete the version row. Re-assert the purge predicate in the WHERE
       //    clause so a row that became current between select and delete
@@ -201,6 +241,8 @@ async function purgeFilehubFileVersions(db: SupabaseClient, cutoffIso: string, s
       }
       if ((deleted?.length ?? 0) > 0) {
         summary.rows_deleted += 1
+        batchDeleted = true
+        await releaseClaim(db, { bucket, storage_path: row.storage_path }, summary)
       } else {
         summary.errors.push(`row ${row.id} not deleted (no longer purge-eligible)`)
       }
@@ -208,7 +250,7 @@ async function purgeFilehubFileVersions(db: SupabaseClient, cutoffIso: string, s
 
     // Safety: if a whole batch produced no row deletions, stop to avoid an
     // infinite loop on persistently-failing rows.
-    if (rows.length < BATCH_SIZE) break
+    if (rows.length < BATCH_SIZE || !batchDeleted) break
   }
 }
 
@@ -224,7 +266,7 @@ async function purgeSupersededTaskAttachmentVersions(
   for (;;) {
     const { data, error } = await db
       .from('task_attachment_versions')
-      .select('id, attachment_id, bucket, storage_path, superseded_at, task_attachments!inner(deleted_at)')
+      .select('id, attachment_id, bucket, storage_path, superseded_at, filehub_file_version_id, task_attachments!inner(deleted_at)')
       .not('superseded_at', 'is', null)
       .lt('superseded_at', cutoffIso)
       .is('task_attachments.deleted_at', null)
@@ -238,6 +280,7 @@ async function purgeSupersededTaskAttachmentVersions(
 
     summary.batches += 1
     summary.task_versions_eligible += rows.length
+    let batchDeleted = false
 
     for (const row of rows) {
       // Hard guard: never act on a current version, regardless of the query.
@@ -246,11 +289,29 @@ async function purgeSupersededTaskAttachmentVersions(
         continue
       }
 
+      // Once a legacy history row points at a FileHub version, FileHub owns
+      // the bytes and its reference-aware purge guard owns the lifecycle.
+      if (row.filehub_file_version_id) {
+        summary.errors.push(`skip converged task attachment version ${row.id}`)
+        continue
+      }
+
       if (row.storage_path) {
         const bucket = row.bucket || 'task-attachments'
+        const claim: PathClaim = { bucket, storage_path: row.storage_path }
+        const { data: claimed, error: claimErr } = await db.rpc('rpc_filehub_purge_claim_target', {
+          p_bucket: bucket,
+          p_storage_path: row.storage_path,
+          p_task_attachment_version_id: row.id,
+        })
+        if (claimErr || claimed !== true) {
+          summary.errors.push(`skip claimed or referenced task attachment path ${row.id}${claimErr ? `: ${claimErr.message}` : ''}`)
+          continue
+        }
         const { error: rmErr } = await db.storage.from(bucket).remove([row.storage_path])
         if (rmErr) {
           summary.errors.push(`object remove failed ${row.id} (${row.storage_path}): ${rmErr.message}`)
+          await releaseClaim(db, claim, summary)
           continue
         }
         summary.objects_removed += 1
@@ -270,12 +331,14 @@ async function purgeSupersededTaskAttachmentVersions(
       }
       if ((deleted?.length ?? 0) > 0) {
         summary.task_versions_deleted += 1
+        batchDeleted = true
+        if (row.storage_path) await releaseClaim(db, { bucket: row.bucket || 'task-attachments', storage_path: row.storage_path }, summary)
       } else {
         summary.errors.push(`task attachment version ${row.id} not deleted (no longer purge-eligible)`)
       }
     }
 
-    if (rows.length < BATCH_SIZE) break
+    if (rows.length < BATCH_SIZE || !batchDeleted) break
   }
 }
 
@@ -286,7 +349,7 @@ async function purgeDeletedTaskAttachments(db: SupabaseClient, cutoffIso: string
   for (;;) {
     const { data, error } = await db
       .from('task_attachments')
-      .select('id, deleted_at')
+      .select('id, deleted_at, filehub_file_id')
       .not('deleted_at', 'is', null)
       .lt('deleted_at', cutoffIso)
       .order('deleted_at', { ascending: true })
@@ -299,6 +362,7 @@ async function purgeDeletedTaskAttachments(db: SupabaseClient, cutoffIso: string
 
     summary.batches += 1
     summary.task_attachments_eligible += rows.length
+    let batchDeleted = false
 
     for (const row of rows) {
       // Hard guard: never act on a live attachment, regardless of the query.
@@ -307,9 +371,16 @@ async function purgeDeletedTaskAttachments(db: SupabaseClient, cutoffIso: string
         continue
       }
 
+      // Converged task files are retained and purged through FileHub's
+      // reference-aware lifecycle, never through this legacy bucket path.
+      if (row.filehub_file_id) {
+        summary.errors.push(`skip converged task attachment ${row.id}`)
+        continue
+      }
+
       const { data: versions, error: vErr } = await db
         .from('task_attachment_versions')
-        .select('bucket, storage_path')
+        .select('bucket, storage_path, filehub_file_version_id')
         .eq('attachment_id', row.id)
 
       if (vErr) {
@@ -318,20 +389,57 @@ async function purgeDeletedTaskAttachments(db: SupabaseClient, cutoffIso: string
       }
 
       let removalFailed = false
-      for (const v of (versions ?? []) as { bucket: string; storage_path: string | null }[]) {
+      const versionRows = (versions ?? []) as { bucket: string; storage_path: string | null; filehub_file_version_id: string | null }[]
+      if (versionRows.some(v => v.filehub_file_version_id)) {
+        summary.errors.push(`skip converged task attachment ${row.id} (history pointer)`)
+        continue
+      }
+      const claims: PathClaim[] = []
+      const claimedKeys = new Set<string>()
+      let claimFailed = false
+      for (const v of versionRows) {
         if (!v.storage_path) continue
         const bucket = v.bucket || 'task-attachments'
+        const key = `${bucket}\u0000${v.storage_path}`
+        if (claimedKeys.has(key)) continue
+        const { data: claimed, error: claimErr } = await db.rpc('rpc_filehub_purge_claim_target', {
+          p_bucket: bucket,
+          p_storage_path: v.storage_path,
+          p_task_attachment_id: row.id,
+        })
+        if (claimErr || claimed !== true) {
+          summary.errors.push(`skip claimed or referenced task attachment path ${row.id}${claimErr ? `: ${claimErr.message}` : ''}`)
+          claimFailed = true
+          break
+        }
+        claimedKeys.add(key)
+        claims.push({ bucket, storage_path: v.storage_path })
+      }
+      if (claimFailed) {
+        await releaseClaims(db, claims, summary)
+        continue
+      }
+      const removedKeys = new Set<string>()
+      for (const v of versionRows) {
+        if (!v.storage_path) continue
+        const bucket = v.bucket || 'task-attachments'
+        const key = `${bucket}\u0000${v.storage_path}`
+        if (removedKeys.has(key)) continue
         const { error: rmErr } = await db.storage.from(bucket).remove([v.storage_path])
         if (rmErr) {
           summary.errors.push(`object remove failed for task attachment ${row.id} (${v.storage_path}): ${rmErr.message}`)
           removalFailed = true
           break
         }
+        removedKeys.add(key)
         summary.objects_removed += 1
       }
       // Don't delete the row until every version's bytes are confirmed gone —
       // otherwise a retry would have no version rows left to find them by.
-      if (removalFailed) continue
+      if (removalFailed) {
+        await releaseClaims(db, claims, summary, removedKeys)
+        continue
+      }
 
       // Re-assert the purge predicate so an attachment restored between
       // select and delete (e.g. a concurrent rpc_restore_task_attachment) is
@@ -350,12 +458,35 @@ async function purgeDeletedTaskAttachments(db: SupabaseClient, cutoffIso: string
       }
       if ((deleted?.length ?? 0) > 0) {
         summary.task_attachments_deleted += 1
+        batchDeleted = true
+        await releaseClaims(db, claims, summary)
       } else {
         summary.errors.push(`task attachment ${row.id} not deleted (no longer purge-eligible)`)
       }
     }
 
-    if (rows.length < BATCH_SIZE) break
+    if (rows.length < BATCH_SIZE || !batchDeleted) break
+  }
+}
+
+async function releaseClaim(db: SupabaseClient, claim: PathClaim, summary: Summary): Promise<void> {
+  const { error } = await db.rpc('rpc_filehub_purge_release', {
+    p_bucket: claim.bucket,
+    p_storage_path: claim.storage_path,
+  })
+  if (error) summary.errors.push(`purge claim release failed (${claim.storage_path}): ${error.message}`)
+}
+
+async function releaseClaims(
+  db: SupabaseClient,
+  claims: PathClaim[],
+  summary: Summary,
+  keep: Set<string> = new Set(),
+): Promise<void> {
+  for (const claim of claims) {
+    const key = `${claim.bucket}\u0000${claim.storage_path}`
+    if (keep.has(key)) continue
+    await releaseClaim(db, claim, summary)
   }
 }
 

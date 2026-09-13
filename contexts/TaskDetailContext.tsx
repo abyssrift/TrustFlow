@@ -63,7 +63,7 @@ export type SubmissionData = {
   stage_name: string | null;
   version_count: number;
   current_version_id: string | null;
-  attachments: { id: string; file_name: string; file_url: string; mime_type: string | null; category: string | null; file_size: number | null; storage_path: string | null }[];
+  attachments: { id: string; file_name: string; file_url: string; mime_type: string | null; category: string | null; file_size: number | null; storage_path: string | null; bucket?: string | null; filehub_file_id?: string | null; filehub_file_version_id?: string | null }[];
 };
 
 export type SubmissionVersionData = {
@@ -81,6 +81,7 @@ export type DeletedSubmissionData = SubmissionData & {
 export type TaskAttachmentData = {
   id: string; file_name: string; file_url: string; storage_path: string | null;
   file_size: number | null; mime_type: string | null; category: string | null;
+  bucket?: string | null; filehub_file_id?: string | null; filehub_file_version_id?: string | null;
   uploaded_by: UserRef; created_at: string;
   version_count: number;
   current_version_id: string | null;
@@ -234,7 +235,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     try {
       taskFlowDebug('task-detail.fetch:start', { taskId });
       setError(null);
-      const [{ data: result, error: rpcError }, { data: childRows }, { data: linkRows }] = await Promise.all([
+      const [{ data: result, error: rpcError }, { data: childRows }, { data: linkRows }, { data: pointerData, error: pointerError }] = await Promise.all([
         supabase.rpc('rpc_get_task_details', { p_task_id: taskId }),
         supabase
           .from('tasks')
@@ -253,9 +254,15 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
             linker:linked_by(full_name)
           `)
           .eq('task_id', taskId),
+        supabase.rpc('rpc_task_filehub_attachment_pointers', { p_task_id: taskId }),
       ]);
 
       if (rpcError) throw rpcError;
+      // The pointer RPC is additive during the expand/contract rollout. The
+      // legacy task-detail payload remains usable if an older API cache or
+      // database has not exposed it yet; access is still enforced by the
+      // primary task-detail RPC above.
+      if (pointerError) console.warn('[TaskDetail] FileHub pointer lookup unavailable:', pointerError.message);
       if (!result) {
         setError('ACCESS_DENIED');
         setData(null);
@@ -283,13 +290,33 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
           created_at: r.created_at,
         }));
 
-      setData({
+      const pointerEnvelope = (pointerError ? {} : pointerData || {}) as {
+        task_attachments?: Array<Record<string, any>>;
+        submission_attachments?: Array<Record<string, any>>;
+      };
+      const taskPointers = new Map((pointerEnvelope.task_attachments || []).map((row) => [row.id, row]));
+      const submissionPointers = new Map((pointerEnvelope.submission_attachments || []).map((row) => [row.id, row]));
+      const normalized = {
         ...(result as TaskDetailPayload),
         child_tasks,
         linked_pipelines,
+        task_attachments: ((result as any).task_attachments || []).map((a: any) => ({
+          ...a,
+          ...(taskPointers.get(a.id) || {}),
+          bucket: taskPointers.get(a.id)?.bucket || a.bucket || null,
+        })),
+        submissions: ((result as any).submissions || []).map((s: any) => ({
+          ...s,
+          attachments: (s.attachments || []).map((a: any) => ({
+            ...a,
+            ...(submissionPointers.get(a.id) || {}),
+            bucket: submissionPointers.get(a.id)?.bucket || a.bucket || null,
+          })),
+        })),
         pending_time_approvals: (result as any).pending_time_approvals ?? [],
         my_manual_time_entry: (result as any).my_manual_time_entry ?? null,
-      });
+      };
+      setData(normalized);
 
       const payload = result as any;
       taskFlowDebug('task-detail.fetch:loaded', {

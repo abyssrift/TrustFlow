@@ -4,6 +4,24 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { DeviceEventEmitter } from 'react-native';
 import { useIsland } from '@/contexts/IslandContext';
 import { useAlert } from '@/contexts/AlertContext';
+import {
+  normalizeProjectFileHubEnvelope,
+  normalizeProjectFileHubBin,
+  projectUploadTarget,
+  type ProjectFileHubBin,
+  type ProjectFileHubEnvelope,
+  type ProjectFileHubUploadTarget,
+} from '@/lib/projectFileHubNormalization';
+export type {
+  ProjectFileHubCapabilities,
+  ProjectFileHubBin,
+  ProjectFileHubEnvelope,
+  ProjectFileHubFile,
+  ProjectFileHubFolder,
+  ProjectFileHubReference,
+  ProjectFileHubUploadTarget,
+  ProjectFileHubWorkspace,
+} from '@/lib/projectFileHubNormalization';
 
 export type FileHubMode = 'overview' | 'browse' | 'inbox' | 'sent' | 'broadcast' | 'groups';
 
@@ -13,7 +31,7 @@ export type FileHubFile = {
   mime_type: string | null;
   size_bytes: number;
   caption: string | null;
-  visibility: 'direct' | 'broadcast' | 'group';
+  visibility: 'direct' | 'broadcast' | 'group' | 'project';
   folder_id: string | null;
   group_id: string | null;
   tags: string[];
@@ -99,7 +117,7 @@ export type CrossSearchResult = {
   task_title: string | null;
 };
 
-export type FileHubFolderScope = 'direct' | 'broadcast' | 'group';
+export type FileHubFolderScope = 'direct' | 'broadcast' | 'group' | 'project';
 
 export type FileHubFolder = {
   id: string;
@@ -107,6 +125,9 @@ export type FileHubFolder = {
   parent_id: string | null;
   scope: FileHubFolderScope;
   group_id: string | null;
+  project_id?: string | null;
+  project_root_kind?: 'workspace' | 'deliverable' | null;
+  deleted_at?: string | null;
 };
 
 // Root-to-self ancestor chain for a folder — used for breadcrumbs.
@@ -243,6 +264,30 @@ type FileHubContextType = {
   restoreFromBin: (fileId: string) => Promise<void>;
   restoreFolder: (folderId: string) => Promise<void>;
   emptyBin: () => Promise<{ files_deleted: number; folders_deleted: number }>;
+  // Project FileHub workspace (#420/#421). These methods are explicitly
+  // project-scoped; the legacy methods above retain direct/broadcast/group behavior.
+  projectFiles: (projectId: string) => Promise<ProjectFileHubEnvelope>;
+  projectWorkspaceBin: (projectId: string) => Promise<ProjectFileHubBin>;
+  ensureProjectWorkspace: (projectId: string) => Promise<string>;
+  projectUploadTarget: (projectId: string, folderId?: string | null) => ProjectFileHubUploadTarget;
+  createProjectFolder: (projectId: string, name: string, parentId: string) => Promise<string>;
+  renameProjectFolder: (projectId: string, folderId: string, name: string) => Promise<void>;
+  moveProjectFolder: (projectId: string, folderId: string, newParentId: string) => Promise<void>;
+  deleteProjectFolder: (projectId: string, folderId: string) => Promise<void>;
+  restoreProjectFolder: (projectId: string, folderId: string) => Promise<void>;
+  moveProjectFile: (projectId: string, fileId: string, folderId: string) => Promise<void>;
+  deleteProjectFile: (projectId: string, fileId: string) => Promise<void>;
+  restoreProjectFile: (projectId: string, fileId: string) => Promise<void>;
+  projectFileVersions: (projectId: string, fileId: string) => Promise<FileVersion[]>;
+  restoreProjectFileVersion: (projectId: string, versionId: string) => Promise<void>;
+  replaceProjectFile: (projectId: string, targetId: string, args: {
+    storagePath: string;
+    size: number;
+    hash: string | null;
+    mime: string | null;
+    caption?: string | null;
+    batchId?: string | null;
+  }) => Promise<string>;
   createFolder: (name: string, parentId?: string | null, scope?: FileHubFolderScope, groupId?: string | null) => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
@@ -761,6 +806,124 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, [island, fetchFolders]);
 
+  // ── Project FileHub workspace (#420/#421) ─────────────────────────────────
+  const projectFiles = useCallback(async (projectId: string): Promise<ProjectFileHubEnvelope> => {
+    const { data, error } = await supabase.rpc('rpc_project_files', { p_project_id: projectId });
+    if (error) { showAlert('Error', error.message); throw error; }
+    return normalizeProjectFileHubEnvelope(data);
+  }, [showAlert]);
+
+  const projectWorkspaceBin = useCallback(async (projectId: string): Promise<ProjectFileHubBin> => {
+    const { data, error } = await supabase.rpc('rpc_project_workspace_bin', { p_project_id: projectId });
+    if (error) { showAlert('Error', error.message); throw error; }
+    return normalizeProjectFileHubBin(data);
+  }, [showAlert]);
+
+  const ensureProjectWorkspace = useCallback(async (projectId: string): Promise<string> => {
+    const { data, error } = await supabase.rpc('rpc_project_ensure_workspace_folder', { p_project_id: projectId });
+    if (error) { showAlert('Error', error.message); throw error; }
+    if (typeof data !== 'string' || !data) throw new Error('Workspace creation returned no folder identity.');
+    return data;
+  }, [showAlert]);
+
+  const getProjectUploadTarget = useCallback((projectId: string, folderId: string | null = null): ProjectFileHubUploadTarget => (
+    projectUploadTarget(projectId, folderId)
+  ), []);
+
+  const createProjectFolder = useCallback(async (projectId: string, name: string, parentId: string): Promise<string> => {
+    const { data, error } = await supabase.rpc('rpc_filehub_folder_create', {
+      p_name: name,
+      p_parent_id: parentId,
+      p_scope: 'project',
+      p_group_id: null,
+      p_project_id: projectId,
+    });
+    if (error) { showAlert('Error', error.message); throw error; }
+    if (typeof data !== 'string' || !data) throw new Error('Folder creation returned no folder identity.');
+    return data;
+  }, [showAlert]);
+
+  const renameProjectFolder = useCallback(async (projectId: string, folderId: string, name: string): Promise<void> => {
+    const { error } = await supabase.rpc('rpc_filehub_folder_rename', {
+      p_id: folderId, p_name: name, p_project_id: projectId,
+    });
+    if (error) { showAlert('Error', error.message); throw error; }
+  }, [showAlert]);
+
+  const moveProjectFolder = useCallback(async (projectId: string, folderId: string, newParentId: string): Promise<void> => {
+    void projectId;
+    const { error } = await supabase.rpc('rpc_filehub_folder_move', {
+      p_id: folderId, p_new_parent_id: newParentId,
+    });
+    if (error) { showAlert('Error', error.message); throw error; }
+  }, [showAlert]);
+
+  const deleteProjectFolder = useCallback(async (projectId: string, folderId: string): Promise<void> => {
+    void projectId;
+    const { error } = await supabase.rpc('rpc_filehub_folder_delete', { p_id: folderId });
+    if (error) { showAlert('Error', error.message); throw error; }
+  }, [showAlert]);
+
+  const restoreProjectFolder = useCallback(async (projectId: string, folderId: string): Promise<void> => {
+    void projectId;
+    const { error } = await supabase.rpc('rpc_filehub_folder_restore', { p_id: folderId });
+    if (error) { showAlert('Error', error.message); throw error; }
+  }, [showAlert]);
+
+  const moveProjectFile = useCallback(async (projectId: string, fileId: string, folderId: string): Promise<void> => {
+    void projectId;
+    const { error } = await supabase.rpc('rpc_filehub_file_move', {
+      p_file_id: fileId, p_folder_id: folderId,
+    });
+    if (error) { showAlert('Error', error.message); throw error; }
+  }, [showAlert]);
+
+  const deleteProjectFile = useCallback(async (projectId: string, fileId: string): Promise<void> => {
+    void projectId;
+    const { error } = await supabase.rpc('rpc_filehub_delete', { p_file_id: fileId });
+    if (error) { showAlert('Error', error.message); throw error; }
+  }, [showAlert]);
+
+  const restoreProjectFile = useCallback(async (projectId: string, fileId: string): Promise<void> => {
+    void projectId;
+    const { error } = await supabase.rpc('rpc_filehub_restore', { p_file_id: fileId });
+    if (error) { showAlert('Error', error.message); throw error; }
+  }, [showAlert]);
+
+  const projectFileVersions = useCallback(async (projectId: string, fileId: string): Promise<FileVersion[]> => {
+    void projectId;
+    const { data, error } = await supabase.rpc('rpc_filehub_file_versions', { p_file_id: fileId });
+    if (error) { showAlert('Error', error.message); throw error; }
+    return (data as FileVersion[]) || [];
+  }, [showAlert]);
+
+  const restoreProjectFileVersion = useCallback(async (projectId: string, versionId: string): Promise<void> => {
+    const { error } = await supabase.rpc('rpc_project_filehub_restore_version', {
+      p_project_id: projectId, p_version_id: versionId,
+    });
+    if (error) { showAlert('Error', error.message); throw error; }
+  }, [showAlert]);
+
+  const replaceProjectFile = useCallback(async (
+    projectId: string,
+    targetId: string,
+    args: { storagePath: string; size: number; hash: string | null; mime: string | null; caption?: string | null; batchId?: string | null }
+  ): Promise<string> => {
+    const { data, error } = await supabase.rpc('rpc_project_filehub_replace_file', {
+      p_project_id: projectId,
+      p_target_id: targetId,
+      p_storage_path: args.storagePath,
+      p_size_bytes: args.size,
+      p_content_hash: args.hash,
+      p_mime_type: args.mime,
+      p_caption: args.caption ?? null,
+      p_batch_id: args.batchId ?? null,
+    });
+    if (error) { showAlert('Error', error.message); throw error; }
+    if (typeof data !== 'string' || !data) throw new Error('File replacement returned no version identity.');
+    return data;
+  }, [showAlert]);
+
   const createFolder = useCallback(async (name: string, parentId?: string | null, scope: FileHubFolderScope = 'direct', groupId?: string | null) => {
     const { data, error } = await supabase.rpc('rpc_filehub_folder_create', {
       p_name: name,
@@ -1052,6 +1215,21 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       refreshFolders: fetchFolders,
       markRead, markAllRead, hideFile, deleteFile,
       binFiles, binLoading, fetchBin, restoreFromBin, restoreFolder, emptyBin,
+      projectFiles,
+      projectWorkspaceBin,
+      ensureProjectWorkspace,
+      projectUploadTarget: getProjectUploadTarget,
+      createProjectFolder,
+      renameProjectFolder,
+      moveProjectFolder,
+      deleteProjectFolder,
+      restoreProjectFolder,
+      moveProjectFile,
+      deleteProjectFile,
+      restoreProjectFile,
+      projectFileVersions,
+      restoreProjectFileVersion,
+      replaceProjectFile,
       createFolder, renameFolder, deleteFolder, moveFolder, moveFile,
       tagSuggestions, checkDuplicate,
       checkNameConflict, replaceFile, fileVersions, restoreVersion, pinVersion,

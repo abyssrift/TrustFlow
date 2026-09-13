@@ -78,9 +78,12 @@ interface FileRow {
 }
 
 interface VersionRow {
+  id: string
   bucket: string
   storage_path: string
 }
+
+type PathClaim = { bucket: string; storage_path: string }
 
 type Summary = {
   mode: 'cron' | 'instant'
@@ -198,10 +201,12 @@ function newSummary(mode: 'cron' | 'instant'): Summary {
 async function countBin(db: SupabaseClient, companyId: string, cutoffIso: string): Promise<number> {
   let files = db.from('filehub_files').select('id', { count: 'exact', head: true })
     .not('deleted_at', 'is', null).lt('deleted_at', cutoffIso).eq('company_id', companyId)
+    .neq('visibility', 'project')
     .neq('visibility', 'task') // task-file pointers are owned by the task, not the Bin — never purge them
 
   let folders = db.from('filehub_folders').select('id', { count: 'exact', head: true })
     .not('deleted_at', 'is', null).lt('deleted_at', cutoffIso).eq('company_id', companyId)
+    .is('project_id', null) // project workspace folders have their own lifecycle
   const [f, d] = await Promise.all([files, folders])
   return (f.count ?? 0) + (d.count ?? 0)
 }
@@ -225,6 +230,7 @@ async function purge(
       .neq('visibility', 'task') // task-file pointers are owned by the task, not the Bin — never purge them
       .order('deleted_at', { ascending: true })
       .limit(BATCH_SIZE)
+      .neq('visibility', 'project')
     if (scopeCompanyId) query = query.eq('company_id', scopeCompanyId)
 
     const { data, error } = await query
@@ -235,6 +241,7 @@ async function purge(
 
     summary.batches += 1
     summary.eligible += rows.length
+    let batchDeleted = false
 
     for (const row of rows) {
       if (!row.deleted_at) {
@@ -242,9 +249,18 @@ async function purge(
         continue
       }
 
+      const { data: safe, error: safetyErr } = await db.rpc('filehub_purge_is_safe', {
+        p_file_id: row.id,
+        p_version_id: null,
+      })
+      if (safetyErr || safe !== true) {
+        summary.errors.push(`skip referenced FileHub file ${row.id}${safetyErr ? `: ${safetyErr.message}` : ''}`)
+        continue
+      }
+
       const { data: versions, error: vErr } = await db
         .from('filehub_file_versions')
-        .select('bucket, storage_path')
+        .select('id, bucket, storage_path')
         .eq('file_id', row.id)
 
       if (vErr) {
@@ -252,19 +268,81 @@ async function purge(
         continue
       }
 
-      let removalFailed = false
-      for (const v of (versions ?? []) as VersionRow[]) {
+      const versionRows = (versions ?? []) as VersionRow[]
+      const claims: PathClaim[] = []
+      const claimedKeys = new Set<string>()
+      let claimFailed = false
+      for (const v of versionRows) {
         const bucket = v.bucket || 'filehub-files'
-        const { error: rmErr } = await db.storage.from(bucket).remove([v.storage_path])
+        const key = `${bucket}\u0000${v.storage_path}`
+        if (claimedKeys.has(key)) continue
+        const { data: claimed, error: claimErr } = await db.rpc('rpc_filehub_purge_claim_target', {
+          p_bucket: bucket,
+          p_storage_path: v.storage_path,
+          p_file_id: row.id,
+          // This is a whole-file purge. The version id is used below for
+          // per-version safety checks, but passing it here would make the
+          // claim predicate treat the file's own other versions as external
+          // owners and prevent the whole-file claim from succeeding.
+          p_version_id: null,
+        })
+        if (claimErr || claimed !== true) {
+          summary.errors.push(`skip claimed or referenced FileHub path ${v.storage_path}${claimErr ? `: ${claimErr.message}` : ''}`)
+          claimFailed = true
+          break
+        }
+        claimedKeys.add(key)
+        claims.push({ bucket, storage_path: v.storage_path })
+
+        const { data: safeVersion, error: versionSafetyErr } = await db.rpc('filehub_purge_is_safe', {
+          p_file_id: row.id,
+          p_version_id: v.id,
+        })
+        if (versionSafetyErr || safeVersion !== true) {
+          summary.errors.push(`skip referenced FileHub version ${v.id}${versionSafetyErr ? `: ${versionSafetyErr.message}` : ''}`)
+          claimFailed = true
+          break
+        }
+      }
+      if (claimFailed) {
+        await releaseClaims(db, claims, summary)
+        continue
+      }
+
+      let removalFailed = false
+      const removedKeys = new Set<string>()
+      for (const claim of claims) {
+        const key = `${claim.bucket}\u0000${claim.storage_path}`
+        const { error: rmErr } = await db.storage.from(claim.bucket).remove([claim.storage_path])
         if (rmErr) {
-          summary.errors.push(`object remove failed ${row.id} (${v.storage_path}): ${rmErr.message}`)
+          summary.errors.push(`object remove failed ${row.id} (${claim.storage_path}): ${rmErr.message}`)
           removalFailed = true
           break
         }
+        removedKeys.add(key)
         summary.objects_removed += 1
       }
 
-      if (removalFailed) continue
+      if (removalFailed) {
+        await releaseClaims(db, claims, summary, removedKeys)
+        continue
+      }
+
+      let unsafeAfter = false
+      for (const v of versionRows) {
+        const { data: safeAfter, error: safetyAfterErr } = await db.rpc('filehub_purge_is_safe', {
+          p_file_id: row.id,
+          p_version_id: v.id,
+        })
+        if (safetyAfterErr || safeAfter !== true) {
+          summary.errors.push(`skip FileHub row delete after recheck ${row.id} version ${v.id}${safetyAfterErr ? `: ${safetyAfterErr.message}` : ''}`)
+          unsafeAfter = true
+          break
+        }
+      }
+      if (unsafeAfter) {
+        continue
+      }
 
       // Re-assert the purge predicate so a row restored between select and
       // delete (e.g. a concurrent rpc_filehub_restore call) is left alone.
@@ -284,13 +362,15 @@ async function purge(
       }
       if ((deleted?.length ?? 0) > 0) {
         summary.files_deleted += 1
+        batchDeleted = true
+        await releaseClaims(db, claims, summary)
         onProgress?.()
       } else {
         summary.errors.push(`row ${row.id} not deleted (no longer purge-eligible)`)
       }
     }
 
-    if (rows.length < BATCH_SIZE) break
+    if (rows.length < BATCH_SIZE || !batchDeleted) break
   }
 
   // ── Folders ────────────────────────────────────────────────────────────
@@ -298,47 +378,38 @@ async function purge(
   // references it as parent_id, so ON DELETE CASCADE never reaches a
   // descendant that isn't itself past the cutoff.
   for (;;) {
-    let query = db
-      .from('filehub_folders')
-      .select('id')
-      .not('deleted_at', 'is', null)
-      .lt('deleted_at', cutoffIso)
-      .limit(FOLDER_BATCH_SIZE)
-    if (scopeCompanyId) query = query.eq('company_id', scopeCompanyId)
-
-    const { data: candidates, error } = await query
+    const { data: deletedCount, error } = await db.rpc('rpc_filehub_purge_folder_leaf_batch', {
+      p_cutoff: cutoffIso,
+      p_company_id: scopeCompanyId,
+      p_limit: FOLDER_BATCH_SIZE,
+    })
     if (error) {
       summary.errors.push(`folder candidate query failed: ${error.message}`)
       break
     }
-    if (!candidates || candidates.length === 0) break
-
-    const ids = candidates.map((c: { id: string }) => c.id)
-    const { data: childRows, error: childErr } = await db
-      .from('filehub_folders')
-      .select('parent_id')
-      .in('parent_id', ids)
-
-    if (childErr) {
-      summary.errors.push(`folder child check failed: ${childErr.message}`)
-      break
-    }
-
-    const blocked = new Set((childRows ?? []).map((r: { parent_id: string }) => r.parent_id))
-    const leafIds = ids.filter((id: string) => !blocked.has(id))
-    if (leafIds.length === 0) break // remaining candidates all have not-yet-eligible children
-
-    const { error: delErr, count } = await db
-      .from('filehub_folders')
-      .delete({ count: 'exact' })
-      .in('id', leafIds)
-
-    if (delErr) {
-      summary.errors.push(`folder delete failed: ${delErr.message}`)
-      break
-    }
-    summary.folders_deleted += count ?? leafIds.length
+    const count = Number(deletedCount ?? 0)
+    if (count === 0) break
+    summary.batches += 1
+    summary.eligible += count
+    summary.folders_deleted += count
     onProgress?.()
+  }
+}
+
+async function releaseClaims(
+  db: SupabaseClient,
+  claims: PathClaim[],
+  summary: Summary,
+  keep: Set<string> = new Set(),
+): Promise<void> {
+  for (const claim of claims) {
+    const key = `${claim.bucket}\u0000${claim.storage_path}`
+    if (keep.has(key)) continue
+    const { error } = await db.rpc('rpc_filehub_purge_release', {
+      p_bucket: claim.bucket,
+      p_storage_path: claim.storage_path,
+    })
+    if (error) summary.errors.push(`purge claim release failed (${claim.storage_path}): ${error.message}`)
   }
 }
 

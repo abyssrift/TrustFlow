@@ -29,10 +29,10 @@ import { relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import { randomId } from '@/lib/randomId';
 import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
 import { computeSHA256, formatEta, formatFileSize, isNetworkError, uploadFileToStorage, waitForReconnect } from '@/lib/uploadHelpers';
+import { normalizeUploadCommitResult, normalizeUploadTarget, type UploadCommitIdentity, type UploadTarget, type UploadVisibility } from '@/lib/uploadTargetNormalization';
+export type { UploadVisibility } from '@/lib/uploadTargetNormalization';
 import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-
-export type UploadVisibility = 'direct' | 'broadcast' | 'group';
 
 export type UploadJobInput = {
   files: File[];
@@ -48,8 +48,18 @@ export type UploadJobInput = {
   // pre-upload dup/conflict checks (which need a folder id when the sub-folder
   // already exists). The real sub-tree is get-or-created server-side at commit.
   scopedFolders: FileHubFolder[];
+  target?: UploadTarget;
   label?: string; // "Direct" / "Broadcast" / channel name — island subtitle flavour
 };
+
+export type UploadResult = UploadCommitIdentity & { fileName: string };
+
+export class UploadCompletionError extends Error {
+  constructor(public readonly jobId: string, public readonly status: UploadJobState['status'], public readonly results: UploadResult[], message: string) {
+    super(message);
+    this.name = 'UploadCompletionError';
+  }
+}
 
 // Live, per-job snapshot the upload modal reads to render its in-modal progress
 // UI. Kept in a ref-backed external store (not React state) so the ~10Hz
@@ -73,6 +83,7 @@ export type UploadJobState = {
 
 type UploadManagerValue = {
   startUpload: (job: UploadJobInput) => string;
+  waitForUpload: (jobId: string) => Promise<UploadResult[]>;
   cancelUpload: (jobId: string) => void;
   activeCount: number;
   // Bumped whenever any job finishes so a mounted FileHub screen can refresh.
@@ -116,6 +127,11 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
     aborted: boolean;
     resolvePending: ((v: string) => void) | null;
     xhrs: Set<XMLHttpRequest>;
+  }>>({});
+  const completions = useRef<Record<string, {
+    promise: Promise<UploadResult[]>;
+    resolve: (results: UploadResult[]) => void;
+    reject: (error: UploadCompletionError) => void;
   }>>({});
 
   // Ref-backed external store for per-job live state (drives the modal UI).
@@ -172,6 +188,14 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
     const jobId = randomId();
     const islandId = `upload:${jobId}`;
     controllers.current[jobId] = { aborted: false, resolvePending: null, xhrs: new Set() };
+    let resolveCompletion!: (results: UploadResult[]) => void;
+    let rejectCompletion!: (error: UploadCompletionError) => void;
+    const promise = new Promise<UploadResult[]>((resolve, reject) => {
+      resolveCompletion = resolve;
+      rejectCompletion = reject;
+    });
+    void promise.catch(() => {});
+    completions.current[jobId] = { promise, resolve: resolveCompletion, reject: rejectCompletion };
     setActiveCount(n => n + 1);
 
     const total = job.files.length;
@@ -229,6 +253,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
       // version instead of N unrelated file changes. Generated here (not per
       // file) precisely so the 4 parallel workers all stamp the same batch.
       const batchId = randomId();
+      const results: UploadResult[] = [];
       let done = 0;
       let bytesDone = 0; // bytes from fully-committed files
       const startedAt = Date.now();
@@ -343,12 +368,24 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
           }
           if (ctrl.aborted) return;
 
-          const groupId = job.visibility === 'group' ? (job.groupId ?? null) : null;
-          const conflict = folderIsNew ? null : (await supabase.rpc('rpc_filehub_check_name_conflict', {
-            p_name: file.name, p_visibility: job.visibility, p_group_id: groupId, p_folder_id: checkFolderId,
+          const target = job.target ? normalizeUploadTarget(job.target) : {
+            visibility: job.visibility,
+            folderId: job.folderId,
+            recipientIds: job.recipientIds,
+            groupId: job.groupId,
+            taskId: null,
+            projectId: null,
+            replaceFileId: null,
+            replaceAttachmentId: null,
+          };
+          const groupId = target.visibility === 'group' ? target.groupId : null;
+          const conflict = target.replaceFileId || target.replaceAttachmentId
+            ? { id: target.replaceFileId || target.replaceAttachmentId }
+            : folderIsNew ? null : (await supabase.rpc('rpc_filehub_check_name_conflict', {
+            p_name: file.name, p_visibility: target.visibility, p_group_id: groupId, p_folder_id: checkFolderId,
           })).data ?? null;
           if (conflict) {
-            let choice = await askQueued(() => conflictAll, () => askDecision(
+            let choice = target.replaceFileId || target.replaceAttachmentId ? 'replace' : await askQueued(() => conflictAll, () => askDecision(
               'File already exists',
               `"${file.name}" already exists here (uploaded by ${conflict.uploader_name}). Replace it, or keep both?`,
               [
@@ -369,7 +406,22 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
                 await supabase.storage.from('filehub-files').remove([replacePath]).catch(() => {});
                 return;
               }
-              const { error: replaceErr } = await supabase.rpc('rpc_filehub_replace_file', {
+              const replaceRpc = target.replaceAttachmentId
+                ? 'rpc_task_attachment_filehub_replace'
+                : target.projectId
+                ? 'rpc_project_filehub_replace_file'
+                : target.taskId ? 'rpc_task_filehub_replace_file' : 'rpc_filehub_replace_file';
+              const replaceParams = target.replaceAttachmentId ? {
+                p_attachment_id: target.replaceAttachmentId,
+                p_task_id: target.taskId,
+                p_file_name: file.name,
+                p_storage_path: replacePath,
+                p_size_bytes: file.size,
+                p_content_hash: contentHash,
+                p_mime_type: file.type || null,
+                p_caption: job.caption || null,
+                p_batch_id: batchId,
+              } : {
                 p_target_id: conflict.id,
                 p_storage_path: replacePath,
                 p_size_bytes: file.size,
@@ -377,11 +429,18 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
                 p_mime_type: file.type || null,
                 p_caption: job.caption || null,
                 p_batch_id: batchId,
-              });
+                ...(target.projectId ? { p_project_id: target.projectId } : {}),
+                ...(target.taskId ? { p_task_id: target.taskId } : {}),
+              };
+              const { data: replaceData, error: replaceErr } = await supabase.rpc(replaceRpc, replaceParams);
               if (replaceErr) {
                 await supabase.storage.from('filehub-files').remove([replacePath]).catch(() => {});
                 throw replaceErr;
               }
+              const identity = typeof replaceData === 'string'
+                ? { fileId: conflict.id, fileVersionId: replaceData, versionId: replaceData }
+                : normalizeUploadCommitResult(replaceData);
+              results.push({ ...identity, fileName: file.name });
               return;
             }
             // 'keep' falls through to the normal commit (server auto-renames).
@@ -398,26 +457,37 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
             return;
           }
 
-          const { error: rpcError } = await supabase.rpc('rpc_filehub_upload_commit', {
-            p_storage_path: storagePath,
-            p_visibility: job.visibility,
-            p_recipient_ids: job.visibility === 'direct' ? job.recipientIds : [],
-            p_folder_id: job.folderId,
-            p_tags: job.tags,
-            p_caption: job.caption || null,
-            p_original_name: file.name,
-            p_mime_type: file.type || null,
-            p_size_bytes: file.size,
-            p_content_hash: contentHash,
-            p_replaces_file_id: null,
-            p_group_id: groupId,
-            p_rel_dir: relDirPath || null,
-            p_batch_id: batchId,
-          });
+          const commitRpc = target.projectId
+            ? 'rpc_project_filehub_upload_commit'
+            : target.taskId ? 'rpc_task_filehub_upload_commit' : 'rpc_filehub_upload_commit';
+          const commitParams = target.taskId
+            ? {
+                p_task_id: target.taskId, p_storage_path: storagePath, p_original_name: file.name,
+                p_mime_type: file.type || null, p_size_bytes: file.size, p_content_hash: contentHash,
+                p_caption: job.caption || null, p_batch_id: batchId,
+              }
+            : target.projectId
+              ? {
+                  p_project_id: target.projectId, p_storage_path: storagePath, p_folder_id: target.folderId,
+                  p_visibility: 'project',
+                  p_tags: job.tags, p_caption: job.caption || null, p_original_name: file.name,
+                  p_mime_type: file.type || null, p_size_bytes: file.size, p_content_hash: contentHash,
+                  p_replaces_file_id: null, p_rel_dir: relDirPath || null, p_batch_id: batchId,
+                }
+              : {
+                  p_storage_path: storagePath, p_visibility: target.visibility,
+                  p_recipient_ids: target.visibility === 'direct' ? target.recipientIds : [],
+                  p_folder_id: target.folderId, p_tags: job.tags, p_caption: job.caption || null,
+                  p_original_name: file.name, p_mime_type: file.type || null, p_size_bytes: file.size,
+                  p_content_hash: contentHash, p_replaces_file_id: null, p_group_id: groupId,
+                  p_rel_dir: relDirPath || null, p_batch_id: batchId,
+                };
+          const { data: commitData, error: rpcError } = await supabase.rpc(commitRpc, commitParams);
           if (rpcError) {
             await supabase.storage.from('filehub-files').remove([storagePath]).catch(() => {});
             throw rpcError;
           }
+          results.push({ ...normalizeUploadCommitResult(commitData), fileName: file.name });
         } catch (e: any) {
           // A cancel aborts the in-flight XHR, which rejects with 'aborted' —
           // that's expected teardown, not a per-file failure to report.
@@ -471,6 +541,7 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         setJob(jobId, { status: 'cancelled', title: 'Upload cancelled', subtitle: `${done}/${meta.total} committed` });
         update(islandId, { title: 'Upload cancelled', subtitle: `${done}/${meta.total} committed`, accent: 'warning', progress: null, pulse: false, decisions: [], actions: [] }, { bump: true });
         setTimeout(() => remove(islandId), 2500);
+        completions.current[jobId]?.reject(new UploadCompletionError(jobId, 'cancelled', results, 'Upload cancelled.'));
         return;
       }
 
@@ -514,12 +585,22 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
         successToast(`Uploaded ${okCount} file${okCount === 1 ? '' : 's'}.`);
         setTimeout(() => remove(islandId), 4000);
       }
+      if (allFailed) {
+        completions.current[jobId]?.reject(new UploadCompletionError(jobId, 'error', results, errors[0] || 'Upload failed.'));
+      } else {
+        completions.current[jobId]?.resolve(results);
+      }
     }
   }, [publish, update, remove, router, cancelUpload, successToast, errorToast, infoToast, emitJobs, setJob]);
 
+  const waitForUpload = useCallback((jobId: string) => {
+    const completion = completions.current[jobId];
+    return completion?.promise ?? Promise.reject(new Error(`Unknown upload job: ${jobId}`));
+  }, []);
+
   const value = useMemo(
-    () => ({ startUpload, cancelUpload, activeCount, lastCompletedAt, jobsStore }),
-    [startUpload, cancelUpload, activeCount, lastCompletedAt, jobsStore],
+    () => ({ startUpload, waitForUpload, cancelUpload, activeCount, lastCompletedAt, jobsStore }),
+    [startUpload, waitForUpload, cancelUpload, activeCount, lastCompletedAt, jobsStore],
   );
 
   return <UploadManagerContext.Provider value={value}>{children}</UploadManagerContext.Provider>;
