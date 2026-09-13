@@ -29,7 +29,7 @@ import { relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import { randomId } from '@/lib/randomId';
 import { supabase, supabaseAnonKey, supabaseUrl } from '@/lib/supabase';
 import { computeSHA256, formatEta, formatFileSize, isNetworkError, uploadFileToStorage, waitForReconnect } from '@/lib/uploadHelpers';
-import { normalizeUploadCommitResult, normalizeUploadTarget, type UploadCommitIdentity, type UploadTarget, type UploadVisibility } from '@/lib/uploadTargetNormalization';
+import { normalizeUploadCommitResult, normalizeUploadDestination, normalizeUploadTarget, type UploadCommitIdentity, type UploadDestination, type UploadTarget, type UploadVisibility } from '@/lib/uploadTargetNormalization';
 export type { UploadVisibility } from '@/lib/uploadTargetNormalization';
 import { useRouter } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -48,6 +48,7 @@ export type UploadJobInput = {
   // pre-upload dup/conflict checks (which need a folder id when the sub-folder
   // already exists). The real sub-tree is get-or-created server-side at commit.
   scopedFolders: FileHubFolder[];
+  destination?: UploadDestination;
   target?: UploadTarget;
   label?: string; // "Direct" / "Broadcast" / channel name — island subtitle flavour
 };
@@ -368,7 +369,9 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
           }
           if (ctrl.aborted) return;
 
-          const target = job.target ? normalizeUploadTarget(job.target) : {
+          const target = job.destination
+            ? normalizeUploadDestination(job.destination, job.destination.kind === 'project' ? new Set(job.scopedFolders.map(folder => folder.id)) : undefined)
+            : job.target ? normalizeUploadTarget(job.target) : {
             visibility: job.visibility,
             folderId: job.folderId,
             recipientIds: job.recipientIds,

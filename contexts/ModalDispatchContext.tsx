@@ -10,6 +10,7 @@
 // living in its own file, wrapped in whatever data provider it needs —
 // e.g. TaskCreationProvider for CreateTaskModal).
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import type { UploadDestination } from '@/lib/uploadTargetNormalization';
 
 export type ModalType =
   | 'create-task'
@@ -26,6 +27,7 @@ export type ModalPayloads = {
   'create-project': { portfolioId?: string };
   'create-portfolio': {};
   'upload': {
+    destination?: UploadDestination;
     folderId?: string;
     taskId?: string;
     initialFiles?: File[] | null;

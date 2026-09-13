@@ -4,8 +4,13 @@ import { join } from 'node:path';
 import assert from 'node:assert/strict';
 
 const source = readFileSync(join(process.cwd(), 'components/filehub/UploadComposerModal.web.tsx'), 'utf8');
+const nativeSource = readFileSync(join(process.cwd(), 'components/filehub/UploadComposerModal.tsx'), 'utf8');
 
 assert.match(source, /visibilitySeed\?: 'direct' \| 'broadcast'/, 'web composer visibility seed prop missing');
+assert.match(source, /destination\?: UploadDestination/, 'web composer destination prop missing');
+assert.match(source, /rpc\('rpc_project_files'/, 'project composer must load the authorized workspace');
+assert.match(source, /isProjectDestination \? 'project'/, 'project composer must use project visibility');
+assert.match(source, /destination,/, 'web composer must pass destination to the manager');
 assert.match(source, /activeGroup \? 'group' : visibilitySeed \?\? 'direct'/, 'group/default visibility seed precedence missing');
 assert.match(source, /folder\.id === prev\.folderId/, 'folder scope validation missing');
 assert.match(source, /folderId: null/, 'invalid scoped folder is not cleared');
@@ -52,5 +57,10 @@ assert.match(source, /Select top level/, 'desktop picker needs explicit root sel
 assert.match(source, /Selected destination/, 'desktop picker must show the selected full path');
 assert.match(source, /<ScrollView[\s\S]*<FolderTreePicker[\s\S]*scrollable=\{false\}/, 'desktop picker must own one bounded scroll around a non-scrolling tree');
 assert.equal((source.match(/<Popup\b/g) || []).length, 1, 'desktop destination must reuse the outer Popup');
+assert.match(nativeSource, /destination\?: UploadDestination/, 'native composer destination prop missing');
+assert.match(nativeSource, /rpc\('rpc_project_files'/, 'native composer must load the project workspace');
+assert.match(nativeSource, /visible && !isProject[\s\S]*router\.push\('\/filehub'/, 'global native redirect must be limited to non-project summons');
+assert.match(nativeSource, /startUpload\(/, 'native project composer must use UploadManagerContext');
+assert.match(nativeSource, /<Popup\b/, 'native composer must use Popup');
 
 console.log('UploadComposerModal.check: ok');

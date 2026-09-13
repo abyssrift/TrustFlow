@@ -1,9 +1,35 @@
 import assert from 'node:assert';
 import {
   normalizeUploadCommitResult,
+  normalizeUploadDestination,
   normalizeUploadTarget,
+  type UploadDestination,
   type UploadTarget,
 } from './uploadTargetNormalization';
+
+{
+  const destination: UploadDestination = { kind: 'filehub', visibility: 'broadcast', folderId: 'folder-1' };
+  assert.deepEqual(normalizeUploadDestination(destination), {
+    visibility: 'broadcast',
+    folderId: 'folder-1',
+    recipientIds: [],
+    groupId: null,
+    taskId: null,
+    projectId: null,
+    replaceFileId: null,
+    replaceAttachmentId: null,
+  });
+}
+
+{
+  const destination: UploadDestination = { kind: 'project', projectId: 'project-1', folderId: 'workspace-2' };
+  assert.equal(normalizeUploadDestination(destination, new Set(['workspace-1', 'workspace-2'])).projectId, 'project-1');
+}
+
+assert.throws(
+  () => normalizeUploadDestination({ kind: 'project', projectId: 'project-1', folderId: 'global-folder' }, new Set(['workspace-1'])),
+  /authorized project workspace/,
+);
 
 {
   const target: UploadTarget = { kind: 'task', taskId: 'task-1', folderId: 'folder-1' };

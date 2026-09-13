@@ -20,6 +20,7 @@ import { useAlert } from '@/contexts/AlertContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FileHubFolder, FileHubFolderScope, folderAncestors, folderPath } from '@/contexts/FileHubContext';
 import { useUploadManager } from '@/contexts/UploadManagerContext';
+import type { UploadDestination } from '@/lib/uploadTargetNormalization';
 import { useFileSizeLimit } from '@/hooks/useFileSizeLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { SMART_FOLDER_PASTE_WARNING_MESSAGE, SMART_FOLDER_PASTE_WARNING_TITLE, useDropPulse, useFileDrop, useSmartPaste } from '@/hooks/useWebDnd';
@@ -52,6 +53,7 @@ export type UploadComposerModalProps = {
   initialFiles?: File[] | null;
   visibilitySeed?: 'direct' | 'broadcast';
   activeGroup?: { id: string; name: string; avatar_color: string } | null;
+  destination?: UploadDestination;
   // ponytail: #340 follow-up — UploadManagerContext's UploadJobInput has no
   // task field (FileHub uploads are direct/broadcast/group, never task-attached),
   // so there is nowhere to route this yet. Accepted so the payload type and deep
@@ -208,7 +210,7 @@ function AdaptiveFileGrid({
   );
 }
 
-export default function UploadComposerModal({ visible, onClose, folderId, initialFiles = null, visibilitySeed, activeGroup = null }: UploadComposerModalProps) {
+export default function UploadComposerModal({ visible, onClose, folderId, initialFiles = null, visibilitySeed, activeGroup = null, destination }: UploadComposerModalProps) {
   const { profile, hasPermission } = useAuth();
   const { startUpload } = useUploadManager();
   const { showAlert } = useAlert();
@@ -216,6 +218,7 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
   const maxFileSizeBytes = useFileSizeLimit();
   const { height: winHeight, width: winWidth } = useWindowDimensions();
   const isDesktop = winWidth >= 768;
+  const isProjectDestination = destination?.kind === 'project';
   const canBroadcast = hasPermission('filehub:broadcast');
   const allowedVisibilitySeed = visibilitySeed === 'broadcast' && !canBroadcast ? 'direct' : visibilitySeed;
 
@@ -235,6 +238,7 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
   const [tagSuggestResults, setTagSuggestResults] = useState<string[]>([]);
   const appliedSeedRef = useRef<string | null>(null);
   const [foldersLoaded, setFoldersLoaded] = useState(false);
+  const [projectLoadError, setProjectLoadError] = useState<string | null>(null);
 
   // Own copy of the folder tree — the context's fetchFolders, inlined. Cheap
   // one-shot select; the real destination sub-tree is get-or-created server-side
@@ -247,27 +251,41 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
     }
     setFoldersLoaded(false);
     let cancelled = false;
-    supabase
-      .from('filehub_folders')
-      .select('id, name, parent_id, scope, group_id')
-      .order('name')
-      .then(({ data, error }) => {
-        if (!cancelled && !error) {
-          setFolders((data as FileHubFolder[]) || []);
-          setFoldersLoaded(true);
+    if (isProjectDestination) {
+      supabase.rpc('rpc_project_files', { p_project_id: destination.projectId }).then(({ data, error }) => {
+        if (cancelled) return;
+        const workspace = data && typeof data === 'object' ? (data as any).workspace : null;
+        const projectFolders = workspace
+          ? [workspace.root, ...(workspace.folders || [])].filter(Boolean).map((folder: any) => ({ ...folder, scope: 'project', group_id: null }))
+          : [];
+        if (error || !workspace || !workspace.root || !workspace.capabilities?.upload) {
+          setProjectLoadError('Project workspace is unavailable for uploads.');
+          setFolders([]);
+        } else {
+          setProjectLoadError(null);
+          setFolders(projectFolders as FileHubFolder[]);
+          if (!destination.folderId && workspace.root?.id) {
+            setDraft(prev => ({ ...prev, folderId: prev.folderId ?? workspace.root.id }));
+          }
         }
+        setFoldersLoaded(true);
       });
+    } else {
+      supabase.from('filehub_folders').select('id, name, parent_id, scope, group_id').order('name').then(({ data, error }) => {
+        if (!cancelled && !error) { setFolders((data as FileHubFolder[]) || []); setFoldersLoaded(true); }
+      });
+    }
     return () => { cancelled = true; };
-  }, [visible]);
+  }, [visible, isProjectDestination, destination?.kind === 'project' ? destination.projectId : null]);
 
   const patch = (updates: Partial<UploadDraft>) => setDraft(prev => ({ ...prev, ...updates }));
 
-  const uploadScope: FileHubFolderScope = activeGroup
+  const uploadScope: FileHubFolderScope = isProjectDestination ? 'project' : activeGroup
     ? 'group'
     : draft.visibility === 'broadcast' ? 'broadcast' : 'direct';
   const scopedFolders = useMemo(
-    () => folders.filter(f => f.scope === uploadScope && (f.group_id ?? null) === (activeGroup?.id ?? null)),
-    [folders, uploadScope, activeGroup?.id],
+    () => folders.filter(f => f.scope === uploadScope && (isProjectDestination || (f.group_id ?? null) === (activeGroup?.id ?? null))),
+    [folders, uploadScope, activeGroup?.id, isProjectDestination],
   );
 
   // Keep matching folders and their ancestor chains so search never strands a
@@ -302,10 +320,10 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
       setDraft(prev => ({
         ...prev,
         visibility: activeGroup ? 'group' : allowedVisibilitySeed ?? (prev.visibility === 'group' ? 'direct' : prev.visibility),
-        folderId: folderId !== undefined ? folderId : prev.folderId,
+        folderId: isProjectDestination ? (destination.folderId ?? prev.folderId) : folderId !== undefined ? folderId : prev.folderId,
       }));
     }
-  }, [visible, folderId, allowedVisibilitySeed, activeGroup]);
+  }, [visible, folderId, allowedVisibilitySeed, activeGroup, isProjectDestination, destination?.folderId]);
 
   // Group is derived from the active group; direct/broadcast determine the
   // folder scope. Once the folder list is loaded, clear a stale selection when
@@ -461,7 +479,7 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
     startUpload({
       files: draft.files,
       companyId,
-      visibility: draft.visibility,
+      visibility: isProjectDestination ? 'project' : draft.visibility,
       folderId: draft.folderId,
       recipientIds: selectedRecipientIds,
       groupId: activeGroup?.id ?? null,
@@ -469,12 +487,13 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
       caption: draft.caption || null,
       maxFileSizeBytes: maxFileSizeBytes ?? null,
       scopedFolders,
-      label: activeGroup?.name ?? (draft.visibility === 'broadcast' ? 'Broadcast' : 'Direct'),
+      destination,
+      label: isProjectDestination ? 'Project files' : activeGroup?.name ?? (draft.visibility === 'broadcast' ? 'Broadcast' : 'Direct'),
     });
     onClose();
   };
 
-  const disabled = draft.files.length === 0 || (draft.visibility === 'direct' && selectedRecipientIds.length === 0);
+  const disabled = draft.files.length === 0 || !!projectLoadError || (isProjectDestination ? !draft.folderId : (draft.visibility === 'direct' && selectedRecipientIds.length === 0));
   const recipientItems: SearchableMultiSelectItem[] = useMemo(() => memberResults.map(m => ({ id: m.id, label: m.full_name || 'Unnamed member', avatarUrl: m.avatar_url })), [memberResults]);
   const selectedRecipientItems: SearchableMultiSelectItem[] = useMemo(() => Array.from(recipientRecords.values()).map(m => ({ id: m.id, label: m.full_name || 'Unnamed member', avatarUrl: m.avatar_url })), [recipientRecords]);
   const audienceModes: Array<'direct' | 'broadcast'> = canBroadcast ? ['direct', 'broadcast'] : ['direct'];

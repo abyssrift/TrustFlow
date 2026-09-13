@@ -1,5 +1,9 @@
 export type UploadVisibility = 'direct' | 'broadcast' | 'group' | 'task' | 'project';
 
+export type UploadDestination =
+  | { kind: 'filehub'; visibility: 'direct' | 'broadcast' | 'group'; folderId?: string | null; groupId?: string | null }
+  | { kind: 'project'; projectId: string; folderId?: string | null };
+
 export type UploadTarget =
   | { kind: 'task'; taskId: string; folderId?: string | null; replaceFileId?: string | null; replaceAttachmentId?: string | null }
   | { kind: 'project'; projectId: string; folderId?: string | null; replaceFileId?: string | null };
@@ -16,6 +20,38 @@ export type NormalizedUploadTarget = {
 };
 
 export type UploadCommitIdentity = { fileId: string; fileVersionId: string | null; versionId: string | null };
+
+export function normalizeUploadDestination(
+  destination: UploadDestination,
+  authorizedProjectFolderIds?: ReadonlySet<string>,
+): NormalizedUploadTarget {
+  if (destination.kind === 'filehub') {
+    return {
+      visibility: destination.visibility,
+      folderId: destination.folderId ?? null,
+      recipientIds: [],
+      groupId: destination.groupId ?? null,
+      taskId: null,
+      projectId: null,
+      replaceFileId: null,
+      replaceAttachmentId: null,
+    };
+  }
+  if (!destination.projectId.trim()) throw new Error('Project upload destination is incomplete.');
+  if (destination.folderId && authorizedProjectFolderIds && !authorizedProjectFolderIds.has(destination.folderId)) {
+    throw new Error('Project upload folder is outside the authorized project workspace.');
+  }
+  return {
+    visibility: 'project',
+    folderId: destination.folderId ?? null,
+    recipientIds: [],
+    groupId: null,
+    taskId: null,
+    projectId: destination.projectId,
+    replaceFileId: null,
+    replaceAttachmentId: null,
+  };
+}
 
 export function normalizeUploadTarget(target: UploadTarget): NormalizedUploadTarget {
   if (target.kind === 'task') {
