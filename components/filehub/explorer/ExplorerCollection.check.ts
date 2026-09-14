@@ -12,6 +12,7 @@ assert.doesNotMatch(types, /ExplorerCollectionProps<T>\s*=\s*\{/);
 
 for (const forbidden of [
   'supabase',
+  'storage',
   'FileHubContext',
   'permission',
   'router',

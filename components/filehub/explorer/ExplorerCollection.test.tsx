@@ -43,6 +43,9 @@ describe('ExplorerCollection', () => {
   it('renders the broad collection contract and opens an item on press', () => {
     const item = { id: 'one', name: 'One' } satisfies Item;
     const onItemPress = vi.fn();
+    const renderCard = vi.fn((value: Item, density: 'large' | 'medium') => <Text>{`${value.name}-${density}`}</Text>);
+    const renderRow = vi.fn((value: Item) => <Text>{value.name}</Text>);
+    const renderColumn = vi.fn((value: Item) => <Text>{value.name}</Text>);
     const onSearchChange = vi.fn();
     const onGroupChange = vi.fn();
     const onEndReached = vi.fn();
@@ -54,9 +57,9 @@ describe('ExplorerCollection', () => {
         <ExplorerCollection<Item>
           items={[item]}
           keyExtractor={(value) => value.id}
-          renderCard={(value, density) => <Text>{`${value.name}-${density}`}</Text>}
-          renderRow={(value) => <Text>{value.name}</Text>}
-          columns={[{ key: 'name', label: 'Name', flex: 1, render: (value) => <Text>{value.name}</Text> }]}
+          renderCard={renderCard}
+          renderRow={renderRow}
+          columns={[{ key: 'name', label: 'Name', flex: 1, render: renderColumn }]}
           storageKey="explorer-test"
           defaultMode="list"
           modes={['list', 'details']}
@@ -86,6 +89,74 @@ describe('ExplorerCollection', () => {
     act(() => row.props.onPress({ nativeEvent: {} }));
 
     expect(renderer!.root.findAllByType('Text').some((node) => node.props.children === 'One')).toBe(true);
+    expect(renderRow).toHaveBeenCalledWith(item);
     expect(onItemPress).toHaveBeenCalledWith(item);
+
+    let cardRenderer: TestRenderer.ReactTestRenderer;
+    act(() => {
+      cardRenderer = TestRenderer.create(
+        <ExplorerCollection<Item>
+          items={[item]}
+          keyExtractor={(value) => value.id}
+          renderCard={renderCard}
+          renderRow={renderRow}
+          columns={[{ key: 'name', label: 'Name', flex: 1, render: renderColumn }]}
+          storageKey="explorer-card-test"
+          defaultMode="medium"
+          modes={['medium']}
+          emptyState={{ title: 'No files' }}
+        />,
+      );
+    });
+
+    expect(cardRenderer!.root.findAllByType('Text').some((node) => node.props.children === 'One-medium')).toBe(true);
+    expect(renderCard).toHaveBeenCalledWith(item, 'medium');
+
+    let detailsRenderer: TestRenderer.ReactTestRenderer;
+    act(() => {
+      detailsRenderer = TestRenderer.create(
+        <ExplorerCollection<Item>
+          items={[item]}
+          keyExtractor={(value) => value.id}
+          renderCard={renderCard}
+          renderRow={renderRow}
+          columns={[{ key: 'name', label: 'Name', flex: 1, render: renderColumn }]}
+          storageKey="explorer-details-test"
+          defaultMode="details"
+          modes={['details']}
+          emptyState={{ title: 'No files' }}
+        />,
+      );
+    });
+
+    expect(detailsRenderer!.root.findAllByType('Text').some((node) => node.props.children === 'One')).toBe(true);
+    expect(renderColumn).toHaveBeenCalledWith(item);
+
+    const onActiveSelection = vi.fn();
+    const onActiveOpen = vi.fn();
+    let selectionRenderer: TestRenderer.ReactTestRenderer;
+    act(() => {
+      selectionRenderer = TestRenderer.create(
+        <ExplorerCollection<Item>
+          items={[item]}
+          keyExtractor={(value) => value.id}
+          renderCard={renderCard}
+          renderRow={renderRow}
+          columns={[{ key: 'name', label: 'Name', flex: 1, render: renderColumn }]}
+          storageKey="explorer-selection-test"
+          defaultMode="list"
+          modes={['list']}
+          emptyState={{ title: 'No files' }}
+          onItemPress={onActiveOpen}
+          selection={{ active: true, selectedIds: [], onToggle: onActiveSelection }}
+        />,
+      );
+    });
+
+    const selectionRow = selectionRenderer!.root.findByProps({ accessibilityRole: 'button' });
+    act(() => selectionRow.props.onPress({ nativeEvent: {} }));
+
+    expect(onActiveSelection).toHaveBeenCalledWith(item);
+    expect(onActiveOpen).not.toHaveBeenCalled();
   });
 });
