@@ -30,6 +30,9 @@ BEGIN
 
   v_def := pg_get_functiondef('public.rpc_filehub_browse(text,text[],uuid,text,text,timestamptz,integer,uuid,boolean,text[],uuid)'::regprocedure);
   ASSERT position('p_origins' IN v_def) > 0, 'Browse origin filter parameter is missing';
+  ASSERT position('fi.folder_id' IN v_def) > 0
+     AND position('c.folder_id' IN v_def) > 0,
+    'Browse must return folder_id through both the direct and paginated result paths';
   ASSERT position('canonical_file_id' IN v_def) > 0, 'Browse must return canonical file identity';
   ASSERT position('canonical_version_id' IN v_def) > 0, 'Browse must return canonical version identity';
   ASSERT position('workspace_path' IN v_def) > 0, 'Browse must return workspace path';

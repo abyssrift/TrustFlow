@@ -10,7 +10,7 @@ assert.match(source, /summon\('upload',\s*\{\s*destination:/s);
 assert.match(source, /kind: 'project'/);
 assert.match(source, /ExplorerCollection/);
 assert.doesNotMatch(source, /expo-document-picker/);
-assert.doesNotMatch(source, /startUpload|waitForUpload|projectUploadTarget/);
+assert.doesNotMatch(source, /DocumentPicker|getDocumentAsync|startUpload|waitForUpload|projectUploadTarget/);
 assert.match(source, /resolveProjectFileHubDeepLink/);
 assert.match(route, /tab\?: string/);
 assert.match(route, /folder\?: string/);
@@ -22,6 +22,8 @@ assert.doesNotMatch(source, /<MultiViewList/);
 assert.match(source, /useUploadManager/);
 assert.match(source, /lastCompletedAt/);
 assert.match(source, /lastUploadRefreshRef/);
+assert.match(source, /if \(!lastCompletedAt \|\| lastUploadRefreshRef\.current === lastCompletedAt\) return;/);
+assert.match(source, /lastUploadRefreshRef\.current = lastCompletedAt;/);
 assert.match(source, /void refresh\(\)/);
 
 console.log('ProjectFilesTab: source checks passed');

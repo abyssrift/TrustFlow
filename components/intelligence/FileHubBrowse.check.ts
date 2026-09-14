@@ -19,6 +19,8 @@ assert.equal(getProjectWorkspaceLink({ origin: 'workspace', project_id: project,
 assert.equal(getProjectWorkspaceLink({ origin: 'workspace', project_id: project, workspace_folder_id: folder, canonical_file_id: file }), null);
 assert.equal(getProjectWorkspaceLink({ origin: 'deliverable', project_id: project, folder_id: folder, canonical_file_id: file }), null);
 assert.equal(getProjectWorkspaceLink({ origin: 'shared', project_id: project, folder_id: folder, canonical_file_id: file }), null);
+assert.equal(getProjectWorkspaceLink({ origin: 'brief', project_id: project, folder_id: folder, canonical_file_id: file }), null);
+assert.equal(getProjectWorkspaceLink({ origin: 'submission', project_id: project, folder_id: folder, canonical_file_id: file }), null);
 assert.equal(getProjectWorkspaceLink({ origin: 'workspace', project_id: 'p', folder_id: folder, canonical_file_id: file }), null);
 assert.equal(getProjectWorkspaceLink({ origin: 'workspace', project_id: project, folder_id: '../folder', canonical_file_id: file }), null);
 assert.equal(getProjectWorkspaceLink({ origin: 'workspace', project_id: project, folder_id: folder, canonical_file_id: 'null' }), null);
