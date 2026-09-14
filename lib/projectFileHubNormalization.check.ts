@@ -2,6 +2,7 @@ import assert from 'node:assert';
 import {
   normalizeProjectFileHubEnvelope,
   projectUploadTarget,
+  resolveProjectFileHubDeepLink,
 } from './projectFileHubNormalization';
 
 const envelope = normalizeProjectFileHubEnvelope({
@@ -29,5 +30,21 @@ assert.deepEqual(projectUploadTarget('project-1', 'folder-1'), {
   projectId: 'project-1',
   folderId: 'folder-1',
 });
+
+const deepLinkEnvelope = envelope;
+assert.deepEqual(resolveProjectFileHubDeepLink(deepLinkEnvelope, 'project-1', { folder: 'folder-1', file: 'file-1' }), {
+  folderId: 'folder-1',
+  fileId: 'file-1',
+});
+assert.deepEqual(resolveProjectFileHubDeepLink(deepLinkEnvelope, 'project-1', { folder: 'workspace-1' }), {
+  folderId: 'workspace-1',
+  fileId: null,
+});
+assert.equal(resolveProjectFileHubDeepLink(deepLinkEnvelope, 'other-project', { folder: 'folder-1', file: 'file-1' }), null);
+assert.equal(resolveProjectFileHubDeepLink(deepLinkEnvelope, 'project-1', { folder: 'foreign', file: 'file-1' }), null);
+assert.equal(resolveProjectFileHubDeepLink(deepLinkEnvelope, 'project-1', { folder: 'workspace-1', file: 'file-1' }), null);
+assert.equal(resolveProjectFileHubDeepLink(deepLinkEnvelope, 'project-1', { file: 'file-1' }), null);
+assert.equal(resolveProjectFileHubDeepLink(deepLinkEnvelope, 'project-1', { folder: '../folder-1', file: 'file-1' }), null);
+assert.equal(resolveProjectFileHubDeepLink({ ...deepLinkEnvelope, standing_folder_id: 'folder-1' }, 'project-1', { folder: 'folder-1' }), null);
 
 console.log('projectFileHubNormalization: all checks passed');

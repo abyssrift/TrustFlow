@@ -44,7 +44,7 @@ function ProjectDetailContent() {
   const router = useRouter();
   const { loading, notFound } = useProjectDetail();
   const headerScroll = useCollapsibleHeaderScroll();
-  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const { tab: tabParam, folder: folderParam, file: fileParam } = useLocalSearchParams<{ tab?: string; folder?: string; file?: string }>();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
   // Restore tab from URL param on mount -- same as FileHub's tab restore effect.
@@ -53,7 +53,7 @@ function ProjectDetailContent() {
     if (key && TABS.some(t => t.value === key)) {
       setActiveTab(key as TabKey);
     }
-  }, []);
+  }, [tabParam]);
 
   const handleTabChange = (key: TabKey) => {
     setActiveTab(key);
@@ -110,7 +110,7 @@ function ProjectDetailContent() {
       >
         {activeTab === 'overview' && <ProjectOverviewTab />}
         {activeTab === 'assignments' && <ProjectAssignmentsTab />}
-        {activeTab === 'files' && <ProjectFilesTab />}
+        {activeTab === 'files' && <ProjectFilesTab folderParam={folderParam} fileParam={fileParam} />}
       </ScrollView>
     </View>
   );

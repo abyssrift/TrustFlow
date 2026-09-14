@@ -75,6 +75,16 @@ export type ProjectFileHubEnvelope = {
   workspace: ProjectFileHubWorkspace | null;
 };
 
+export type ProjectFileHubDeepLinkParams = {
+  folder?: unknown;
+  file?: unknown;
+};
+
+export type ProjectFileHubDeepLinkSelection = {
+  folderId: string;
+  fileId: string | null;
+};
+
 export type ProjectFileHubBinEntry = {
   id: string;
   name: string;
@@ -107,6 +117,14 @@ const asNullableString = (value: unknown): string | null => (
 );
 
 const asArray = (value: unknown): any[] => Array.isArray(value) ? value : [];
+
+function deepLinkId(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  let decoded: string;
+  try { decoded = decodeURIComponent(value).trim(); } catch { return null; }
+  if (!decoded || /[\\/?#\s]/.test(decoded)) return null;
+  return decoded;
+}
 
 function normalizeReference(value: unknown): ProjectFileHubReference {
   const row = asRecord(value);
@@ -228,4 +246,29 @@ export function normalizeProjectFileHubEnvelope(raw: unknown): ProjectFileHubEnv
     deliverable_versions: asArray(value.deliverable_versions),
     workspace,
   };
+}
+
+/** Resolve URL identities only inside the authorized workspace envelope. */
+export function resolveProjectFileHubDeepLink(
+  envelope: ProjectFileHubEnvelope,
+  projectId: string,
+  params: ProjectFileHubDeepLinkParams,
+): ProjectFileHubDeepLinkSelection | null {
+  const hasFolder = params.folder !== undefined && params.folder !== null;
+  const hasFile = params.file !== undefined && params.file !== null;
+  if (!hasFolder && !hasFile) return null;
+  const folderId = deepLinkId(params.folder);
+  const fileId = deepLinkId(params.file);
+  if (!folderId || !hasFolder || (hasFile && !fileId)) return null;
+  const workspace = envelope.workspace;
+  if (!workspace) return null;
+  const folders = [workspace.root, ...workspace.folders].filter((folder): folder is ProjectFileHubFolder => Boolean(folder));
+  const folder = folders.find(candidate => candidate.id === folderId);
+  if (!folder || folder.project_id !== projectId || folder.project_root_kind === 'deliverable') return null;
+  if (folder.id === envelope.standing_folder_id || folder.id === envelope.deliverable_folder_id) return null;
+  if (!fileId) return { folderId: folder.id, fileId: null };
+  const file = workspace.files.find(candidate => candidate.id === fileId);
+  if (!file || file.project_id !== projectId || file.folder_id !== folder.id) return null;
+  if ([...envelope.standing_files, ...envelope.deliverable_files].some(reference => reference.id === file.id)) return null;
+  return { folderId: folder.id, fileId: file.id };
 }
