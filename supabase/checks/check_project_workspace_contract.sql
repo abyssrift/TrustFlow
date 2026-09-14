@@ -155,7 +155,8 @@ END $$;
 -- Dedicated fixture roles keep these outcomes independent of seeded roles:
 --   1. assigned non-owner with project.edit + filehub:view => upload=true;
 --   2. assigned viewer with filehub:view but no project.edit => upload=false;
---   3. no role/assignment => the RPC fails closed; and
+--   3. unassigned viewer with project.view + filehub:view but no project.edit
+--      => fn_project_accessible and the RPC both deny it; and
 --      an accessible project without a workspace remains upload=false.
 CREATE TEMP TABLE pwc_capability_ctx (
   company UUID, mutator UUID, viewer UUID, denied UUID,
@@ -173,6 +174,7 @@ DECLARE
   v_denied UUID;
   v_mutator_role UUID;
   v_viewer_role UUID;
+  v_denied_role UUID;
   v_project UUID;
   v_no_workspace UUID;
   v_task UUID;
@@ -181,6 +183,7 @@ BEGIN
   SELECT u.company_id, u.id INTO v_company, v_owner
   FROM public.users u
   WHERE u.is_owner = true AND u.deleted_at IS NULL AND u.is_active
+  ORDER BY u.id
   LIMIT 1;
   IF v_company IS NULL THEN
     RAISE EXCEPTION 'No active owner user found for capability fixture.';
@@ -208,12 +211,17 @@ BEGIN
   INSERT INTO public.roles (company_id, name)
   VALUES (v_company, 'PWC viewer ' || v_tag)
   RETURNING id INTO v_viewer_role;
+  INSERT INTO public.roles (company_id, name)
+  VALUES (v_company, 'PWC denied ' || v_tag)
+  RETURNING id INTO v_denied_role;
   INSERT INTO public.user_roles (user_id, role_id, company_id) VALUES
     (v_mutator, v_mutator_role, v_company), (v_viewer, v_viewer_role, v_company);
   INSERT INTO public.role_permissions (role_id, permission_id)
   SELECT v_mutator_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'project.edit', 'filehub:view')
   UNION ALL
   SELECT v_viewer_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'filehub:view');
+  INSERT INTO public.role_permissions (role_id, permission_id)
+  SELECT v_denied_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'filehub:view');
 
   INSERT INTO public.projects (company_id, name, owner_id, created_by)
   VALUES (v_company, 'PWC workspace ' || v_tag, v_owner, v_owner)
@@ -271,6 +279,9 @@ BEGIN
 
   PERFORM set_config('request.jwt.claim.sub', c.denied::text, true);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', c.denied::text, 'role', 'authenticated')::text, true);
+  IF public.fn_project_accessible(c.with_workspace) THEN
+    RAISE EXCEPTION 'CHECK FAILED (capability 4): unassigned project.view/filehub:view caller unexpectedly passed fn_project_accessible';
+  END IF;
   v_raised := false;
   BEGIN
     PERFORM public.rpc_project_files(c.with_workspace);
@@ -279,7 +290,7 @@ BEGIN
     v_raised := true;
   END;
   IF NOT v_raised OR v_msg IS DISTINCT FROM 'Insufficient permissions to view projects.' THEN
-    RAISE EXCEPTION 'CHECK FAILED (capability 4): denied/no-workspace caller was not fail-closed, raised=%, message=%', v_raised, v_msg;
+    RAISE EXCEPTION 'CHECK FAILED (capability 5): denied caller was not fail-closed, raised=%, message=%', v_raised, v_msg;
   END IF;
   RAISE NOTICE 'OK: rpc_project_files upload capability is true only for authorized mutations and false for view-only, no-workspace, and denied callers';
 END $$;
