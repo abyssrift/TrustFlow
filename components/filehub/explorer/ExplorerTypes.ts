@@ -19,23 +19,7 @@ export type ExplorerItem = {
 
 export type ExplorerBreadcrumb = { id: string; label: string };
 
-export type ExplorerCollectionProps<T> = {
-  items: T[];
-  keyExtractor: (item: T) => string;
-  renderCard: (item: T, density: 'large' | 'medium') => React.ReactNode;
-  renderRow: (item: T) => React.ReactNode;
-  columns: MultiViewColumn<T>[];
-  storageKey: string;
-  defaultMode?: MultiViewMode;
-  modes?: MultiViewMode[];
-  search?: { value: string; onChange: (value: string) => void; placeholder?: string };
-  groupFilter?: { options: MultiViewGroupOption[]; activeId: string | null; onChange: (id: string | null) => void; allLabel?: string };
-  loading?: boolean;
-  statusBanner?: MultiViewStatusBanner | null;
-  emptyState: MultiViewEmptyState;
-  onItemPress?: (item: T) => void;
-  testIDPrefix?: string;
-};
+export type ExplorerCollectionProps<T> = MultiViewListProps<T>;
 
 export type ExplorerUploadDestination = {
   label?: string;
