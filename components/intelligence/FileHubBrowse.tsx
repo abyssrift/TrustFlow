@@ -1,6 +1,4 @@
 import { useFileHub } from '@/contexts/FileHubContext';
-import { useAlert } from '@/contexts/AlertContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { useDoubleTap } from '@/hooks/useDoubleTap';
 import { useImageLightbox, type LightboxMedia } from '@/hooks/useImageLightbox';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -18,8 +16,6 @@ import FileHubDetailPane, { type DetailFile } from './FileHubDetailPane';
 import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
 import { canonicalIdentityKey, getBrowseOriginLabel, getBrowsePageCursor, groupByCanonicalIdentity, isCurrentBrowseRequest } from './filehubShared';
-import { reconcileMutationSelection } from '@/lib/multiSelection';
-import { settleFileHubMutations } from '@/lib/filehubSelection';
 
 export type BrowseItem = {
   source: 'filehub' | 'submission' | 'task_brief'; file_id: string;
@@ -57,15 +53,13 @@ export function groupBrowseItems(rows: BrowseItem[]): BrowseItem[] {
 
 export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   const colors = useThemeColors();
-  const { searchDebounced, deleteFile, hideFile } = useFileHub();
-  const { profile } = useAuth();
-  const { showAlert, showConfirm } = useAlert();
+  const { searchDebounced } = useFileHub();
   const { share, shareSheet } = useShareFile();
   const [sourceTab, setSourceTab] = useState(0); const [projectId, setProjectId] = useState<string | null>(null);
   const [origin, setOrigin] = useState<string | null>(null); const [category, setCategory] = useState<string | null>(null); const [type, setType] = useState<string | null>(null);
   const [rawBrowseItems, setRawBrowseItems] = useState<BrowseItem[]>([]); const [facets, setFacets] = useState<Facets | null>(null); const [hasMore, setHasMore] = useState(false); const [loading, setLoading] = useState(true); const [loadingMore, setLoadingMore] = useState(false);
   const queryGenerationRef = useRef(0);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()); const [anchorIdx, setAnchorIdx] = useState<number | null>(null); const [detail, setDetail] = useState<BrowseItem | null>(null); const [fastPreview, setFastPreview] = useState(false); const [zipping, setZipping] = useState(false); const [deleting, setDeleting] = useState(false); const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set()); const [anchorIdx, setAnchorIdx] = useState<number | null>(null); const [detail, setDetail] = useState<BrowseItem | null>(null); const [fastPreview, setFastPreview] = useState(false); const [zipping, setZipping] = useState(false); const [filtersOpen, setFiltersOpen] = useState(false);
   const isDoubleTap = useDoubleTap(); const sources = SOURCE_TABS[sourceTab].value;
   const items = useMemo(() => groupBrowseItems(rawBrowseItems), [rawBrowseItems]);
   const media: LightboxMedia[] = useMemo(() => items.map(item => ({ id: idOf(item), name: item.file_name, storagePath: item.storage_path, mimeType: item.mime_type, bucket: item.bucket, sizeBytes: item.size_bytes })), [items]);
@@ -86,36 +80,6 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   const selectedItems = items.filter(item => selectedIds.has(idOf(item)));
   const shareItem = (item: BrowseItem) => share({ fileId: item.source === 'filehub' ? item.file_id : null, bucket: item.bucket, storagePath: item.storage_path, name: item.file_name, mimeType: item.mime_type, sizeBytes: item.size_bytes });
   const downloadSelected = async () => { if (!selectedItems.length || zipping) return; setZipping(true); try { const unique = new Map(selectedItems.map(item => [canonicalIdentityKey(item), item])); await downloadFilesAsZip([...unique.values()].map(item => ({ storage_path: item.storage_path, bucket: item.bucket, original_name: item.file_name, mime_type: item.mime_type })), `filehub-${unique.size}-files.zip`); } finally { setZipping(false); } };
-  const allFilehub = selectedItems.length > 0 && selectedItems.every(item => item.source === 'filehub');
-  const deleteSelected = () => {
-    if (!allFilehub || deleting) return;
-    showConfirm(
-      'Remove selected files',
-      `Remove ${selectedItems.length} selected file${selectedItems.length === 1 ? '' : 's'}? Files you own will be deleted; shared files will be hidden from your inbox.`,
-      () => {
-        void (async () => {
-          setDeleting(true);
-          const outcome = await settleFileHubMutations(selectedItems.map(item => ({
-            kind: 'file' as const,
-            id: item.file_id,
-            run: () => item.uploaded_by === profile?.id ? deleteFile(item.file_id) : hideFile(item.file_id),
-          })));
-          const succeeded = new Set(outcome.succeededFileIds);
-          const succeededSelectionIds = new Set(items.filter(item => succeeded.has(item.file_id)).map(idOf));
-          setSelectedIds(previous => new Set(reconcileMutationSelection(previous, succeededSelectionIds)));
-          if (succeeded.size > 0) setDetail(previous => previous && succeeded.has(previous.file_id) ? null : previous);
-          if (outcome.failedFileIds.length > 0) {
-            showAlert('Some files were not changed', `${outcome.failedFileIds.length} file${outcome.failedFileIds.length === 1 ? ' was' : 's were'} not removed. They remain selected so you can retry.`);
-          }
-          setDeleting(false);
-        })();
-      },
-      undefined,
-      'Remove',
-      'Cancel',
-      'destructive',
-    );
-  };
   const filterCount = [projectId, origin, category, type].filter(Boolean).length; const clearFilters = () => { setProjectId(null); setOrigin(null); setCategory(null); setType(null); };
   const filterBody = <View className="px-4 pt-4"><View className="flex-row flex-wrap gap-4"><View className="flex-1 min-w-[220px]"><FilterDropdown label="Project" count={projectId ? 1 : 0} selected={projectId ? [projectId] : []} options={(facets?.projects ?? []).map(project => ({ value: project.id, label: project.name || 'Untitled' }))} onToggle={value => setProjectId(projectId === value ? null : value)} /></View><View className="flex-1 min-w-[220px]"><FilterDropdown label="Origin" count={origin ? 1 : 0} selected={origin ? [origin] : []} options={ORIGIN_OPTIONS.map(value => ({ value, label: getBrowseOriginLabel(value) }))} onToggle={value => setOrigin(origin === value ? null : value)} /></View><View className="flex-1 min-w-[220px]"><FilterDropdown label="Category" count={category ? 1 : 0} selected={category ? [category] : []} options={(facets?.categories ?? []).map(item => ({ value: item.category, label: item.category }))} onToggle={value => setCategory(category === value ? null : value)} /></View><View className="flex-1 min-w-[220px]"><FilterDropdown label="Type" count={type ? 1 : 0} selected={type ? [type] : []} options={(facets?.types ?? []).map(item => ({ value: item.type, label: item.type }))} onToggle={value => setType(type === value ? null : value)} /></View></View><FilterSection label="Origin shortcuts" compact><FilterChipGroup>{ORIGIN_OPTIONS.map(value => <TouchableOpacity key={value} onPress={() => setOrigin(origin === value ? null : value)} className={`min-h-11 min-w-11 px-3 py-2 rounded-xl border ${origin === value ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}><Text className={origin === value ? 'text-brand-primary text-xs font-bold' : 'text-typography-muted text-xs font-bold'}>{getBrowseOriginLabel(value)}</Text></TouchableOpacity>)}</FilterChipGroup></FilterSection><TouchableOpacity disabled={!filterCount} onPress={clearFilters} className="self-end min-h-11 min-w-11 px-3 py-2"><Text className="text-state-danger text-xs font-black">Clear Filters</Text></TouchableOpacity></View>;
 
@@ -123,7 +87,7 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   const renderRow = (item: BrowseItem) => <BrowseRow item={item} colors={colors} onDownload={() => openStorageFile(item.bucket, item.storage_path, item.file_name, item.mime_type)} onShare={() => shareItem(item)} />;
   const collection = <ExplorerCollection items={items} keyExtractor={idOf} storageKey="filehub-global-browse" defaultMode="details" modes={['large', 'medium', 'list', 'details']} loading={loading} emptyState={{ icon: 'folder-open-o', title: 'No files found', body: searchDebounced ? `Nothing matches “${searchDebounced}” with these filters.` : 'Try a different filter.' }} onItemPress={onItemPress} testIDPrefix="filehub-browse" renderCard={renderCard} renderRow={renderRow} columns={[{ key: 'name', label: 'File', flex: 2, render: renderRow }, { key: 'origin', label: 'Origin', render: item => <Text className="text-typography-muted text-xs">{getBrowseOriginLabel(item.origin)}</Text> }, { key: 'project', label: 'Project', render: item => <Text className="text-typography-muted text-xs">{item.project_name || '—'}</Text> }, { key: 'size', label: 'Size', align: 'right', render: item => <Text className="text-typography-muted text-xs">{formatSize(item.size_bytes)}</Text> }]} />;
   const detailFile: DetailFile | null = detail && { ...detail }; const clearSelection = () => setSelectedIds(new Set());
-  return <View className="flex-1"><View className="px-4 pt-4 flex-row flex-wrap items-center gap-2"><View className="flex-1 min-w-0"><FilterChipGroup>{SOURCE_TABS.map((tab, index) => <TouchableOpacity key={tab.label} onPress={() => { setSourceTab(index); clearFilters(); }} className={`min-h-11 min-w-11 px-4 py-2 rounded-xl border items-center justify-center ${sourceTab === index ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}><Text className={sourceTab === index ? 'text-brand-primary text-xs font-black' : 'text-typography-muted text-xs font-black'}>{tab.label}</Text></TouchableOpacity>)}</FilterChipGroup></View><FilterPanel isOpen={filtersOpen} onOpenChange={setFiltersOpen} activeCount={filterCount} trigger={({ toggle }) => <Tooltip label="Filters"><TouchableOpacity accessibilityLabel="Filters" onPress={toggle} className="min-h-11 min-w-11 h-11 w-11 items-center justify-center rounded-xl border border-surface-border bg-surface-card"><FontAwesome name="filter" size={13} color={colors.textMuted} /></TouchableOpacity></Tooltip>}>{filterBody}</FilterPanel></View><View className="flex-1 p-4">{collection}{hasMore && <View className="items-center pt-4"><TouchableOpacity onPress={loadMore} disabled={loadingMore} className="min-h-11 min-w-11 px-6 py-3 rounded-xl bg-surface-card border border-surface-border flex-row items-center gap-2">{loadingMore && <ActivityIndicator size="small" color={colors.primary} />}<Text className="text-typography-main font-black text-sm">Load more</Text></TouchableOpacity></View>}</View>{selectedItems.length > 0 && <View className="absolute bottom-4 left-4 right-4 rounded-2xl border border-brand-primary/30 bg-surface-card px-4 py-3 flex-row items-center gap-3"><Text className="text-brand-primary text-xs font-black">{selectedItems.length} selected</Text><View className="flex-1" /><TouchableOpacity disabled={zipping || deleting} onPress={downloadSelected} className="min-h-11 min-w-11 px-3 py-2 rounded-xl bg-brand-primary flex-row items-center gap-2">{zipping && <ActivityIndicator size="small" color="#fff" />}<Text className="text-white text-xs font-black">Download ZIP</Text></TouchableOpacity>{allFilehub && <TouchableOpacity disabled={deleting} onPress={deleteSelected} className="min-h-11 min-w-11 px-3 py-2 rounded-xl bg-state-danger/10 border border-state-danger/30"><Text className="text-state-danger text-xs font-black">{deleting ? 'Removing…' : 'Remove'}</Text></TouchableOpacity>}<TouchableOpacity onPress={clearSelection} className="min-h-11 min-w-11 p-2"><FontAwesome name="times" size={13} color={colors.textMuted} /></TouchableOpacity></View>}{detailFile && <View className={compact ? 'absolute inset-0 bg-surface-background p-4' : 'absolute inset-4 bg-surface-background border border-surface-border rounded-2xl p-4'}><FileHubDetailPane file={detailFile} onClose={() => setDetail(null)} compact={compact} autoPreview={fastPreview} /></View>}{shareSheet}</View>;
+  return <View className="flex-1"><View className="px-4 pt-4 flex-row flex-wrap items-center gap-2"><View className="flex-1 min-w-0"><FilterChipGroup>{SOURCE_TABS.map((tab, index) => <TouchableOpacity key={tab.label} onPress={() => { setSourceTab(index); clearFilters(); }} className={`min-h-11 min-w-11 px-4 py-2 rounded-xl border items-center justify-center ${sourceTab === index ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-card border-surface-border'}`}><Text className={sourceTab === index ? 'text-brand-primary text-xs font-black' : 'text-typography-muted text-xs font-black'}>{tab.label}</Text></TouchableOpacity>)}</FilterChipGroup></View><FilterPanel isOpen={filtersOpen} onOpenChange={setFiltersOpen} activeCount={filterCount} trigger={({ toggle }) => <Tooltip label="Filters"><TouchableOpacity accessibilityLabel="Filters" onPress={toggle} className="min-h-11 min-w-11 h-11 w-11 items-center justify-center rounded-xl border border-surface-border bg-surface-card"><FontAwesome name="filter" size={13} color={colors.textMuted} /></TouchableOpacity></Tooltip>}>{filterBody}</FilterPanel></View><View className="flex-1 p-4">{collection}{hasMore && <View className="items-center pt-4"><TouchableOpacity onPress={loadMore} disabled={loadingMore} className="min-h-11 min-w-11 px-6 py-3 rounded-xl bg-surface-card border border-surface-border flex-row items-center gap-2">{loadingMore && <ActivityIndicator size="small" color={colors.primary} />}<Text className="text-typography-main font-black text-sm">Load more</Text></TouchableOpacity></View>}</View>{selectedItems.length > 0 && <View className="absolute bottom-4 left-4 right-4 rounded-2xl border border-brand-primary/30 bg-surface-card px-4 py-3 flex-row items-center gap-3"><Text className="text-brand-primary text-xs font-black">{selectedItems.length} selected</Text><View className="flex-1" /><TouchableOpacity disabled={zipping} onPress={downloadSelected} className="min-h-11 min-w-11 px-3 py-2 rounded-xl bg-brand-primary flex-row items-center gap-2">{zipping && <ActivityIndicator size="small" color="#fff" />}<Text className="text-white text-xs font-black">Download ZIP</Text></TouchableOpacity><TouchableOpacity onPress={clearSelection} className="min-h-11 min-w-11 p-2"><FontAwesome name="times" size={13} color={colors.textMuted} /></TouchableOpacity></View>}{detailFile && <View className={compact ? 'absolute inset-0 bg-surface-background p-4' : 'absolute inset-4 bg-surface-background border border-surface-border rounded-2xl p-4'}><FileHubDetailPane file={detailFile} onClose={() => setDetail(null)} compact={compact} autoPreview={fastPreview} /></View>}{shareSheet}</View>;
 }
 
 function BrowseRow({ item, colors, onDownload, onShare }: { item: BrowseItem; colors: { textMuted: string }; onDownload?: () => void; onShare?: () => void }) {
