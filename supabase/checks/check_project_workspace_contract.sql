@@ -215,7 +215,8 @@ BEGIN
   VALUES (v_company, 'PWC denied ' || v_tag)
   RETURNING id INTO v_denied_role;
   INSERT INTO public.user_roles (user_id, role_id, company_id) VALUES
-    (v_mutator, v_mutator_role, v_company), (v_viewer, v_viewer_role, v_company);
+    (v_mutator, v_mutator_role, v_company), (v_viewer, v_viewer_role, v_company),
+    (v_denied, v_denied_role, v_company);
   INSERT INTO public.role_permissions (role_id, permission_id)
   SELECT v_mutator_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'project.edit', 'filehub:view')
   UNION ALL
@@ -295,7 +296,7 @@ BEGIN
     v_msg := SQLERRM;
     v_raised := true;
   END;
-  IF NOT v_raised OR v_msg IS DISTINCT FROM 'Insufficient permissions to view projects.' THEN
+  IF NOT v_raised OR v_msg IS DISTINCT FROM 'Project not found.' THEN
     RAISE EXCEPTION 'CHECK FAILED (capability 5): denied caller was not fail-closed, raised=%, message=%', v_raised, v_msg;
   END IF;
   RAISE NOTICE 'OK: rpc_project_files upload capability is true only for authorized mutations and false for view-only, no-workspace, and denied callers';
