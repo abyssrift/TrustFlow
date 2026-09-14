@@ -469,71 +469,90 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   );
   const detailFile: DetailFile | null = detail && { ...detail };
   const clearSelection = () => setSelectedIds(new Set());
-  return (
-    <View className="flex-1">
-      <View className="px-4 pt-4 flex-row flex-wrap items-center gap-2">
-        <View className="flex-1 min-w-0">
-          <FilterChipGroup>
-            {SOURCE_TABS.map((tab, index) => (
-              <TouchableOpacity
-                key={tab.label}
-                onPress={() => {
-                  setSourceTab(index);
-                  clearFilters();
-                }}
-                className={`min-h-11 min-w-11 px-4 py-2 rounded-xl border items-center justify-center ${sourceTab === index ? "bg-brand-primary/10 border-brand-primary" : "bg-surface-card border-surface-border"}`}
-              >
-                <Text
-                  className={
-                    sourceTab === index
-                      ? "text-brand-primary text-xs font-black"
-                      : "text-typography-muted text-xs font-black"
-                  }
-                >
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </FilterChipGroup>
-        </View>
-        <FilterPanel
-          isOpen={filtersOpen}
-          onOpenChange={setFiltersOpen}
-          activeCount={filterCount}
-          trigger={({ toggle }) => (
-            <Tooltip label="Filters">
-              <TouchableOpacity
-                accessibilityLabel="Filters"
-                onPress={toggle}
-                className="min-h-11 min-w-11 h-11 w-11 items-center justify-center rounded-xl border border-surface-border bg-surface-card"
-              >
-                <FontAwesome name="filter" size={13} color={colors.textMuted} />
-              </TouchableOpacity>
-            </Tooltip>
-          )}
-        >
-          {filterBody}
-        </FilterPanel>
-      </View>
-      <View className="flex-1 p-4">
-        {collection}
-        {hasMore && (
-          <View className="items-center pt-4">
+  const header = (
+    <View className="px-4 pt-4 flex-row flex-wrap items-center gap-2">
+      <View className="flex-1 min-w-0">
+        <FilterChipGroup>
+          {SOURCE_TABS.map((tab, index) => (
             <TouchableOpacity
-              onPress={loadMore}
-              disabled={loadingMore}
-              className="min-h-11 min-w-11 px-6 py-3 rounded-xl bg-surface-card border border-surface-border flex-row items-center gap-2"
+              key={tab.label}
+              onPress={() => {
+                setSourceTab(index);
+                clearFilters();
+              }}
+              className={`min-h-11 min-w-11 px-4 py-2 rounded-xl border items-center justify-center ${sourceTab === index ? "bg-brand-primary/10 border-brand-primary" : "bg-surface-card border-surface-border"}`}
             >
-              {loadingMore && (
-                <ActivityIndicator size="small" color={colors.primary} />
-              )}
-              <Text className="text-typography-main font-black text-sm">
-                Load more
+              <Text
+                className={
+                  sourceTab === index
+                    ? "text-brand-primary text-xs font-black"
+                    : "text-typography-muted text-xs font-black"
+                }
+              >
+                {tab.label}
               </Text>
             </TouchableOpacity>
-          </View>
-        )}
+          ))}
+        </FilterChipGroup>
       </View>
+      <FilterPanel
+        isOpen={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        activeCount={filterCount}
+        trigger={({ toggle }) => (
+          <Tooltip label="Filters">
+            <TouchableOpacity
+              accessibilityLabel="Filters"
+              onPress={toggle}
+              className="min-h-11 min-w-11 h-11 w-11 items-center justify-center rounded-xl border border-surface-border bg-surface-card"
+            >
+              <FontAwesome name="filter" size={13} color={colors.textMuted} />
+            </TouchableOpacity>
+          </Tooltip>
+        )}
+      >
+        {filterBody}
+      </FilterPanel>
+      {browseCapabilities.canUpload && <ExplorerUploadAction destination={{ label: "Upload files", accessibilityLabel: "Upload files", onPress: () => summon("upload") }} />}
+    </View>
+  );
+  const collectionWithPagination = (
+    <View className="flex-1 p-4">
+      {collection}
+      {hasMore && (
+        <View className="items-center pt-4">
+          <TouchableOpacity
+            onPress={loadMore}
+            disabled={loadingMore}
+            className="min-h-11 min-w-11 px-6 py-3 rounded-xl bg-surface-card border border-surface-border flex-row items-center gap-2"
+          >
+            {loadingMore && (
+              <ActivityIndicator size="small" color={colors.primary} />
+            )}
+            <Text className="text-typography-main font-black text-sm">
+              Load more
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+  return (
+    <View className="flex-1">
+      <ExplorerInspectorShell
+        header={header}
+        collection={collectionWithPagination}
+        inspector={detailFile ? (
+          <FileHubDetailPane
+            file={detailFile}
+            onClose={() => setDetail(null)}
+            compact={compact}
+            autoPreview={fastPreview}
+          />
+        ) : undefined}
+        mobilePane={detailFile ? "inspector" : "collection"}
+        onRequestCollection={() => setDetail(null)}
+      />
       {selectedItems.length > 0 && (
         <View className="absolute bottom-4 left-4 right-4 rounded-2xl border border-brand-primary/30 bg-surface-card px-4 py-3 flex-row items-center gap-3">
           <Text className="text-brand-primary text-xs font-black">
@@ -554,22 +573,6 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
           >
             <FontAwesome name="times" size={13} color={colors.textMuted} />
           </TouchableOpacity>
-        </View>
-      )}
-      {detailFile && (
-        <View
-          className={
-            compact
-              ? "absolute inset-0 bg-surface-background p-4"
-              : "absolute inset-4 bg-surface-background border border-surface-border rounded-2xl p-4"
-          }
-        >
-          <FileHubDetailPane
-            file={detailFile}
-            onClose={() => setDetail(null)}
-            compact={compact}
-            autoPreview={fastPreview}
-          />
         </View>
       )}
     </View>

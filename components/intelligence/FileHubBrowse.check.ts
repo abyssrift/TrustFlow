@@ -39,7 +39,7 @@ const aliasRows = [
 assert.equal(groupByCanonicalIdentity(aliasRows).length, 2, 'aliases group while distinct canonical versions remain separate');
 assert.equal(groupByCanonicalIdentity(aliasRows)[0].length, 2);
 
-for (const token of ['FilterPanel', 'FilterDropdown', 'FilterChipGroup', 'ExplorerCollection', 'p_origins', 'p_before_file_id', 'canonical_file_id', 'canonicalIdentityKey', 'groupBrowseItems', 'getBrowsePageCursor', 'pageCursor', 'min-w-\\[220px\\]', 'min-h-11', 'h-11 w-11']) {
+for (const token of ['FilterPanel', 'FilterDropdown', 'FilterChipGroup', 'ExplorerCollection', 'ExplorerInspectorShell', 'p_origins', 'p_before_file_id', 'canonical_file_id', 'canonicalIdentityKey', 'groupBrowseItems', 'getBrowsePageCursor', 'pageCursor', 'min-w-\\[220px\\]', 'min-h-11', 'h-11 w-11']) {
   assert.match(source, new RegExp(token), `Browse is missing ${token}`);
 }
 assert.match(source, /getBrowsePageCursor\(rawItems, before\)/);
@@ -60,5 +60,10 @@ assert.doesNotMatch(detail, /deleteFile|showConfirm|Delete/);
 assert.doesNotMatch(detail, /onNavigate=\{\(.*\) => \{\}\}/);
 assert.doesNotMatch(source, /useShareFile|shareSheet|Share file|onShare/);
 assert.doesNotMatch(detail, /useShareFile|shareSheet|label="Share"|icon="share"/);
+assert.match(source, /<ExplorerInspectorShell[\s\S]*header=\{header\}[\s\S]*collection=\{collectionWithPagination\}/);
+assert.match(source, /inspector=\{detailFile \? \([\s\S]*<FileHubDetailPane/);
+assert.match(source, /mobilePane=\{detailFile \? "inspector" : "collection"\}/);
+assert.match(source, /onRequestCollection=\{\(\) => setDetail\(null\)\}/);
+assert.doesNotMatch(source, /absolute inset-0 bg-surface-background/);
 
 console.log('FileHubBrowse: all checks passed');
