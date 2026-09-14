@@ -17,18 +17,33 @@ BEGIN
     ), format('files_index is missing Browse projection column %s', v_def);
   END LOOP;
 
-  ASSERT to_regprocedure('public.rpc_filehub_browse(text,text[],uuid,text,text,timestamptz,integer,uuid,boolean,text[])') IS NOT NULL,
-    'rpc_filehub_browse must expose the optional p_origins text[] parameter';
+  ASSERT to_regprocedure('public.rpc_filehub_browse(text,text[],uuid,text,text,timestamptz,integer,uuid,boolean,text[],uuid)') IS NOT NULL,
+    'rpc_filehub_browse must expose the optional p_origins text[] and p_before_file_id uuid parameters';
+  ASSERT to_regprocedure('public.rpc_filehub_browse(text,text[],uuid,text,text,timestamptz,integer,uuid,boolean,text[])') IS NULL,
+    'rpc_filehub_browse must not retain the pre-cursor overload';
+  ASSERT has_function_privilege('authenticated', 'public.rpc_filehub_browse(text,text[],uuid,text,text,timestamptz,integer,uuid,boolean,text[],uuid)', 'EXECUTE'),
+    'authenticated must retain Browse RPC execute grant';
+  ASSERT NOT has_function_privilege('anon', 'public.rpc_filehub_browse(text,text[],uuid,text,text,timestamptz,integer,uuid,boolean,text[],uuid)', 'EXECUTE'),
+    'anon must not have Browse RPC execute grant';
   ASSERT position('fn_project_accessible' IN pg_get_functiondef('public.filehub_file_accessible(uuid)'::regprocedure)) > 0,
     'filehub_file_accessible must delegate project ACL to fn_project_accessible';
 
-  v_def := pg_get_functiondef('public.rpc_filehub_browse(text,text[],uuid,text,text,timestamptz,integer,uuid,boolean,text[])'::regprocedure);
+  v_def := pg_get_functiondef('public.rpc_filehub_browse(text,text[],uuid,text,text,timestamptz,integer,uuid,boolean,text[],uuid)'::regprocedure);
   ASSERT position('p_origins' IN v_def) > 0, 'Browse origin filter parameter is missing';
   ASSERT position('canonical_file_id' IN v_def) > 0, 'Browse must return canonical file identity';
   ASSERT position('canonical_version_id' IN v_def) > 0, 'Browse must return canonical version identity';
   ASSERT position('workspace_path' IN v_def) > 0, 'Browse must return workspace path';
   ASSERT position('fn_project_accessible' IN v_def) > 0, 'Browse must enforce project ACL through fn_project_accessible';
   ASSERT position('p_origins IS NULL OR' IN v_def) > 0, 'Browse must apply a server-side origin filter';
+  ASSERT position('p_before_file_id' IN v_def) > 0, 'Browse cursor tie-breaker parameter is missing';
+  ASSERT position('fi.created_at < p_before' IN v_def) > 0
+     AND position('fi.created_at = p_before' IN v_def) > 0
+     AND position('fi.file_id < p_before_file_id' IN v_def) > 0,
+    'Browse must filter the next page by created_at and file_id';
+  ASSERT position('ORDER BY fi.created_at DESC, fi.file_id DESC' IN v_def) > 0
+     AND position('ORDER BY c.created_at DESC, c.file_id DESC' IN v_def) > 0
+     AND position('ORDER BY a.created_at DESC, a.file_id DESC' IN v_def) > 0,
+    'Browse pool, accepted rows, and results must use deterministic tie ordering';
   ASSERT position('filehub_file_version_id' IN pg_get_viewdef('public.files_index'::regclass, true)) > 0,
     'files_index must derive alias identity from existing FileHub version pointers';
 
