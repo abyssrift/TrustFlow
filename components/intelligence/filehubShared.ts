@@ -26,9 +26,11 @@ export function canonicalIdentityKey(identity: BrowseIdentity): string {
   return [identity.file_id || '', identity.bucket || '', identity.storage_path || ''].join(':');
 }
 
+export type BrowsePageCursor = { created_at: string; file_id: string };
+
 /** Keep keyset pagination anchored to the final raw RPC row, not a grouped alias. */
-export function getBrowsePageCursor(rows: Array<{ created_at: string }>, fallback: string | null): string | null {
-  return rows.length ? rows[rows.length - 1].created_at : fallback;
+export function getBrowsePageCursor(rows: Array<{ created_at: string; file_id: string }>, fallback: BrowsePageCursor | null): BrowsePageCursor | null {
+  return rows.length ? { created_at: rows[rows.length - 1].created_at, file_id: rows[rows.length - 1].file_id } : fallback;
 }
 
 /** Commit browse responses only while they belong to the active query generation. */

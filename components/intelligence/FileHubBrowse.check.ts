@@ -21,8 +21,8 @@ assert.equal(getProjectWorkspaceLink({ project_id: project, workspace_folder_id:
 assert.equal(getProjectWorkspaceLink({ project_id: project, workspace_folder_id: folder, canonical_file_id: `${file}%2Fother` }), null);
 assert.equal(canonicalIdentityKey({ file_id: 'alias', canonical_file_id: file, canonical_version_id: folder, bucket: 'files', storage_path: 'a/b' }), `${file}:${folder}`);
 assert.equal(canonicalIdentityKey({ file_id: 'fallback', bucket: 'files', storage_path: 'a/b' }), 'fallback:files:a/b');
-assert.equal(getBrowsePageCursor([{ created_at: '2026-09-14T03:00:00Z' }, { created_at: '2026-09-14T02:00:00Z' }], null), '2026-09-14T02:00:00Z');
-assert.equal(getBrowsePageCursor([], '2026-09-14T02:00:00Z'), '2026-09-14T02:00:00Z');
+assert.deepEqual(getBrowsePageCursor([{ created_at: '2026-09-14T03:00:00Z', file_id: 'first' }, { created_at: '2026-09-14T02:00:00Z', file_id: 'last' }], null), { created_at: '2026-09-14T02:00:00Z', file_id: 'last' });
+assert.deepEqual(getBrowsePageCursor([], { created_at: '2026-09-14T02:00:00Z', file_id: 'last' }), { created_at: '2026-09-14T02:00:00Z', file_id: 'last' });
 assert.equal(isCurrentBrowseRequest(3, 3), true);
 assert.equal(isCurrentBrowseRequest(2, 3), false);
 const aliasRows = [
@@ -33,10 +33,13 @@ const aliasRows = [
 assert.equal(groupByCanonicalIdentity(aliasRows).length, 2, 'aliases group while distinct canonical versions remain separate');
 assert.equal(groupByCanonicalIdentity(aliasRows)[0].length, 2);
 
-for (const token of ['FilterPanel', 'FilterDropdown', 'FilterChipGroup', 'ExplorerCollection', 'p_origins', 'canonical_file_id', 'canonicalIdentityKey', 'groupBrowseItems', 'getBrowsePageCursor', 'pageCursor', 'min-w-\\[220px\\]', 'min-h-11', 'h-11 w-11']) {
+for (const token of ['FilterPanel', 'FilterDropdown', 'FilterChipGroup', 'ExplorerCollection', 'p_origins', 'p_before_file_id', 'canonical_file_id', 'canonicalIdentityKey', 'groupBrowseItems', 'getBrowsePageCursor', 'pageCursor', 'min-w-\\[220px\\]', 'min-h-11', 'h-11 w-11']) {
   assert.match(source, new RegExp(token), `Browse is missing ${token}`);
 }
 assert.match(source, /getBrowsePageCursor\(rawItems, before\)/);
+assert.match(source, /p_before: before\?\.created_at \?\? null/);
+assert.match(source, /p_before_file_id: before\?\.file_id \?\? null/);
+assert.match(source, /fetchPage\(null, true\)/);
 assert.match(source, /fetchPage\(pageCursor, false\)/);
 assert.match(source, /rawBrowseItems/);
 assert.match(source, /setRawBrowseItems\(previous => \[\.\.\.previous, \.\.\.result\.rawItems\]\)/);

@@ -15,7 +15,7 @@ import ExplorerCollection from '../filehub/explorer/ExplorerCollection';
 import FileHubDetailPane, { type DetailFile } from './FileHubDetailPane';
 import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
-import { canonicalIdentityKey, getBrowseOriginLabel, getBrowsePageCursor, groupByCanonicalIdentity, isCurrentBrowseRequest } from './filehubShared';
+import { canonicalIdentityKey, getBrowseOriginLabel, getBrowsePageCursor, groupByCanonicalIdentity, isCurrentBrowseRequest, type BrowsePageCursor } from './filehubShared';
 
 export type BrowseItem = {
   source: 'filehub' | 'submission' | 'task_brief'; file_id: string;
@@ -65,14 +65,14 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   const media: LightboxMedia[] = useMemo(() => items.map(item => ({ id: idOf(item), name: item.file_name, storagePath: item.storage_path, mimeType: item.mime_type, bucket: item.bucket, sizeBytes: item.size_bytes })), [items]);
   const { signedUrls } = useImageLightbox(media, 'filehub-files');
 
-  const fetchPage = useCallback(async (before: string | null, withFacets: boolean) => {
-    const { data, error } = await supabase.rpc('rpc_filehub_browse', { p_query: searchDebounced || null, p_sources: sources, p_project_id: projectId, p_origins: origin ? [origin] : null, p_category: category, p_type: type, p_before: before, p_limit: PAGE, p_include_facets: withFacets });
+  const fetchPage = useCallback(async (before: BrowsePageCursor | null, withFacets: boolean) => {
+    const { data, error } = await supabase.rpc('rpc_filehub_browse', { p_query: searchDebounced || null, p_sources: sources, p_project_id: projectId, p_origins: origin ? [origin] : null, p_category: category, p_type: type, p_before: before?.created_at ?? null, p_before_file_id: before?.file_id ?? null, p_limit: PAGE, p_include_facets: withFacets });
     if (error) { console.error('[FileHubBrowse] error', error); return { rawItems: [] as BrowseItem[], has_more: false, facets: null, rawCursor: before }; }
     const result = data as { items: BrowseItem[]; has_more: boolean; facets: Facets | null };
     const rawItems = result.items ?? [];
     return { ...result, rawItems, rawCursor: getBrowsePageCursor(rawItems, before) };
   }, [searchDebounced, sources, projectId, origin, category, type]);
-  const [pageCursor, setPageCursor] = useState<string | null>(null);
+  const [pageCursor, setPageCursor] = useState<BrowsePageCursor | null>(null);
   useEffect(() => { const requestGeneration = queryGenerationRef.current + 1; queryGenerationRef.current = requestGeneration; let cancelled = false; setLoading(true); setLoadingMore(false); setPageCursor(null); setDetail(null); setRawBrowseItems([]); fetchPage(null, true).then(result => { if (cancelled || !isCurrentBrowseRequest(requestGeneration, queryGenerationRef.current)) return; setRawBrowseItems(result.rawItems); setPageCursor(result.rawCursor); setHasMore(result.has_more); setFacets(result.facets); setLoading(false); }); return () => { cancelled = true; }; }, [fetchPage]);
   const loadMore = async () => { if (loadingMore || !rawBrowseItems.length || !pageCursor) return; const requestGeneration = queryGenerationRef.current; setLoadingMore(true); try { const result = await fetchPage(pageCursor, false); if (!isCurrentBrowseRequest(requestGeneration, queryGenerationRef.current)) return; setRawBrowseItems(previous => [...previous, ...result.rawItems]); setPageCursor(result.rawCursor); setHasMore(result.has_more); } finally { if (isCurrentBrowseRequest(requestGeneration, queryGenerationRef.current)) setLoadingMore(false); } };
   const toggleOne = (item: BrowseItem, index: number) => { setSelectedIds(previous => { const next = new Set(previous); const key = idOf(item); next.has(key) ? next.delete(key) : next.add(key); return next; }); setAnchorIdx(index); };
