@@ -13,6 +13,18 @@ export type ExplorerInspectorShellProps = {
 
 const DESKTOP_BREAKPOINT = 768;
 const DEFAULT_INSPECTOR_WIDTH = 360;
+const INSPECTOR_WIDTH_CLASSES: Record<number, string> = {
+  320: 'w-80',
+  360: 'w-[360px]',
+  384: 'w-96',
+  420: 'w-[420px]',
+  480: 'w-[480px]',
+};
+const FALLBACK_INSPECTOR_WIDTH_CLASS = 'w-96';
+
+function inspectorWidthClass(width: number) {
+  return INSPECTOR_WIDTH_CLASSES[width] ?? FALLBACK_INSPECTOR_WIDTH_CLASS;
+}
 
 /** Presentation-only responsive placement for explorer slots. */
 export default function ExplorerInspectorShell({
@@ -27,6 +39,9 @@ export default function ExplorerInspectorShell({
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const showInspector = isDesktop ? Boolean(inspector) : mobilePane === 'inspector' && Boolean(inspector);
+  const inspectorClass = isDesktop
+    ? `${inspectorWidthClass(inspectorWidth)} max-w-full flex-grow-0 flex-shrink-0`
+    : '';
 
   return (
     <View className="flex-1 min-h-0 min-w-0 overflow-hidden" testID="explorer-inspector-shell">
@@ -40,7 +55,7 @@ export default function ExplorerInspectorShell({
         ) : null}
         {showInspector ? (
           <View
-            className={`flex-1 min-h-0 min-w-0 overflow-hidden ${isDesktop ? `w-[${inspectorWidth}px] max-w-full flex-grow-0 flex-shrink-0` : ''}`}
+            className={`flex-1 min-h-0 min-w-0 overflow-hidden ${inspectorClass}`}
             testID="explorer-inspector-pane"
           >
             {!isDesktop ? (

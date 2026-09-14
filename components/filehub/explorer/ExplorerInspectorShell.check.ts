@@ -14,7 +14,9 @@ for (const pattern of [
 
 assert.doesNotMatch(source, /useFileViewer|FilePreview|Supabase|FileHub|ProjectRecord/i, 'presentation shell must not depend on domain viewer or record types');
 assert.doesNotMatch(source, /style=/, 'inspector sizing must use class-based styling');
-assert.match(source, /w-\[\$\{inspectorWidth\}px\]/, 'custom inspector width must remain class-based');
+assert.doesNotMatch(source, /w-\[\$\{inspectorWidth\}px\]/, 'inspector width must not be dynamically interpolated');
+assert.match(source, /INSPECTOR_WIDTH_CLASSES/, 'supported inspector widths must use an explicit class map');
+assert.match(source, /FALLBACK_INSPECTOR_WIDTH_CLASS = 'w-96'/, 'unsupported inspector widths need a safe static fallback');
 assert.match(source, /max-w-full/, 'inspector width must be bounded to its parent');
 assert.match(source, /flex-shrink-0/, 'inspector pane must not shrink below its requested width');
 assert.match(source, /<Text[^>]*>←<\/Text>/, 'mobile back affordance must render a recognizable arrow');

@@ -92,6 +92,25 @@ describe('ExplorerInspectorShell', () => {
     expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toContain('inspector');
   });
 
+  it('uses a safe static width class when inspectorWidth is unsupported', () => {
+    let renderer: TestRenderer.ReactTestRenderer;
+    act(() => {
+      renderer = TestRenderer.create(
+        <ExplorerInspectorShell
+          collection={slot('collection')}
+          inspector={slot('inspector')}
+          mobilePane="collection"
+          onRequestCollection={vi.fn()}
+          inspectorWidth={999}
+        />,
+      );
+    });
+
+    const inspectorPane = renderer!.root.findByProps({ testID: 'explorer-inspector-pane' });
+    expect(inspectorPane.props.className).toContain('w-96');
+    expect(inspectorPane.props.className).not.toContain('999px');
+  });
+
   it('does not render an empty inspector pane when inspector is missing', () => {
     let renderer: TestRenderer.ReactTestRenderer;
     act(() => {
