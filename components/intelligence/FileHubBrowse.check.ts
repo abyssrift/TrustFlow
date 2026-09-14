@@ -44,6 +44,7 @@ assert.match(source, /fetchPage\(pageCursor, false\)/);
 assert.match(source, /rawBrowseItems/);
 assert.match(source, /setRawBrowseItems\(previous => \[\.\.\.previous, \.\.\.result\.rawItems\]\)/);
 assert.match(source, /useMemo\(\(\) => groupBrowseItems\(rawBrowseItems\)/);
+assert.match(source, /const renderCard = \(item: BrowseItem, _density: 'large' \| 'medium'\) => <View pointerEvents="none">/);
 assert.match(source, /queryGenerationRef/);
 assert.match(source, /isCurrentBrowseRequest\(requestGeneration, queryGenerationRef\.current\)/);
 assert.match(source, /setLoadingMore\(false\)/);
