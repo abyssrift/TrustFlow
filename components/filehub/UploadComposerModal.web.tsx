@@ -492,7 +492,7 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
       caption: draft.caption || null,
       maxFileSizeBytes: maxFileSizeBytes ?? null,
       scopedFolders,
-      destination,
+      destination: isProjectDestination && destination ? { ...destination, folderId: draft.folderId } : destination,
       label: isProjectDestination ? 'Project files' : activeGroup?.name ?? (draft.visibility === 'broadcast' ? 'Broadcast' : 'Direct'),
     });
     onClose();

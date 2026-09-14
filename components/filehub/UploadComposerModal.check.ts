@@ -11,6 +11,7 @@ assert.match(source, /destination\?: UploadDestination/, 'web composer destinati
 assert.match(source, /rpc\('rpc_project_files'/, 'project composer must load the authorized workspace');
 assert.match(source, /isProjectDestination \? 'project'/, 'project composer must use project visibility');
 assert.match(source, /destination,/, 'web composer must pass destination to the manager');
+assert.match(source, /destination: isProjectDestination && destination \? \{ \.\.\.destination, folderId: draft\.folderId \} : destination/, 'project uploads must pass the selected draft folder to the manager');
 assert.match(source, /audienceControls = isProjectDestination \? null/, 'project mode must hide audience controls');
 assert.match(source, /!isProjectDestination && draft\.visibility === 'direct'/, 'project mode must hide recipient controls');
 assert.match(source, /authorizedFolderIds\.has\(destination\.folderId\)/, 'project destination must validate the requested folder');
