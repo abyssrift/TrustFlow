@@ -25,6 +25,20 @@ export function canonicalIdentityKey(identity: BrowseIdentity): string {
   return [fileId, versionId, identity.bucket || '', identity.storage_path || ''].join(':');
 }
 
+/** Keep keyset pagination anchored to the final raw RPC row, not a grouped alias. */
+export function getBrowsePageCursor(rows: Array<{ created_at: string }>, fallback: string | null): string | null {
+  return rows.length ? rows[rows.length - 1].created_at : fallback;
+}
+
+export function groupByCanonicalIdentity<T extends BrowseIdentity>(rows: T[]): T[][] {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const key = canonicalIdentityKey(row);
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return [...groups.values()];
+}
+
 export function getBrowseOriginLabel(origin: ExplorerOrigin | string | null | undefined): string {
   switch (origin) {
     case 'workspace': return 'Workspace';
