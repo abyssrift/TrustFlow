@@ -153,15 +153,16 @@ END $$;
 
 -- Behavioral coverage for the capability consumed by the project Files UI.
 -- Dedicated fixture roles keep these outcomes independent of seeded roles:
---   1. owner + project.edit + filehub:view => upload=true;
+--   1. assigned non-owner with project.edit + filehub:view => upload=true;
 --   2. assigned viewer with filehub:view but no project.edit => upload=false;
---   3. no assignment/ownership => Project not found.; and
+--   3. no role/assignment => the RPC fails closed; and
 --      an accessible project without a workspace remains upload=false.
 CREATE TEMP TABLE pwc_capability_ctx (
   company UUID, mutator UUID, viewer UUID, denied UUID,
   with_workspace UUID, without_workspace UUID
 );
 GRANT SELECT ON pwc_capability_ctx TO authenticated;
+SET LOCAL session_replication_role = replica;
 
 DO $$
 DECLARE
@@ -170,9 +171,8 @@ DECLARE
   v_mutator UUID;
   v_viewer UUID;
   v_denied UUID;
-  v_pool UUID[];
+  v_mutator_role UUID;
   v_viewer_role UUID;
-  v_denied_role UUID;
   v_project UUID;
   v_no_workspace UUID;
   v_task UUID;
@@ -186,58 +186,56 @@ BEGIN
     RAISE EXCEPTION 'No active owner user found for capability fixture.';
   END IF;
 
-  -- Local self-check dumps may contain only one public user per company. Use
-  -- other real auth-backed users as temporary same-company members, then
-  -- restore their public profile rows with the enclosing ROLLBACK.
-  SELECT ARRAY_AGG(u.id ORDER BY u.id) INTO v_pool
-  FROM (
-    SELECT u.id
-    FROM public.users u
-    WHERE u.id <> v_owner AND u.deleted_at IS NULL AND u.is_active
-    ORDER BY u.id LIMIT 2
-  ) u;
-  IF v_pool IS NULL OR array_length(v_pool, 1) < 2 THEN
-    RAISE EXCEPTION 'Need 2 same-company non-owner users without project.view_all for capability fixture.';
-  END IF;
-  v_mutator := v_owner; v_viewer := v_pool[1]; v_denied := v_pool[2];
+  -- Use fresh auth-backed identities so this check never mutates an existing
+  -- user's company, ownership, roles, or assignments.
+  v_mutator := gen_random_uuid();
+  v_viewer := gen_random_uuid();
+  v_denied := gen_random_uuid();
+  INSERT INTO auth.users(id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+  VALUES
+    (v_mutator, 'authenticated', 'authenticated', format('check-%s@test.invalid', v_mutator), '{}'::jsonb, '{}'::jsonb, now(), now()),
+    (v_viewer, 'authenticated', 'authenticated', format('check-%s@test.invalid', v_viewer), '{}'::jsonb, '{}'::jsonb, now(), now()),
+    (v_denied, 'authenticated', 'authenticated', format('check-%s@test.invalid', v_denied), '{}'::jsonb, '{}'::jsonb, now(), now());
+  INSERT INTO public.users(id, company_id, email, is_owner, is_active)
+  VALUES
+    (v_mutator, v_company, format('check-%s@test.invalid', v_mutator), false, true),
+    (v_viewer, v_company, format('check-%s@test.invalid', v_viewer), false, true),
+    (v_denied, v_company, format('check-%s@test.invalid', v_denied), false, true);
 
-  UPDATE public.users
-  SET company_id = v_company, is_owner = false
-  WHERE id = ANY(v_pool);
-  DELETE FROM public.user_roles WHERE user_id = ANY(v_pool);
-  DELETE FROM public.team_members WHERE user_id = ANY(v_pool);
+  INSERT INTO public.roles (company_id, name)
+  VALUES (v_company, 'PWC mutator ' || v_tag)
+  RETURNING id INTO v_mutator_role;
   INSERT INTO public.roles (company_id, name)
   VALUES (v_company, 'PWC viewer ' || v_tag)
   RETURNING id INTO v_viewer_role;
-  INSERT INTO public.roles (company_id, name)
-  VALUES (v_company, 'PWC denied ' || v_tag)
-  RETURNING id INTO v_denied_role;
   INSERT INTO public.user_roles (user_id, role_id, company_id) VALUES
-    (v_viewer, v_viewer_role, v_company), (v_denied, v_denied_role, v_company);
+    (v_mutator, v_mutator_role, v_company), (v_viewer, v_viewer_role, v_company);
   INSERT INTO public.role_permissions (role_id, permission_id)
-  SELECT v_viewer_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'filehub:view')
+  SELECT v_mutator_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'project.edit', 'filehub:view')
   UNION ALL
-  SELECT v_denied_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'filehub:view');
+  SELECT v_viewer_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'filehub:view');
 
   INSERT INTO public.projects (company_id, name, owner_id, created_by)
-  VALUES (v_company, 'PWC workspace ' || v_tag, v_mutator, v_mutator)
+  VALUES (v_company, 'PWC workspace ' || v_tag, v_owner, v_owner)
   RETURNING id INTO v_project;
   INSERT INTO public.tasks (company_id, project_id, title, created_by)
-  VALUES (v_company, v_project, 'PWC viewer task ' || v_tag, v_mutator)
+  VALUES (v_company, v_project, 'PWC mutator task ' || v_tag, v_owner)
   RETURNING id INTO v_task;
   INSERT INTO public.task_assignments (task_id, company_id, assignee_user_id, assigned_by)
-  VALUES (v_task, v_company, v_viewer, v_mutator);
+  VALUES (v_task, v_company, v_mutator, v_owner);
+  INSERT INTO public.task_assignments (task_id, company_id, assignee_user_id, assigned_by)
+  VALUES (v_task, v_company, v_viewer, v_owner);
 
   INSERT INTO public.projects (company_id, name, owner_id, created_by)
-  VALUES (v_company, 'PWC no workspace ' || v_tag, v_mutator, v_mutator)
+  VALUES (v_company, 'PWC no workspace ' || v_tag, v_owner, v_owner)
   RETURNING id INTO v_no_workspace;
   INSERT INTO public.tasks (company_id, project_id, title, created_by)
-  VALUES (v_company, v_no_workspace, 'PWC no workspace viewer task ' || v_tag, v_mutator)
+  VALUES (v_company, v_no_workspace, 'PWC no workspace viewer task ' || v_tag, v_owner)
   RETURNING id INTO v_task;
   INSERT INTO public.task_assignments (task_id, company_id, assignee_user_id, assigned_by)
-  VALUES (v_task, v_company, v_viewer, v_mutator);
+  VALUES (v_task, v_company, v_viewer, v_owner);
 
-  PERFORM set_config('request.jwt.claim.sub', v_mutator::text, true);
+  PERFORM set_config('request.jwt.claim.sub', v_owner::text, true);
   PERFORM public.rpc_project_ensure_workspace_folder(v_project);
   INSERT INTO pwc_capability_ctx VALUES (v_company, v_mutator, v_viewer, v_denied, v_project, v_no_workspace);
 END $$;
@@ -280,12 +278,14 @@ BEGIN
     v_msg := SQLERRM;
     v_raised := true;
   END;
-  IF NOT v_raised OR v_msg IS DISTINCT FROM 'Project not found.' THEN
+  IF NOT v_raised OR v_msg IS DISTINCT FROM 'Insufficient permissions to view projects.' THEN
     RAISE EXCEPTION 'CHECK FAILED (capability 4): denied/no-workspace caller was not fail-closed, raised=%, message=%', v_raised, v_msg;
   END IF;
   RAISE NOTICE 'OK: rpc_project_files upload capability is true only for authorized mutations and false for view-only, no-workspace, and denied callers';
 END $$;
 
 RESET ROLE;
+
+RESET session_replication_role;
 
 ROLLBACK;
