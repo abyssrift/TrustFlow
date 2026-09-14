@@ -1,4 +1,4 @@
-import type { MultiViewColumn, MultiViewEmptyState, MultiViewGroupOption, MultiViewStatusBanner, MultiViewMode } from '@/components/common/MultiViewList';
+import type { MultiViewListProps } from '@/components/common/MultiViewList';
 import type { ExplorerCapabilities, ExplorerMode, ExplorerOrigin } from '@/lib/fileExplorerMode';
 
 export type { ExplorerCapabilities, ExplorerMode, ExplorerOrigin };
