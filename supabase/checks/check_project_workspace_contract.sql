@@ -62,6 +62,9 @@ BEGIN
   ASSERT position('deliverable_folder_id' IN pg_get_functiondef('public.fn_projects_workspace_folder_contract()'::regprocedure)) > 0,
     'project root pointer trigger does not validate deliverable_folder_id';
 
+  ASSERT position('''upload'',public.fn_project_mutation_accessible(p_project_id)' IN pg_get_functiondef('public.rpc_project_files(uuid)'::regprocedure)) > 0,
+    'project files RPC does not expose upload capability for authorized workspace mutations';
+
   ASSERT position('deleted_at' IN pg_get_triggerdef((
     SELECT oid FROM pg_trigger
     WHERE tgrelid = 'public.filehub_folders'::regclass
