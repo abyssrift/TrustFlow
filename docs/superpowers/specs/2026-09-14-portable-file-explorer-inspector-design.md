@@ -158,6 +158,21 @@ Manual walkthrough:
 - At approximately 390px: collection-to-inspector drill-in, back behavior, touch targets, preserved selection/deep-link state, and no desktop row overflow.
 - Verify working-file mutations, client-file read-only behavior, sealed-file history, preview/download, inaccessible project behavior, canonical aliases, confirmation dialogs, and partial-failure handling.
 
+## Documentation and discoverability
+
+Documentation is part of the implementation acceptance criteria, not a follow-up task.
+
+Create a canonical developer guide at `docs/PORTABLE_FILE_EXPLORER.md` once the public interfaces settle. It must explain:
+
+- When to use `MultiViewList`, `ExplorerCollection`, and `ExplorerInspectorShell`.
+- The collection-selection contract, including filtering, pagination, keyboard/modifier behavior, copy/paste, range, long-press, and marquee expectations.
+- How to compose a domain-owned inspector without importing RPCs, permissions, or storage services into the shared layer.
+- How to preserve working/client/sealed and other domain-specific boundaries.
+- A minimal import/composition example and a checklist for adding a new explorer surface.
+- Responsive verification at approximately 1400px, 1000px, and 390px.
+
+Link the guide from the top-level `README.md`, the agent-facing `AGENTS.md` and `CLAUDE.md`, and the relevant FileHub planning documentation so future implementation chats can discover it before importing or extending an explorer. Update the guide with the final paths and examples after implementation, and include it in the changed-files handoff.
+
 ## Risks and mitigations
 
 - **Stale selection after refresh/filter changes:** keep selection keyed by stable identity and reconcile only after results arrive.
