@@ -1,4 +1,3 @@
-import { useAlert } from '@/contexts/AlertContext';
 import { FileActivity, useFileHub } from '@/contexts/FileHubContext';
 import { useFileViewer, type ViewerMedia } from '@/hooks/useFileViewer';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -14,6 +13,8 @@ import Tooltip from '../common/Tooltip';
 import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
 import { FileActivityRows } from './FileHubActivity';
+import ExplorerBreadcrumbs from '@/components/filehub/explorer/ExplorerBreadcrumbs';
+import { getBrowseOriginLabel, getProjectWorkspaceLink, hasCanonicalAlias } from './filehubShared';
 
 export type DetailFile = {
   source: 'filehub' | 'submission' | 'task_brief';
@@ -29,6 +30,12 @@ export type DetailFile = {
   project_name?: string | null;
   task_category?: string | null;
   submission_id?: string | null;
+  project_id?: string | null;
+  workspace_folder_id?: string | null;
+  workspace_path?: string | null;
+  origin?: 'workspace' | 'deliverable' | 'shared' | 'brief' | 'submission' | null;
+  canonical_file_id?: string | null;
+  canonical_version_id?: string | null;
 };
 
 // Unified version row across sources (filehub versions, brief per-file versions,
@@ -59,19 +66,17 @@ function ago(iso: string | null | undefined): string {
  * pointer row (rpc_filehub_pointer_id) for FK-logged activity.
  */
 export default function FileHubDetailPane({
-  file, onClose, onDeleted, compact, autoPreview = false,
+  file, onClose, compact, autoPreview = false,
 }: {
   file: DetailFile;
   onClose: () => void;
-  onDeleted?: (fileId: string) => void;
   compact?: boolean;
   /** When true (double-click fast-track), jump straight to the fullscreen viewer. */
   autoPreview?: boolean;
 }) {
   const colors = useThemeColors();
   const router = useRouter();
-  const { fileVersions, fileActivity, deleteFile, logActivity } = useFileHub();
-  const { showConfirm } = useAlert();
+  const { fileVersions, fileActivity, logActivity } = useFileHub();
   const { share, shareSheet } = useShareFile();
 
   const isFileHub = file.source === 'filehub';
@@ -82,7 +87,6 @@ export default function FileHubDetailPane({
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [versions, setVersions] = useState<VRow[] | null>(null);
   const [activity, setActivity] = useState<FileActivity[] | null>(null);
-  const [deleting, setDeleting] = useState(false);
   // filehub_files id used for activity — the file's own id for filehub, the
   // pointer row for task files (resolved async so activity can be FK-logged).
   const [pointerId, setPointerId] = useState<string | null>(null);
@@ -160,19 +164,10 @@ export default function FileHubDetailPane({
     mimeType: file.mime_type,
     sizeBytes: file.size_bytes,
   });
-
-  const confirmDelete = () => {
-    showConfirm(
-      'Delete file?',
-      `"${file.file_name}" will be moved to the bin.`,
-      async () => {
-        setDeleting(true);
-        try { await deleteFile(file.file_id); onDeleted?.(file.file_id); onClose(); }
-        finally { setDeleting(false); }
-      },
-      undefined, 'Delete', 'Cancel', 'destructive',
-    );
-  };
+  const workspaceLink = getProjectWorkspaceLink(file);
+  const pathCrumbs = file.workspace_path
+    ? file.workspace_path.split(' / ').map((label, index, all) => ({ id: `${file.workspace_folder_id ?? 'path'}:${index}`, label: index === all.length - 1 && file.origin === 'deliverable' ? `${label} · Deliverable` : label }))
+    : [];
 
   const Preview = (
     <View className={`${compact ? 'w-full h-56' : 'flex-1'} bg-surface-background items-center justify-center overflow-hidden`}>
@@ -216,7 +211,7 @@ export default function FileHubDetailPane({
           </Tooltip>
         </View>
         <View className="flex-row items-center gap-2 mt-2">
-          <SourceBadge source={file.source} colors={colors} />
+          <SourceBadge source={file.source} origin={file.origin} colors={colors} />
           <Text className="text-typography-muted text-[11px]">{formatSize(file.size_bytes)}</Text>
         </View>
       </View>
@@ -226,7 +221,7 @@ export default function FileHubDetailPane({
         <ActionBtn icon="external-link" label="Open" onPress={openFull} colors={colors} primary />
         <ActionBtn icon="download" label="Download" onPress={download} colors={colors} />
         <ActionBtn icon="share" label="Share" onPress={shareOut} colors={colors} />
-        {isFileHub && <ActionBtn icon="trash-o" label={deleting ? '…' : 'Delete'} onPress={confirmDelete} colors={colors} danger />}
+        {workspaceLink && <ActionBtn icon="briefcase" label="Open in project workspace" onPress={() => router.push(workspaceLink as any)} colors={colors} />}
       </View>
       {shareSheet}
 
@@ -243,11 +238,15 @@ export default function FileHubDetailPane({
       <ScrollView className="flex-1 no-scrollbar" contentContainerStyle={{ padding: 20, paddingTop: 12 }}>
         {tab === 'details' && (
           <View className="gap-3">
+            {pathCrumbs.length > 0 && <ExplorerBreadcrumbs items={pathCrumbs} onNavigate={() => {}} />}
             <Field label="Type" value={file.mime_type || 'Unknown'} colors={colors} />
             <Field label="Size" value={formatSize(file.size_bytes)} colors={colors} />
             {file.created_at && <Field label="Added" value={ago(file.created_at)} colors={colors} />}
             {file.task_title && <LinkField label="Task" value={file.task_title} onPress={() => file.task_id && router.push(`/task/${file.task_id}` as any)} colors={colors} />}
             {file.project_name && <Field label="Project" value={file.project_name} colors={colors} />}
+            {file.workspace_path && <Field label="Path" value={file.workspace_path} colors={colors} />}
+            <Field label="Origin" value={getBrowseOriginLabel(file.origin)} colors={colors} />
+            {hasCanonicalAlias(file) && <Field label="Canonical file" value="Shared canonical bytes; this row is an alias." colors={colors} />}
             {file.task_category && <Field label="Category" value={file.task_category} colors={colors} />}
           </View>
         )}
@@ -296,9 +295,9 @@ export default function FileHubDetailPane({
   );
 }
 
-function SourceBadge({ source, colors }: { source: string; colors: any }) {
-  const label = source === 'filehub' ? 'FileHub' : source === 'submission' ? 'Submission' : 'Brief';
-  const tint = source === 'filehub' ? colors.primary : colors.textMuted;
+function SourceBadge({ source, origin, colors }: { source: string; origin?: string | null; colors: any }) {
+  const label = origin ? getBrowseOriginLabel(origin) : source === 'filehub' ? 'FileHub' : source === 'submission' ? 'Submission' : 'Brief';
+  const tint = origin === 'deliverable' ? colors.primary : source === 'filehub' ? colors.primary : colors.textMuted;
   return (
     <View className="px-2 py-0.5 rounded-full" style={{ backgroundColor: `${tint}1A` }}>
       <Text className="text-[9px] font-black uppercase tracking-wider" style={{ color: tint }}>{label}</Text>

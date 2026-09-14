@@ -6,6 +6,39 @@
 // computeSHA256Web/computeSHA256) intentionally remain local to each shell.
 
 import { ActivityPresentation, getActivityPresentation } from '@/lib/filehubActivityPresentation';
+import type { ExplorerOrigin } from '@/lib/fileExplorerMode';
+
+export type BrowseIdentity = {
+  project_id?: string | null;
+  workspace_folder_id?: string | null;
+  canonical_file_id?: string | null;
+};
+
+export function getBrowseOriginLabel(origin: ExplorerOrigin | string | null | undefined): string {
+  switch (origin) {
+    case 'workspace': return 'Workspace';
+    case 'deliverable': return 'Deliverable';
+    case 'brief': return 'Brief';
+    case 'submission': return 'Submission';
+    case 'shared': return 'Shared';
+    default: return 'Unknown origin';
+  }
+}
+
+export function hasCanonicalAlias(row: { file_id?: string | null; canonical_file_id?: string | null }): boolean {
+  return Boolean(row.file_id && row.canonical_file_id && row.file_id !== row.canonical_file_id);
+}
+
+function validIdentityPart(value: string | null | undefined): value is string {
+  const normalized = value?.trim();
+  return Boolean(normalized && normalized !== 'null' && normalized !== 'undefined');
+}
+
+/** Browse is intentionally fail-closed: incomplete RPC identity never becomes a workspace link. */
+export function getProjectWorkspaceLink(identity: BrowseIdentity): string | null {
+  if (!validIdentityPart(identity.project_id) || !validIdentityPart(identity.workspace_folder_id) || !validIdentityPart(identity.canonical_file_id)) return null;
+  return `/projects/${identity.project_id}?tab=files&folder=${identity.workspace_folder_id}&file=${identity.canonical_file_id}`;
+}
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
