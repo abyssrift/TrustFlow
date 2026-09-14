@@ -1,9 +1,8 @@
 -- Structural contract check for issue #420, Package 1A.
 --
 -- Run against a database with the migrations applied.  This check is
--- intentionally data-independent: it verifies the schema objects and the
--- invariants that protect project workspace/deliverable roots without
--- creating or mutating application data.
+-- It also creates throwaway behavioral fixtures below; the whole check is
+-- wrapped in BEGIN/ROLLBACK and leaves no application data behind.
 
 BEGIN;
 
@@ -151,5 +150,142 @@ BEGIN
 
   RAISE NOTICE 'OK: project workspace schema contract is present and current data satisfies root/pointer/ancestry invariants';
 END $$;
+
+-- Behavioral coverage for the capability consumed by the project Files UI.
+-- Dedicated fixture roles keep these outcomes independent of seeded roles:
+--   1. owner + project.edit + filehub:view => upload=true;
+--   2. assigned viewer with filehub:view but no project.edit => upload=false;
+--   3. no assignment/ownership => Project not found.; and
+--      an accessible project without a workspace remains upload=false.
+CREATE TEMP TABLE pwc_capability_ctx (
+  company UUID, mutator UUID, viewer UUID, denied UUID,
+  with_workspace UUID, without_workspace UUID
+);
+GRANT SELECT ON pwc_capability_ctx TO authenticated;
+
+DO $$
+DECLARE
+  v_company UUID;
+  v_owner UUID;
+  v_mutator UUID;
+  v_viewer UUID;
+  v_denied UUID;
+  v_pool UUID[];
+  v_viewer_role UUID;
+  v_denied_role UUID;
+  v_project UUID;
+  v_no_workspace UUID;
+  v_task UUID;
+  v_tag TEXT := replace(gen_random_uuid()::text, '-', '');
+BEGIN
+  SELECT u.company_id, u.id INTO v_company, v_owner
+  FROM public.users u
+  WHERE u.is_owner = true AND u.deleted_at IS NULL AND u.is_active
+  LIMIT 1;
+  IF v_company IS NULL THEN
+    RAISE EXCEPTION 'No active owner user found for capability fixture.';
+  END IF;
+
+  -- Local self-check dumps may contain only one public user per company. Use
+  -- other real auth-backed users as temporary same-company members, then
+  -- restore their public profile rows with the enclosing ROLLBACK.
+  SELECT ARRAY_AGG(u.id ORDER BY u.id) INTO v_pool
+  FROM (
+    SELECT u.id
+    FROM public.users u
+    WHERE u.id <> v_owner AND u.deleted_at IS NULL AND u.is_active
+    ORDER BY u.id LIMIT 2
+  ) u;
+  IF v_pool IS NULL OR array_length(v_pool, 1) < 2 THEN
+    RAISE EXCEPTION 'Need 2 same-company non-owner users without project.view_all for capability fixture.';
+  END IF;
+  v_mutator := v_owner; v_viewer := v_pool[1]; v_denied := v_pool[2];
+
+  UPDATE public.users
+  SET company_id = v_company, is_owner = false
+  WHERE id = ANY(v_pool);
+  DELETE FROM public.user_roles WHERE user_id = ANY(v_pool);
+  DELETE FROM public.team_members WHERE user_id = ANY(v_pool);
+  INSERT INTO public.roles (company_id, name)
+  VALUES (v_company, 'PWC viewer ' || v_tag)
+  RETURNING id INTO v_viewer_role;
+  INSERT INTO public.roles (company_id, name)
+  VALUES (v_company, 'PWC denied ' || v_tag)
+  RETURNING id INTO v_denied_role;
+  INSERT INTO public.user_roles (user_id, role_id, company_id) VALUES
+    (v_viewer, v_viewer_role, v_company), (v_denied, v_denied_role, v_company);
+  INSERT INTO public.role_permissions (role_id, permission_id)
+  SELECT v_viewer_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'filehub:view')
+  UNION ALL
+  SELECT v_denied_role, p.id FROM public.permissions p WHERE p.key IN ('project.view', 'filehub:view');
+
+  INSERT INTO public.projects (company_id, name, owner_id, created_by)
+  VALUES (v_company, 'PWC workspace ' || v_tag, v_mutator, v_mutator)
+  RETURNING id INTO v_project;
+  INSERT INTO public.tasks (company_id, project_id, title, created_by)
+  VALUES (v_company, v_project, 'PWC viewer task ' || v_tag, v_mutator)
+  RETURNING id INTO v_task;
+  INSERT INTO public.task_assignments (task_id, company_id, assignee_user_id, assigned_by)
+  VALUES (v_task, v_company, v_viewer, v_mutator);
+
+  INSERT INTO public.projects (company_id, name, owner_id, created_by)
+  VALUES (v_company, 'PWC no workspace ' || v_tag, v_mutator, v_mutator)
+  RETURNING id INTO v_no_workspace;
+  INSERT INTO public.tasks (company_id, project_id, title, created_by)
+  VALUES (v_company, v_no_workspace, 'PWC no workspace viewer task ' || v_tag, v_mutator)
+  RETURNING id INTO v_task;
+  INSERT INTO public.task_assignments (task_id, company_id, assignee_user_id, assigned_by)
+  VALUES (v_task, v_company, v_viewer, v_mutator);
+
+  PERFORM set_config('request.jwt.claim.sub', v_mutator::text, true);
+  PERFORM public.rpc_project_ensure_workspace_folder(v_project);
+  INSERT INTO pwc_capability_ctx VALUES (v_company, v_mutator, v_viewer, v_denied, v_project, v_no_workspace);
+END $$;
+
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE
+  c RECORD;
+  v_result JSONB;
+  v_msg TEXT;
+  v_raised BOOLEAN;
+BEGIN
+  SELECT * INTO c FROM pwc_capability_ctx;
+
+  PERFORM set_config('request.jwt.claim.sub', c.mutator::text, true);
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', c.mutator::text, 'role', 'authenticated')::text, true);
+  v_result := public.rpc_project_files(c.with_workspace);
+  IF (v_result #>> '{workspace,capabilities,upload}') IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'CHECK FAILED (capability 1): authorized project mutation should return upload=true, got %', v_result #> '{workspace,capabilities}';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', c.viewer::text, true);
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', c.viewer::text, 'role', 'authenticated')::text, true);
+  v_result := public.rpc_project_files(c.with_workspace);
+  IF (v_result #>> '{workspace,capabilities,upload}') IS DISTINCT FROM 'false' THEN
+    RAISE EXCEPTION 'CHECK FAILED (capability 2): accessible view-only caller should return upload=false, got %', v_result #> '{workspace,capabilities}';
+  END IF;
+  v_result := public.rpc_project_files(c.without_workspace);
+  IF (v_result #>> '{workspace,capabilities,upload}') IS DISTINCT FROM 'false' THEN
+    RAISE EXCEPTION 'CHECK FAILED (capability 3): accessible project without workspace must fail closed with upload=false, got %', v_result #> '{workspace,capabilities}';
+  END IF;
+
+  PERFORM set_config('request.jwt.claim.sub', c.denied::text, true);
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', c.denied::text, 'role', 'authenticated')::text, true);
+  v_raised := false;
+  BEGIN
+    PERFORM public.rpc_project_files(c.with_workspace);
+  EXCEPTION WHEN OTHERS THEN
+    v_msg := SQLERRM;
+    v_raised := true;
+  END;
+  IF NOT v_raised OR v_msg IS DISTINCT FROM 'Project not found.' THEN
+    RAISE EXCEPTION 'CHECK FAILED (capability 4): denied/no-workspace caller was not fail-closed, raised=%, message=%', v_raised, v_msg;
+  END IF;
+  RAISE NOTICE 'OK: rpc_project_files upload capability is true only for authorized mutations and false for view-only, no-workspace, and denied callers';
+END $$;
+
+RESET ROLE;
 
 ROLLBACK;
