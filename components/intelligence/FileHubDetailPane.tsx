@@ -10,7 +10,6 @@ import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } fr
 
 import { FilePreviewTeaser, getPreviewKind } from '../common/FilePreview';
 import Tooltip from '../common/Tooltip';
-import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
 import { FileActivityRows } from './FileHubActivity';
 import { getBrowseOriginLabel, getProjectWorkspaceLink, hasCanonicalAlias } from './filehubShared';
@@ -30,6 +29,7 @@ export type DetailFile = {
   task_category?: string | null;
   submission_id?: string | null;
   project_id?: string | null;
+  folder_id?: string | null;
   workspace_folder_id?: string | null;
   workspace_path?: string | null;
   origin?: 'workspace' | 'deliverable' | 'shared' | 'brief' | 'submission' | null;
@@ -76,7 +76,6 @@ export default function FileHubDetailPane({
   const colors = useThemeColors();
   const router = useRouter();
   const { fileVersions, fileActivity, logActivity } = useFileHub();
-  const { share, shareSheet } = useShareFile();
 
   const isFileHub = file.source === 'filehub';
   const kind = getPreviewKind(file.mime_type, file.file_name);
@@ -96,7 +95,7 @@ export default function FileHubDetailPane({
     () => [{ id: file.file_id, name: file.file_name, storagePath: file.storage_path, mimeType: file.mime_type, bucket: file.bucket, sizeBytes: file.size_bytes }],
     [file.file_id, file.storage_path],
   );
-  const { handlePress, viewer } = useFileViewer(media, file.bucket, { onShare: () => shareOut() });
+  const { handlePress, viewer } = useFileViewer(media, file.bucket);
   const openFull = () => { handlePress(media[0]); if (activityId) logActivity(activityId, 'view'); };
 
   // Double-click fast-track. handlePress resolves its own signed URL on demand,
@@ -155,14 +154,6 @@ export default function FileHubDetailPane({
 
   const download = () => { if (activityId) logActivity(activityId, 'download'); openStorageFile(file.bucket, file.storage_path, file.file_name, file.mime_type); };
 
-  const shareOut = () => share({
-    fileId: isFileHub ? file.file_id : null,
-    bucket: file.bucket,
-    storagePath: file.storage_path,
-    name: file.file_name,
-    mimeType: file.mime_type,
-    sizeBytes: file.size_bytes,
-  });
   const workspaceLink = getProjectWorkspaceLink(file);
 
   const Preview = (
@@ -216,10 +207,8 @@ export default function FileHubDetailPane({
       <View className="px-5 py-3 flex-row flex-wrap items-center gap-2 border-b border-surface-border">
         <ActionBtn icon="external-link" label="Open" onPress={openFull} colors={colors} primary />
         <ActionBtn icon="download" label="Download" onPress={download} colors={colors} />
-        <ActionBtn icon="share" label="Share" onPress={shareOut} colors={colors} />
         {workspaceLink && <ActionBtn icon="briefcase" label="Open in project workspace" onPress={() => router.push(workspaceLink as any)} colors={colors} />}
       </View>
-      {shareSheet}
 
       {/* Tabs — Details / Versions / Activity for every source (task files use
           their own version RPCs + the filehub pointer row for activity). */}

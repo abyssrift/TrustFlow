@@ -11,7 +11,9 @@ import type { ExplorerOrigin } from '@/lib/fileExplorerMode';
 export type BrowseIdentity = {
   file_id?: string | null;
   project_id?: string | null;
+  folder_id?: string | null;
   workspace_folder_id?: string | null;
+  origin?: ExplorerOrigin | string | null;
   canonical_file_id?: string | null;
   canonical_version_id?: string | null;
   bucket?: string | null;
@@ -71,8 +73,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 
 /** Browse is intentionally fail-closed: incomplete RPC identity never becomes a workspace link. */
 export function getProjectWorkspaceLink(identity: BrowseIdentity): string | null {
-  if (!validIdentityPart(identity.project_id) || !validIdentityPart(identity.workspace_folder_id) || !validIdentityPart(identity.canonical_file_id)) return null;
-  return `/projects/${encodeURIComponent(identity.project_id)}?tab=${encodeURIComponent('files')}&folder=${encodeURIComponent(identity.workspace_folder_id)}&file=${encodeURIComponent(identity.canonical_file_id)}`;
+  if (identity.origin !== 'workspace') return null;
+  const folderId = identity.folder_id;
+  if (!validIdentityPart(identity.project_id) || !validIdentityPart(folderId) || !validIdentityPart(identity.canonical_file_id)) return null;
+  return `/projects/${encodeURIComponent(identity.project_id)}?tab=${encodeURIComponent('files')}&folder=${encodeURIComponent(folderId)}&file=${encodeURIComponent(identity.canonical_file_id)}`;
 }
 
 export function formatFileSize(bytes: number): string {

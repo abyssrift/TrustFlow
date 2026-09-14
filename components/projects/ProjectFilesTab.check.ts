@@ -19,5 +19,9 @@ assert.match(route, /tabParam.*folderParam.*fileParam/s);
 assert.match(route, /<ProjectFilesTab[^>]*folderParam=/s);
 assert.match(route, /folderParam.*fileParam/s);
 assert.doesNotMatch(source, /<MultiViewList/);
+assert.match(source, /useUploadManager/);
+assert.match(source, /lastCompletedAt/);
+assert.match(source, /lastUploadRefreshRef/);
+assert.match(source, /void refresh\(\)/);
 
 console.log('ProjectFilesTab: source checks passed');

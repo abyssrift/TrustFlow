@@ -8,6 +8,7 @@ import { useFileHub, type FileActivity, type FileVersion } from '@/contexts/File
 import { useModalDispatch } from '@/contexts/ModalDispatchContext';
 import { useProjectDetail } from '@/contexts/ProjectDetailContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useUploadManager } from '@/contexts/UploadManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { formatFileSize } from '@/lib/uploadHelpers';
 import { openStorageFile } from '@/lib/storage';
@@ -72,6 +73,7 @@ export default function ProjectFilesTab({ folderParam, fileParam }: ProjectFiles
   const { summon } = useModalDispatch();
   const { errorToast, successToast } = useToast();
   const { showConfirm } = useAlert();
+  const { lastCompletedAt } = useUploadManager();
   const [envelope, setEnvelope] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -83,6 +85,9 @@ export default function ProjectFilesTab({ folderParam, fileParam }: ProjectFiles
   const [workspaceBin, setWorkspaceBin] = useState<ProjectFileHubBin | null>(null);
   const [showBin, setShowBin] = useState(false);
   const ensured = useRef(false);
+  const selectedFolderIdRef = useRef<string | null>(null);
+  const lastUploadRefreshRef = useRef(0);
+  selectedFolderIdRef.current = selectedFolderId;
   useEffect(() => {
     ensured.current = false;
     setEnvelope(null);
@@ -92,8 +97,13 @@ export default function ProjectFilesTab({ folderParam, fileParam }: ProjectFiles
     setShowBin(false);
     setMobilePage('folders');
   }, [projectId]);
-  const refresh = useCallback(async () => { setLoading(true); try { const next = await projectFiles(projectId); setEnvelope(next); if (next.workspace?.root && !selectedFolderId) setSelectedFolderId(next.workspace.root.id); } catch { setEnvelope(null); } finally { setLoading(false); } }, [projectId, projectFiles, selectedFolderId]);
+  const refresh = useCallback(async () => { setLoading(true); try { const next = await projectFiles(projectId); setEnvelope(next); if (next.workspace?.root && !selectedFolderIdRef.current) setSelectedFolderId(next.workspace.root.id); } catch { setEnvelope(null); } finally { setLoading(false); } }, [projectId, projectFiles]);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (!lastCompletedAt || lastUploadRefreshRef.current === lastCompletedAt) return;
+    lastUploadRefreshRef.current = lastCompletedAt;
+    void refresh();
+  }, [lastCompletedAt, refresh]);
   useEffect(() => {
     if (loading || !envelope) return;
     const hasDeepLink = folderParam !== undefined || fileParam !== undefined;
