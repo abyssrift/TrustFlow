@@ -325,7 +325,7 @@ function LinkField({ label, value, onPress, colors }: { label: string; value: st
   return (
     <View>
       <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-1">{label}</Text>
-      <TouchableOpacity onPress={onPress} className="flex-row items-center gap-1.5">
+      <TouchableOpacity onPress={onPress} className="min-h-11 min-w-11 flex-row items-center gap-1.5">
         <Text className="text-brand-primary text-sm font-bold" numberOfLines={1}>{value}</Text>
         <FontAwesome name="external-link" size={10} color={colors.primary} />
       </TouchableOpacity>

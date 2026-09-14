@@ -31,6 +31,11 @@ export function getBrowsePageCursor(rows: Array<{ created_at: string }>, fallbac
   return rows.length ? rows[rows.length - 1].created_at : fallback;
 }
 
+/** Commit browse responses only while they belong to the active query generation. */
+export function isCurrentBrowseRequest(requestGeneration: number, currentGeneration: number): boolean {
+  return requestGeneration === currentGeneration;
+}
+
 export function groupByCanonicalIdentity<T extends BrowseIdentity>(rows: T[]): T[][] {
   const groups = new Map<string, T[]>();
   for (const row of rows) {

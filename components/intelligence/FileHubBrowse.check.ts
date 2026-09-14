@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
-import { canonicalIdentityKey, getBrowseOriginLabel, getBrowsePageCursor, getProjectWorkspaceLink, groupByCanonicalIdentity, hasCanonicalAlias } from './filehubShared';
+import { canonicalIdentityKey, getBrowseOriginLabel, getBrowsePageCursor, getProjectWorkspaceLink, groupByCanonicalIdentity, hasCanonicalAlias, isCurrentBrowseRequest } from './filehubShared';
 
 const source = readFileSync(new URL('./FileHubBrowse.tsx', import.meta.url) as any, 'utf8');
 const detail = readFileSync(new URL('./FileHubDetailPane.tsx', import.meta.url) as any, 'utf8');
@@ -23,6 +23,8 @@ assert.equal(canonicalIdentityKey({ file_id: 'alias', canonical_file_id: file, c
 assert.equal(canonicalIdentityKey({ file_id: 'fallback', bucket: 'files', storage_path: 'a/b' }), 'fallback:files:a/b');
 assert.equal(getBrowsePageCursor([{ created_at: '2026-09-14T03:00:00Z' }, { created_at: '2026-09-14T02:00:00Z' }], null), '2026-09-14T02:00:00Z');
 assert.equal(getBrowsePageCursor([], '2026-09-14T02:00:00Z'), '2026-09-14T02:00:00Z');
+assert.equal(isCurrentBrowseRequest(3, 3), true);
+assert.equal(isCurrentBrowseRequest(2, 3), false);
 const aliasRows = [
   { file_id: 'alias-a', canonical_file_id: file, canonical_version_id: folder, bucket: 'files', storage_path: 'a/b' },
   { file_id: 'alias-b', canonical_file_id: file, canonical_version_id: folder, bucket: 'other-bucket', storage_path: 'different/path' },
@@ -39,6 +41,9 @@ assert.match(source, /fetchPage\(pageCursor, false\)/);
 assert.match(source, /rawBrowseItems/);
 assert.match(source, /setRawBrowseItems\(previous => \[\.\.\.previous, \.\.\.result\.rawItems\]\)/);
 assert.match(source, /useMemo\(\(\) => groupBrowseItems\(rawBrowseItems\)/);
+assert.match(source, /queryGenerationRef/);
+assert.match(source, /isCurrentBrowseRequest\(requestGeneration, queryGenerationRef\.current\)/);
+assert.match(source, /setLoadingMore\(false\)/);
 assert.match(detail, /Open in project workspace/);
 assert.doesNotMatch(source, /deleteFile|hideFile|showConfirm|Delete/);
 assert.doesNotMatch(detail, /deleteFile|showConfirm|Delete/);
