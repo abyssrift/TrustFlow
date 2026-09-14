@@ -279,6 +279,12 @@ BEGIN
 
   PERFORM set_config('request.jwt.claim.sub', c.denied::text, true);
   PERFORM set_config('request.jwt.claims', json_build_object('sub', c.denied::text, 'role', 'authenticated')::text, true);
+  ASSERT public.has_permission('project.view'),
+    'CHECK FAILED (capability 4): denied caller is missing project.view';
+  ASSERT public.has_permission('filehub:view'),
+    'CHECK FAILED (capability 4): denied caller is missing filehub:view';
+  ASSERT NOT public.has_permission('project.edit'),
+    'CHECK FAILED (capability 4): denied caller unexpectedly has project.edit';
   IF public.fn_project_accessible(c.with_workspace) THEN
     RAISE EXCEPTION 'CHECK FAILED (capability 4): unassigned project.view/filehub:view caller unexpectedly passed fn_project_accessible';
   END IF;
