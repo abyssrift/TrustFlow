@@ -20,9 +20,10 @@ export type BrowseIdentity = {
 
 /** Stable identity for one canonical byte/version, regardless of pointer alias. */
 export function canonicalIdentityKey(identity: BrowseIdentity): string {
-  const fileId = identity.canonical_file_id || identity.file_id || '';
-  const versionId = identity.canonical_version_id || '';
-  return [fileId, versionId, identity.bucket || '', identity.storage_path || ''].join(':');
+  if (identity.canonical_file_id && identity.canonical_version_id) {
+    return [identity.canonical_file_id, identity.canonical_version_id].join(':');
+  }
+  return [identity.file_id || '', identity.bucket || '', identity.storage_path || ''].join(':');
 }
 
 /** Keep keyset pagination anchored to the final raw RPC row, not a grouped alias. */

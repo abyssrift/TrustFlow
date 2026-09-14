@@ -186,7 +186,7 @@ export default function FileHubDetailPane({
         </TouchableOpacity>
       )}
       {(image || kind) && signedUrl && (
-        <TouchableOpacity onPress={openFull} className="absolute bottom-3 right-3 flex-row items-center gap-2 bg-black/60 px-3 py-2 rounded-xl">
+        <TouchableOpacity onPress={openFull} className="absolute bottom-3 right-3 min-h-11 min-w-11 flex-row items-center gap-2 bg-black/60 px-3 py-2 rounded-xl">
           <FontAwesome name="search-plus" size={11} color="#fff" />
           <Text className="text-white font-black text-[11px]">Fullscreen</Text>
         </TouchableOpacity>
@@ -201,7 +201,7 @@ export default function FileHubDetailPane({
         <View className="flex-row items-start gap-2">
           <Text className="flex-1 text-typography-main text-base font-black" numberOfLines={2}>{file.file_name}</Text>
           <Tooltip label="Close">
-            <TouchableOpacity onPress={onClose} className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border">
+            <TouchableOpacity onPress={onClose} className="min-h-11 min-w-11 rounded-lg items-center justify-center border border-surface-border">
               <FontAwesome name="times" size={13} color={colors.textMuted} />
             </TouchableOpacity>
           </Tooltip>
@@ -225,7 +225,7 @@ export default function FileHubDetailPane({
           their own version RPCs + the filehub pointer row for activity). */}
       <View className="px-5 pt-3 flex-row items-center gap-2">
         {(['details', 'versions', 'activity'] as const).map(t => (
-          <TouchableOpacity key={t} onPress={() => setTab(t)} className={`px-4 py-1.5 rounded-xl border ${tab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}>
+          <TouchableOpacity key={t} onPress={() => setTab(t)} className={`min-h-11 min-w-11 px-4 py-1.5 rounded-xl border ${tab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border'}`}>
             <Text className={`text-xs font-black capitalize ${tab === t ? 'text-brand-primary' : 'text-typography-muted'}`}>{t}</Text>
           </TouchableOpacity>
         ))}
@@ -264,7 +264,7 @@ export default function FileHubDetailPane({
                       <Tooltip label="Download this version">
                         <TouchableOpacity
                           onPress={() => { if (activityId) logActivity(activityId, 'download', { version_no: v.version_no }); openStorageFile(v.dl!.bucket, v.dl!.storage_path, v.dl!.name, v.dl!.mime); }}
-                          className="w-8 h-8 rounded-lg items-center justify-center border border-surface-border"
+                          className="min-h-11 min-w-11 rounded-lg items-center justify-center border border-surface-border"
                         >
                           <FontAwesome name="download" size={11} color={colors.textMuted} />
                         </TouchableOpacity>
@@ -304,7 +304,7 @@ function ActionBtn({ icon, label, onPress, colors, primary, danger }: { icon: an
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl ${primary ? 'bg-brand-primary' : danger ? 'bg-state-danger/10 border border-state-danger/20' : 'bg-surface-background border border-surface-border'}`}
+      className={`min-h-11 min-w-11 flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl ${primary ? 'bg-brand-primary' : danger ? 'bg-state-danger/10 border border-state-danger/20' : 'bg-surface-background border border-surface-border'}`}
     >
       <FontAwesome name={icon} size={11} color={primary ? '#fff' : danger ? colors.danger : colors.textMuted} />
       <Text className={`font-black text-[12px] ${primary ? 'text-white' : danger ? 'text-state-danger' : 'text-typography-main'}`}>{label}</Text>

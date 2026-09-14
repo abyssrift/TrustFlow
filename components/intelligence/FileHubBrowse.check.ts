@@ -19,12 +19,13 @@ assert.equal(getProjectWorkspaceLink({ project_id: 'p', workspace_folder_id: fol
 assert.equal(getProjectWorkspaceLink({ project_id: project, workspace_folder_id: '../folder', canonical_file_id: file }), null);
 assert.equal(getProjectWorkspaceLink({ project_id: project, workspace_folder_id: folder, canonical_file_id: 'null' }), null);
 assert.equal(getProjectWorkspaceLink({ project_id: project, workspace_folder_id: folder, canonical_file_id: `${file}%2Fother` }), null);
-assert.equal(canonicalIdentityKey({ file_id: 'alias', canonical_file_id: file, canonical_version_id: folder, bucket: 'files', storage_path: 'a/b' }), `${file}:${folder}:files:a/b`);
+assert.equal(canonicalIdentityKey({ file_id: 'alias', canonical_file_id: file, canonical_version_id: folder, bucket: 'files', storage_path: 'a/b' }), `${file}:${folder}`);
+assert.equal(canonicalIdentityKey({ file_id: 'fallback', bucket: 'files', storage_path: 'a/b' }), 'fallback:files:a/b');
 assert.equal(getBrowsePageCursor([{ created_at: '2026-09-14T03:00:00Z' }, { created_at: '2026-09-14T02:00:00Z' }], null), '2026-09-14T02:00:00Z');
 assert.equal(getBrowsePageCursor([], '2026-09-14T02:00:00Z'), '2026-09-14T02:00:00Z');
 const aliasRows = [
   { file_id: 'alias-a', canonical_file_id: file, canonical_version_id: folder, bucket: 'files', storage_path: 'a/b' },
-  { file_id: 'alias-b', canonical_file_id: file, canonical_version_id: folder, bucket: 'files', storage_path: 'a/b' },
+  { file_id: 'alias-b', canonical_file_id: file, canonical_version_id: folder, bucket: 'other-bucket', storage_path: 'different/path' },
   { file_id: 'version-2', canonical_file_id: file, canonical_version_id: '44444444-4444-4444-8444-444444444444', bucket: 'files', storage_path: 'a/b' },
 ];
 assert.equal(groupByCanonicalIdentity(aliasRows).length, 2, 'aliases group while distinct canonical versions remain separate');
@@ -35,7 +36,9 @@ for (const token of ['FilterPanel', 'FilterDropdown', 'FilterChipGroup', 'Explor
 }
 assert.match(source, /getBrowsePageCursor\(rawItems, before\)/);
 assert.match(source, /fetchPage\(pageCursor, false\)/);
-assert.match(source, /groupBrowseItems\(\[\.\.\.previous, \.\.\.result\.items\]\)/);
+assert.match(source, /rawBrowseItems/);
+assert.match(source, /setRawBrowseItems\(previous => \[\.\.\.previous, \.\.\.result\.rawItems\]\)/);
+assert.match(source, /useMemo\(\(\) => groupBrowseItems\(rawBrowseItems\)/);
 assert.match(detail, /Open in project workspace/);
 assert.doesNotMatch(source, /deleteFile|hideFile|showConfirm|Delete/);
 assert.doesNotMatch(detail, /deleteFile|showConfirm|Delete/);
