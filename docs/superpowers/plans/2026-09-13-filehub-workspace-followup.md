@@ -122,4 +122,3 @@
 - [ ] Run `git diff --check`, `graphify update .`, focused SQL/pure/Babel checks, and `npm run verify:agent`.
 - [ ] Drive the flows at ~1400px, ~1000px, ~390px, and native where available.
 - [ ] Update #428, #429, #430, and #412 with commit and validation results.
-

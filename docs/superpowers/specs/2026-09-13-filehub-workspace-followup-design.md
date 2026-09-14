@@ -76,4 +76,3 @@ cross-platform, while the web composer/explorer and native sheet/list renderers
 may differ where the interaction model requires it. The implementation must be
 driven at approximately 1400px and 1000px desktop widths and 390px mobile web,
 plus native coverage for the upload path.
-
