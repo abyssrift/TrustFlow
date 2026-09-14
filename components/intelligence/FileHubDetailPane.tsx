@@ -13,7 +13,6 @@ import Tooltip from '../common/Tooltip';
 import { useShareFile } from '../common/ShareFile';
 import { fileIcon, formatSize } from './TaskFileResults';
 import { FileActivityRows } from './FileHubActivity';
-import ExplorerBreadcrumbs from '@/components/filehub/explorer/ExplorerBreadcrumbs';
 import { getBrowseOriginLabel, getProjectWorkspaceLink, hasCanonicalAlias } from './filehubShared';
 
 export type DetailFile = {
@@ -165,9 +164,6 @@ export default function FileHubDetailPane({
     sizeBytes: file.size_bytes,
   });
   const workspaceLink = getProjectWorkspaceLink(file);
-  const pathCrumbs = file.workspace_path
-    ? file.workspace_path.split(' / ').map((label, index, all) => ({ id: `${file.workspace_folder_id ?? 'path'}:${index}`, label: index === all.length - 1 && file.origin === 'deliverable' ? `${label} · Deliverable` : label }))
-    : [];
 
   const Preview = (
     <View className={`${compact ? 'w-full h-56' : 'flex-1'} bg-surface-background items-center justify-center overflow-hidden`}>
@@ -238,7 +234,6 @@ export default function FileHubDetailPane({
       <ScrollView className="flex-1 no-scrollbar" contentContainerStyle={{ padding: 20, paddingTop: 12 }}>
         {tab === 'details' && (
           <View className="gap-3">
-            {pathCrumbs.length > 0 && <ExplorerBreadcrumbs items={pathCrumbs} onNavigate={() => {}} />}
             <Field label="Type" value={file.mime_type || 'Unknown'} colors={colors} />
             <Field label="Size" value={formatSize(file.size_bytes)} colors={colors} />
             {file.created_at && <Field label="Added" value={ago(file.created_at)} colors={colors} />}

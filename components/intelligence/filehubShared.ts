@@ -9,10 +9,21 @@ import { ActivityPresentation, getActivityPresentation } from '@/lib/filehubActi
 import type { ExplorerOrigin } from '@/lib/fileExplorerMode';
 
 export type BrowseIdentity = {
+  file_id?: string | null;
   project_id?: string | null;
   workspace_folder_id?: string | null;
   canonical_file_id?: string | null;
+  canonical_version_id?: string | null;
+  bucket?: string | null;
+  storage_path?: string | null;
 };
+
+/** Stable identity for one canonical byte/version, regardless of pointer alias. */
+export function canonicalIdentityKey(identity: BrowseIdentity): string {
+  const fileId = identity.canonical_file_id || identity.file_id || '';
+  const versionId = identity.canonical_version_id || '';
+  return [fileId, versionId, identity.bucket || '', identity.storage_path || ''].join(':');
+}
 
 export function getBrowseOriginLabel(origin: ExplorerOrigin | string | null | undefined): string {
   switch (origin) {
@@ -31,13 +42,15 @@ export function hasCanonicalAlias(row: { file_id?: string | null; canonical_file
 
 function validIdentityPart(value: string | null | undefined): value is string {
   const normalized = value?.trim();
-  return Boolean(normalized && normalized !== 'null' && normalized !== 'undefined');
+  return Boolean(normalized && normalized !== 'null' && normalized !== 'undefined' && UUID_RE.test(normalized));
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /** Browse is intentionally fail-closed: incomplete RPC identity never becomes a workspace link. */
 export function getProjectWorkspaceLink(identity: BrowseIdentity): string | null {
   if (!validIdentityPart(identity.project_id) || !validIdentityPart(identity.workspace_folder_id) || !validIdentityPart(identity.canonical_file_id)) return null;
-  return `/projects/${identity.project_id}?tab=files&folder=${identity.workspace_folder_id}&file=${identity.canonical_file_id}`;
+  return `/projects/${encodeURIComponent(identity.project_id)}?tab=${encodeURIComponent('files')}&folder=${encodeURIComponent(identity.workspace_folder_id)}&file=${encodeURIComponent(identity.canonical_file_id)}`;
 }
 
 export function formatFileSize(bytes: number): string {
