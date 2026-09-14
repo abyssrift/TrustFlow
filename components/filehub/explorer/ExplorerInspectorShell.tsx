@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 export type ExplorerInspectorShellProps = {
   navigation?: React.ReactNode;
@@ -40,8 +40,7 @@ export default function ExplorerInspectorShell({
         ) : null}
         {showInspector ? (
           <View
-            className="flex-1 min-h-0 min-w-0 overflow-hidden"
-            style={isDesktop ? { width: inspectorWidth, maxWidth: '100%', flexGrow: 0, flexShrink: 0, flexBasis: inspectorWidth } : undefined}
+            className={`flex-1 min-h-0 min-w-0 overflow-hidden ${isDesktop ? `w-[${inspectorWidth}px] max-w-full flex-grow-0 flex-shrink-0` : ''}`}
             testID="explorer-inspector-pane"
           >
             {!isDesktop ? (
@@ -51,7 +50,7 @@ export default function ExplorerInspectorShell({
                 onPress={onRequestCollection}
                 testID="explorer-mobile-back"
               >
-                <View className="h-0.5 w-4 bg-typography-muted" />
+                <Text aria-hidden className="text-typography-muted text-lg font-bold">←</Text>
               </TouchableOpacity>
             ) : null}
             {inspector}

@@ -84,7 +84,12 @@ describe('ExplorerInspectorShell', () => {
     const inspectorPane = renderer!.root.findByProps({ testID: 'explorer-inspector-pane' });
     expect(root.props.className).toContain('overflow-hidden');
     expect(collectionPane.props.className).toContain('min-w-0');
-    expect(inspectorPane.props.style).toMatchObject({ width: 420, flexShrink: 0 });
+    expect(inspectorPane.props.style).toBeUndefined();
+    expect(inspectorPane.props.className).toContain('w-[420px]');
+    expect(inspectorPane.props.className).toContain('max-w-full');
+    expect(inspectorPane.props.className).toContain('flex-shrink-0');
+    expect(inspectorPane.props.className).toContain('overflow-hidden');
+    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toContain('inspector');
   });
 
   it('does not render an empty inspector pane when inspector is missing', () => {
@@ -119,12 +124,16 @@ describe('ExplorerInspectorShell', () => {
     });
 
     expect(renderer!.root.findAllByProps({ testID: 'explorer-collection-pane' })).toHaveLength(0);
+    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toContain('inspector');
     const back = renderer!.root.findByProps({ testID: 'explorer-mobile-back' });
+    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toContain('←');
+    expect(back.props.accessibilityLabel).toBe('Back to collection');
     act(() => back.props.onPress());
     expect(onRequestCollection).toHaveBeenCalledOnce();
   });
 
   it('shows the controlled mobile collection without a back affordance', () => {
+    viewportWidth = 390;
     let renderer: TestRenderer.ReactTestRenderer;
     act(() => {
       renderer = TestRenderer.create(
@@ -138,6 +147,9 @@ describe('ExplorerInspectorShell', () => {
     });
 
     expect(renderer!.root.findByProps({ testID: 'explorer-collection-pane' })).toBeTruthy();
+    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toContain('collection');
+    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).not.toContain('inspector');
+    expect(renderer!.root.findAllByProps({ testID: 'explorer-inspector-pane' })).toHaveLength(0);
     expect(renderer!.root.findAllByProps({ testID: 'explorer-mobile-back' })).toHaveLength(0);
   });
 });
