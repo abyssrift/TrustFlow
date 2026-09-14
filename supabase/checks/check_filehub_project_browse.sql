@@ -44,6 +44,18 @@ BEGIN
      AND position('ORDER BY c.created_at DESC, c.file_id DESC' IN v_def) > 0
      AND position('ORDER BY a.created_at DESC, a.file_id DESC' IN v_def) > 0,
     'Browse pool, accepted rows, and results must use deterministic tie ordering';
+  ASSERT position('WITH candidate AS' IN v_def) > 0
+     AND position('LIMIT v_limit + 1' IN v_def) > 0
+     AND position('v_pool > v_limit' IN v_def) > 0
+     AND position('v_limit*3' IN v_def) = 0,
+    'Browse must ACL-filter the candidate before the page limit and use exact has_more semantics';
+  ASSERT position('AND CASE WHEN fi.origin IN (''workspace'',''deliverable'') THEN public.fn_project_accessible(fi.project_id)' IN v_def) > 0,
+    'Browse candidate must retain the ACL predicate before LIMIT';
+  ASSERT position('AND (p_project_id IS NULL OR fi.project_id=p_project_id)' IN v_def) > 0
+     AND position('AND (p_category IS NULL OR fi.category=p_category OR fi.task_category=p_category)' IN v_def) > 0
+     AND position('AND (p_type IS NULL OR public.file_mime_class(fi.mime_type)=p_type)' IN v_def) > 0
+     AND position('AND (v_q='''' OR fi.file_name ILIKE' IN v_def) > 0,
+    'Browse facets must apply project, category, type, and search filters';
   ASSERT position('filehub_file_version_id' IN pg_get_viewdef('public.files_index'::regclass, true)) > 0,
     'files_index must derive alias identity from existing FileHub version pointers';
 
@@ -57,7 +69,7 @@ BEGIN
   ), 'task/submission Browse aliases must preserve file-to-version identity';
 
   ASSERT position('origin IN (''workspace'',''deliverable'')' IN v_def) > 0
-     AND position('fn_project_accessible(c.project_id)' IN v_def) > 0,
+     AND position('fn_project_accessible(fi.project_id)' IN v_def) > 0,
     'Browse must route both project origins through the shared project ACL';
   ASSERT position('visibility = ''project''' IN pg_get_functiondef('public.filehub_file_accessible(uuid)'::regprocedure)) > 0,
     'filehub_file_accessible must retain the project visibility branch';
