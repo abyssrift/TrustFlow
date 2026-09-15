@@ -20,6 +20,7 @@ const state = vi.hoisted(() => ({
   shellProps: null as any,
   collectionProps: null as any,
   blockTitles: [] as string[],
+  blockRecords: [] as any[],
   fileHub: null as any,
 }));
 state.fileHub = {
@@ -45,7 +46,7 @@ vi.mock('@/components/common/FilePreview', () => ({ FilePreviewModal: 'FilePrevi
 vi.mock('@/components/filehub/explorer/ExplorerInspectorShell', () => ({ default: function Shell(props: any) { state.shellProps = props; return null; } }));
 vi.mock('@/components/filehub/explorer/ExplorerCollection', () => ({ default: function Collection(props: any) { state.collectionProps = props; return null; } }));
 vi.mock('@/components/projects/ProjectFileInspector', () => ({ default: function Inspector(props: any) { return React.createElement('ProjectInspector', props); } }));
-vi.mock('@/components/common/Block', () => ({ default: function Block(props: any) { state.blockTitles.push(props.title); return props.children || null; } }));
+vi.mock('@/components/common/Block', () => ({ default: function Block(props: any) { state.blockTitles.push(props.title); state.blockRecords.push(props); return props.children || null; } }));
 vi.mock('@/components/common/Popup', () => ({ default: () => null }));
 vi.mock('@/components/filehub/explorer/ExplorerBreadcrumbs', () => ({ default: () => null }));
 vi.mock('@/components/filehub/explorer/ExplorerUploadAction', () => ({ default: () => null }));
@@ -58,6 +59,7 @@ describe('ProjectFilesTab', () => {
     state.shellProps = null;
     state.collectionProps = null;
     state.blockTitles.length = 0;
+    state.blockRecords.length = 0;
     let renderer!: TestRenderer.ReactTestRenderer;
     await act(async () => { renderer = TestRenderer.create(React.createElement(ProjectFilesTab, { folderParam: 'root', fileParam: 'working' })); });
     await act(async () => { TestRenderer.create(state.shellProps.collection); });
@@ -65,6 +67,8 @@ describe('ProjectFilesTab', () => {
     expect(state.shellProps.inspector.type).toBeTypeOf('function');
     expect(state.collectionProps.renderCard).not.toBe(state.collectionProps.renderRow);
     expect(state.blockTitles).toEqual(expect.arrayContaining(['Client standing files', 'Sealed deliverable']));
+    expect(state.blockRecords.find(record => record.title === 'Client standing files').hint).toContain('Shared reference');
+    expect(state.blockRecords.find(record => record.title === 'Sealed deliverable').hint).toContain('read-only');
     let card!: TestRenderer.ReactTestRenderer;
     await act(async () => { card = TestRenderer.create(state.collectionProps.renderCard(state.envelope.workspace.files[0], 'large')); });
     expect(card.root.findAllByType('Text').map(node => String(node.props.children))).toEqual(expect.arrayContaining(['working.pdf', 'application/pdf']));
@@ -76,5 +80,21 @@ describe('ProjectFilesTab', () => {
     await act(async () => { TestRenderer.create(React.createElement(ProjectFilesTab, { folderParam: 'root', fileParam: 'working' })); });
     await act(async () => { state.shellProps.onRequestCollection(); });
     expect(state.shellProps.mobilePane).toBe('collection');
+  });
+
+  it('omits workspace mutation controls when project capabilities deny mutations', async () => {
+    const previous = state.envelope;
+    state.envelope = { ...previous, workspace: { ...previous.workspace, capabilities: { view: true, create: false, rename: false, move: false, delete: false, restore: false, upload: false, replace: false, version: false } } };
+    state.blockRecords.length = 0;
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => { renderer = TestRenderer.create(React.createElement(ProjectFilesTab, { folderParam: 'root' })); });
+    await act(async () => {});
+    await act(async () => { TestRenderer.create(state.shellProps.navigation); });
+    await act(async () => { TestRenderer.create(state.shellProps.collection); });
+    expect(renderer).toBeDefined();
+    expect(state.blockRecords.map(record => record.title)).toEqual(expect.arrayContaining(['Project workspace', 'Workspace']));
+    expect(state.blockRecords.find(record => record.title === 'Project workspace').right).toBeUndefined();
+    expect(state.blockRecords.find(record => record.title === 'Workspace').right).toBeUndefined();
+    state.envelope = previous;
   });
 });
