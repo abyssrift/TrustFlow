@@ -8,7 +8,7 @@ Task 3 completed as a bounded FileHub Browse layout migration. The existing Brow
 
 - Baseline contained unrelated dirty changes in Browse/check and many other files; those were preserved.
 - RED: `npx vitest run components/intelligence/FileHubBrowse.test.tsx` failed on the new mobile-back assertion because `explorer-mobile-back` did not exist before shell composition.
-- GREEN: focused Browse and shell tests passed: 2 files, 11 tests.
+- GREEN: focused Browse and shell tests passed: 2 files, 13 tests.
 
 ## Files
 
@@ -18,7 +18,8 @@ Task 3 completed as a bounded FileHub Browse layout migration. The existing Brow
 
 ## Verification
 
-- `npx vitest run components/intelligence/FileHubBrowse.test.tsx components/filehub/explorer/ExplorerInspectorShell.test.tsx` — passed, 11 tests.
+- `npx vitest run components/intelligence/FileHubBrowse.test.tsx components/filehub/explorer/ExplorerInspectorShell.test.tsx` — passed, 13 tests.
+- Full TypeScript verification was skipped because `npx tsc --noEmit` stalled without output.
 - `npx tsx components/intelligence/FileHubBrowse.check.ts` — passed.
 - `node scripts/babelcheck.mjs components/intelligence/FileHubBrowse.tsx components/intelligence/FileHubBrowse.check.ts components/intelligence/FileHubBrowse.test.tsx` — all passed.
 - `graphify update .` — completed; graph refreshed.
@@ -32,7 +33,7 @@ Task 3 completed as a bounded FileHub Browse layout migration. The existing Brow
 
 ## Commit
 
-Commit SHA: fbf43a9
+Commit SHA: a614076
 
 ## Final test-only repair
 
