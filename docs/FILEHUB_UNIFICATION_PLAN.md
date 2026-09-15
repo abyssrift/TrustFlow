@@ -1,5 +1,7 @@
 # FileHub Unification Plan (issue #143)
 
+Implementation discoverability: see the [Portable File Explorer guide](PORTABLE_FILE_EXPLORER.md) for shared collection/inspector composition, mixed file/folder selection, and domain capability boundaries.
+
 Goal of #143: **every file the app stores lives in FileHub as the single source of
 truth, and everything else (tasks, submissions, briefs) holds pointers into it** —
 so any file automatically inherits FileHub's capabilities: version control,

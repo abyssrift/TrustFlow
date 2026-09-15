@@ -107,4 +107,8 @@ npm test
 
 ## License
 
+Portable File Explorer: [developer guide](docs/PORTABLE_FILE_EXPLORER.md) for
+the shared collection, inspector shell, selection semantics, and adoption
+checklist.
+
 Proprietary — © TrustEdge LLC. All rights reserved.

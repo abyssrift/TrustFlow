@@ -10,6 +10,8 @@ The rule files currently use `trigger: always_on`, so they must all be read for 
 
 ## Planning and implementation orchestration is mandatory
 
+For Explorer-style collection/inspector work, start with the [Portable File Explorer guide](docs/PORTABLE_FILE_EXPLORER.md) for actual imports, selection semantics, domain boundaries, and responsive adoption.
+
 For **any planning related to a feature, refactor, or code change**, use the
 repository skill at `.agents/skills/sol-architect-orchestration/SKILL.md`.
 The default architect is `gpt-5.6-sol` with `medium` reasoning effort. Sol

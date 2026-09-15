@@ -2,6 +2,8 @@
 
 **Before adding or touching any animation, always read `.agents/rules/animation-consistency.md` first — it has a decision tree for which of the app's four animation systems to use and documents a couple of confirmed platform gotchas (`LayoutAnimation` no-ops on web, reanimated's declarative `entering`/`exiting`/`layout` props don't paint on this app's web build).**
 
+For Explorer-style collection and inspector work, read the [Portable File Explorer guide](docs/PORTABLE_FILE_EXPLORER.md) for settled component paths, selection behavior, capability boundaries, and responsive targets.
+
 ## Popups, modals, sheets
 
 **Never use raw RN `Modal` directly.** Every popup/modal/sheet goes through
