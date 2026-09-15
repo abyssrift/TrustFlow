@@ -6,7 +6,7 @@ The bounded Project Files explorer/inspector parity package is complete. Project
 
 ## Reviewed range and exact files
 
-The final reviewed range is `a614076d481d08424b22800fff90c47fd6932595..24b6c6419d006329c0695c41c8954381204d4e5a` (`a614076..HEAD`; final SHA `24b6c6419d006329c0695c41c8954381204d4e5a`). Its exact changed files are:
+The final implementation/test range is `a614076d481d08424b22800fff90c47fd6932595..24b6c6419d006329c0695c41c8954381204d4e5a` (final implementation/test SHA `24b6c6419d006329c0695c41c8954381204d4e5a`). The current checkout adds the report-only metadata correction `cc9b1cd50d39fb2b2cef8d4edf84732ab35b084d`; it does not change implementation or tests. The exact files in the implementation/test range are:
 
 - `.superpowers/sdd/portable-explorer-task-3-report.md`
 - `.superpowers/sdd/portable-explorer-task-4-report.md`
