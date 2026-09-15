@@ -31,9 +31,11 @@ Task 3 completed as a bounded FileHub Browse layout migration. The existing Brow
 - React test output retains existing `react-test-renderer`/`act` warnings; assertions pass.
 - Manual browser walkthrough was not run in this bounded pass; desktop (~1400px) and mobile web (~390px) should be exercised by integration acceptance.
 
-## Commit
+## Commits
 
-Commit SHA: a614076
+- Implementation commit: `a614076`
+- Report metadata commit: `1fafb68`
+- Any subsequent report-only corrections are separate documentation commits.
 
 ## Final test-only repair
 
