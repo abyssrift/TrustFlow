@@ -32,4 +32,14 @@ Task 3 completed as a bounded FileHub Browse layout migration. The existing Brow
 
 ## Commit
 
-Commit SHA: 1096c14
+Commit SHA: 655064f
+
+## Final test-only repair
+
+- Selection now holds the mocked multi-select state through the first awaited press and disables it only before opening the second item; bulk selection remains after mobile back.
+- Pagination captures and awaits the real `loadMore` promise after resolving the `{data,error}` RPC envelope, then asserts the appended item.
+- Stale search forces a keyed rerender, asserts the new-search resolver exists, and then resolves old/new requests independently.
+- Focused Vitest: 2 files, 13 tests passed with no unhandled errors.
+- `npx tsx components/intelligence/FileHubBrowse.check.ts`: passed.
+- Babel checks for the test/check files: passed.
+- Production Browse and unrelated dirty files were not staged.
