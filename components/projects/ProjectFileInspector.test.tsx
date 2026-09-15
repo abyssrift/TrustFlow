@@ -2,7 +2,16 @@ import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { describe, expect, it, vi } from 'vitest';
 
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+type Renderer = ReturnType<typeof TestRenderer.create>;
+type TestNode = { props: Record<string, unknown> };
+type ProjectVersion = { id: string; version_no: number; size_bytes: number; created_at: string; is_current: boolean; storage_path?: string; bucket?: string; original_name?: string; mime_type?: string | null };
+type ProjectActivity = { id: string; action: string; created_at: string };
+const reactGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+reactGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+const childLabel = (node: TestNode) => {
+  const child = node.props.children;
+  return String(child && typeof child === 'object' && 'props' in child ? ((child as { props?: { children?: unknown } }).props?.children ?? '') : '');
+};
 
 const viewerState = { signedUrls: {} as Record<string, string>, previewUrls: {} as Record<string, string>, handlePress: vi.fn(), viewer: null };
 const showConfirm = vi.fn();
@@ -23,20 +32,20 @@ import ProjectFileInspector from './ProjectFileInspector';
 
 const file = (id: string, mime_type = 'application/pdf') => ({ id, name: `${id}.pdf`, folder_id: 'folder', project_id: 'project', mime_type, size_bytes: 12, bucket: 'project-files', storage_path: `${id}.pdf`, current_version_id: 'current', tags: [], created_at: '2026-01-01', updated_at: '2026-01-02', activity_ids: [] });
 const capabilities = (overrides: Partial<Record<string, boolean>> = {}) => ({ view: true, create: false, rename: false, move: false, delete: false, restore: true, upload: false, replace: false, version: true, ...overrides });
-const renderInspector = (item = file('a'), caps = capabilities(), versions = vi.fn(async () => []), activity = vi.fn(async () => []), restore = vi.fn(async () => {})) => TestRenderer.create(React.createElement(ProjectFileInspector, { file: item, projectId: 'project', capabilities: caps, onRefresh: vi.fn(), projectFileVersions: versions, restoreProjectFileVersion: restore, fileActivity: activity, logActivity: vi.fn() }));
-const texts = (renderer: TestRenderer.ReactTestRenderer) => renderer.root.findAllByType('Text').map(node => String(node.props.children));
-const press = async (renderer: TestRenderer.ReactTestRenderer, label: string, occurrence = 0) => {
-  const actions = renderer.root.findAllByType('TouchableOpacity').filter(node => String(node.props.children?.props?.children || '') === label);
+const renderInspector = (item = file('a'), caps = capabilities(), versions: (projectId: string, fileId: string) => Promise<ProjectVersion[]> = vi.fn(async () => []), activity: (fileId: string) => Promise<ProjectActivity[]> = vi.fn(async () => []), restore = vi.fn(async () => {})) => TestRenderer.create(React.createElement(ProjectFileInspector, { file: item, projectId: 'project', capabilities: caps, onRefresh: vi.fn(), projectFileVersions: versions, restoreProjectFileVersion: restore, fileActivity: activity, logActivity: vi.fn() }));
+const texts = (renderer: Renderer) => renderer.root.findAllByType('Text').map((node: TestNode) => String(node.props.children));
+const press = async (renderer: Renderer, label: string, occurrence = 0) => {
+  const actions = renderer.root.findAllByType('TouchableOpacity').filter((node: TestNode) => childLabel(node) === label);
   await act(async () => { actions[occurrence]?.props.onPress(); });
 };
 
 describe('ProjectFileInspector', () => {
   it('hides preview, download, versions, and restore when capabilities deny them', async () => {
     storage.openStorageFile.mockClear();
-    let renderer!: TestRenderer.ReactTestRenderer;
+    let renderer!: Renderer;
     await act(async () => { renderer = renderInspector(file('denied'), capabilities({ view: false, version: false, restore: false })); });
     expect(texts(renderer)).not.toEqual(expect.arrayContaining(['Preview', 'Download', 'versions', 'Restore']));
-    expect(renderer.root.findAllByType('TouchableOpacity').map(node => String(node.props.children?.props?.children))).toEqual(['details']);
+    expect(renderer.root.findAllByType('TouchableOpacity').map((node: TestNode) => childLabel(node))).toEqual(['details']);
   });
 
   it('renders signed image/document previews and permitted version actions', async () => {
@@ -47,7 +56,7 @@ describe('ProjectFileInspector', () => {
     showConfirm.mockClear();
     const versions = vi.fn(async () => [{ id: 'v1', version_no: 1, size_bytes: 10, created_at: '2026-01-03', is_current: false, bucket: 'project-files', storage_path: 'old.pdf', original_name: 'old.pdf', mime_type: 'application/pdf' }]);
     const restore = vi.fn(async () => {});
-    let renderer!: TestRenderer.ReactTestRenderer;
+    let renderer!: Renderer;
     await act(async () => { renderer = renderInspector(file('doc'), capabilities(), versions, vi.fn(async () => []), restore); });
     expect(renderer.root.findByType('PreviewTeaser').props.uri).toBe('signed-document');
     await press(renderer, 'Preview');
@@ -60,7 +69,10 @@ describe('ProjectFileInspector', () => {
     expect(storage.openStorageFile).toHaveBeenCalledWith('project-files', 'old.pdf', 'old.pdf', 'application/pdf');
     await press(renderer, 'Restore');
     expect(showConfirm).toHaveBeenCalled();
-    await act(async () => { await showConfirm.mock.calls.at(-1)[2](); });
+    const confirmation = showConfirm.mock.calls.at(-1)?.[2] as (() => Promise<void>) | undefined;
+    expect(confirmation).toBeTypeOf('function');
+    if (!confirmation) throw new Error('Expected restore confirmation callback');
+    await act(async () => { await confirmation(); });
     expect(restore).toHaveBeenCalledWith('project', 'v1');
     await act(async () => { renderer.update(React.createElement(ProjectFileInspector, { file: file('image', 'image/png'), projectId: 'project', capabilities: capabilities(), onRefresh: vi.fn(), projectFileVersions: versions, restoreProjectFileVersion: restore, fileActivity: vi.fn(async () => []), logActivity: vi.fn() })); });
     expect(renderer.root.findByType('Image').props.source.uri).toBe('signed-image');
@@ -71,9 +83,9 @@ describe('ProjectFileInspector', () => {
     let resolveActivity!: (value: any[]) => void;
     const versions = vi.fn(() => new Promise<any[]>(resolve => { resolveVersions = resolve; }));
     const activity = vi.fn(() => new Promise<any[]>(resolve => { resolveActivity = resolve; }));
-    let renderer!: TestRenderer.ReactTestRenderer;
+    let renderer!: Renderer;
     await act(async () => { renderer = renderInspector(file('a'), capabilities(), versions, activity); });
-    const tab = (label: string) => renderer.root.findAllByType('TouchableOpacity').find(node => node.props.children?.props?.children === label);
+    const tab = (label: string) => renderer.root.findAllByType('TouchableOpacity').find((node: TestNode) => childLabel(node) === label);
     await act(async () => { tab('versions')?.props.onPress(); tab('activity')?.props.onPress(); });
     renderer.update(React.createElement(ProjectFileInspector, { file: file('b'), projectId: 'project', capabilities: capabilities(), onRefresh: vi.fn(), projectFileVersions: versions, restoreProjectFileVersion: vi.fn(async () => {}), fileActivity: activity, logActivity: vi.fn() }));
     await act(async () => { resolveVersions([{ id: 'stale-v', version_no: 9, size_bytes: 1, created_at: '2026-01-04', is_current: false }]); resolveActivity([{ id: 'stale-a', action: 'stale', created_at: '2026-01-04' }]); });

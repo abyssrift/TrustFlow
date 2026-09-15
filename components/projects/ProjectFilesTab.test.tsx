@@ -1,8 +1,12 @@
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { describe, expect, it, vi } from 'vitest';
+import type { ProjectFilesTabProps } from './ProjectFilesTab';
 
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+type Renderer = ReturnType<typeof TestRenderer.create>;
+type TestNode = { props: Record<string, unknown> };
+const reactGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+reactGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 
 const state = vi.hoisted(() => ({
   width: 390,
@@ -60,8 +64,8 @@ describe('ProjectFilesTab', () => {
     state.collectionProps = null;
     state.blockTitles.length = 0;
     state.blockRecords.length = 0;
-    let renderer!: TestRenderer.ReactTestRenderer;
-    await act(async () => { renderer = TestRenderer.create(React.createElement(ProjectFilesTab, { folderParam: 'root', fileParam: 'working' })); });
+    let renderer!: Renderer;
+    await act(async () => { renderer = TestRenderer.create(React.createElement<ProjectFilesTabProps>(ProjectFilesTab, { folderParam: 'root', fileParam: 'working' })); });
     await act(async () => { TestRenderer.create(state.shellProps.collection); });
     expect(state.shellProps.mobilePane).toBe('inspector');
     expect(state.shellProps.inspector.type).toBeTypeOf('function');
@@ -69,15 +73,15 @@ describe('ProjectFilesTab', () => {
     expect(state.blockTitles).toEqual(expect.arrayContaining(['Client standing files', 'Sealed deliverable']));
     expect(state.blockRecords.find(record => record.title === 'Client standing files').hint).toContain('Shared reference');
     expect(state.blockRecords.find(record => record.title === 'Sealed deliverable').hint).toContain('read-only');
-    let card!: TestRenderer.ReactTestRenderer;
+    let card!: Renderer;
     await act(async () => { card = TestRenderer.create(state.collectionProps.renderCard(state.envelope.workspace.files[0], 'large')); });
-    expect(card.root.findAllByType('Text').map(node => String(node.props.children))).toEqual(expect.arrayContaining(['working.pdf', 'application/pdf']));
+    expect(card.root.findAllByType('Text').map((node: TestNode) => String(node.props.children))).toEqual(expect.arrayContaining(['working.pdf', 'application/pdf']));
     expect(card.root.findByType('Icon').props.name).toBe('file-o');
     expect(renderer).toBeDefined();
   });
 
   it('mobile back returns to collection through the shell callback', async () => {
-    await act(async () => { TestRenderer.create(React.createElement(ProjectFilesTab, { folderParam: 'root', fileParam: 'working' })); });
+    await act(async () => { TestRenderer.create(React.createElement<ProjectFilesTabProps>(ProjectFilesTab, { folderParam: 'root', fileParam: 'working' })); });
     await act(async () => { state.shellProps.onRequestCollection(); });
     expect(state.shellProps.mobilePane).toBe('collection');
   });
@@ -86,8 +90,8 @@ describe('ProjectFilesTab', () => {
     const previous = state.envelope;
     state.envelope = { ...previous, workspace: { ...previous.workspace, capabilities: { view: true, create: false, rename: false, move: false, delete: false, restore: false, upload: false, replace: false, version: false } } };
     state.blockRecords.length = 0;
-    let renderer!: TestRenderer.ReactTestRenderer;
-    await act(async () => { renderer = TestRenderer.create(React.createElement(ProjectFilesTab, { folderParam: 'root' })); });
+    let renderer!: Renderer;
+    await act(async () => { renderer = TestRenderer.create(React.createElement<ProjectFilesTabProps>(ProjectFilesTab, { folderParam: 'root' })); });
     await act(async () => {});
     await act(async () => { TestRenderer.create(state.shellProps.navigation); });
     await act(async () => { TestRenderer.create(state.shellProps.collection); });
