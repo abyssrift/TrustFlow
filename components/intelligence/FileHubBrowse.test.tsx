@@ -196,7 +196,7 @@ describe('FileHubBrowse characterization', () => {
     act(() => { renderer = TestRenderer.create(<FileHubBrowse />); });
     await act(async () => {});
     browseTestState.searchDebounced = 'new search';
-    await act(async () => { renderer.update(<FileHubBrowse key="search-change" />); });
+    await act(async () => { renderer.update(<FileHubBrowse />); });
     expect(pending.get('new search')).toHaveLength(1);
     expect(rpcMock).toHaveBeenLastCalledWith('rpc_filehub_browse', expect.objectContaining({ p_query: 'new search', p_before: null }));
     for (const resolve of pending.get('old') || []) resolve({ data: { items: [fixture('stale')], has_more: false, facets: null }, error: null });
