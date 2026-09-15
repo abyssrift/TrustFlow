@@ -13,6 +13,7 @@ The previous report listed a nonexistent integration SHA. The actual checkout an
 - `f6dae0387f2af61d244969ae21c9b2992b641869` - inspector review fixes
 - Baseline implementation commit: `be477c0` (`feat: bring project files to explorer parity`)
 - Review-fix commit: `0ef1768` (`fix: close remaining project files review blockers`)
+- Follow-up behavior-test commit: `dec8a00` (`test: deepen project files review coverage`)
 
 ## RED/GREEN evidence
 
@@ -27,6 +28,8 @@ The previous report listed a nonexistent integration SHA. The actual checkout an
 - Modified: `components/projects/ProjectFilesTab.tsx`
 - Modified: `components/projects/ProjectFilesTab.check.ts`
 - Modified: `.superpowers/sdd/portable-explorer-task-4-report.md`
+- Follow-up-only files: `components/projects/ProjectFileInspector.test.tsx`, `components/projects/ProjectFilesTab.test.tsx`, and this report.
+- Task 3 report: not in the Task 4 ownership/range; unchanged and not included.
 - No unrelated dirty files were reset, reverted, or staged.
 
 ## Capability matrix
@@ -45,11 +48,14 @@ The previous report listed a nonexistent integration SHA. The actual checkout an
 - Image and document teaser paths consume `useFileViewer` signed `signedUrls`/`previewUrls`; fullscreen rendering remains the viewer output.
 - Per-version downloads use version storage metadata and remain view-gated.
 - Focused tests now assert capability mapping, absence of hard-coded `canView/canVersion`, stale guards, signed preview outputs, and duplicate removal.
+- Follow-up tests invoke preview/download/version-download/restore callbacks and assert viewer, storage, confirmation, and RPC arguments; they also cover client/sealed blocks and denied workspace mutation controls.
+- The tab test uses narrow shell/collection seams to inspect the real tab's composed props and callbacks; it does not render ExplorerInspectorShell or ExplorerCollection internals.
 
 ## Verification
 
-- `npx vitest run components/projects/ProjectFileInspector.test.tsx components/projects/ProjectFilesTab.test.tsx` - PASS (2 files, 5 behavior tests).
+- `npx vitest run components/projects/ProjectFileInspector.test.tsx components/projects/ProjectFilesTab.test.tsx` - PASS (2 files, 6 behavior tests).
 - `node scripts/babelcheck.mjs components/projects/ProjectFilesTab.tsx components/projects/ProjectFileInspector.tsx` - PASS.
+- `node scripts/babelcheck.mjs components/projects/ProjectFileInspector.test.tsx components/projects/ProjectFilesTab.test.tsx` - PASS.
 - `npx tsx components/projects/ProjectFilesTab.check.ts` - PASS.
 - `npx tsx lib/projectFileHubNormalization.check.ts` - PASS.
 - `git diff --check` for intended files - PASS.
