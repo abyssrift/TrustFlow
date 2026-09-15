@@ -6,7 +6,7 @@ The bounded Project Files explorer/inspector parity package is complete. Project
 
 ## Reviewed range and exact files
 
-The final implementation/test range is `a614076d481d08424b22800fff90c47fd6932595..24b6c6419d006329c0695c41c8954381204d4e5a` (final implementation/test SHA `24b6c6419d006329c0695c41c8954381204d4e5a`). The current checkout adds the report-only metadata correction `cc9b1cd50d39fb2b2cef8d4edf84732ab35b084d`; it does not change implementation or tests. The exact files in the implementation/test range are:
+The final implementation/test range is `a614076d481d08424b22800fff90c47fd6932595..24b6c6419d006329c0695c41c8954381204d4e5a` (final implementation/test SHA `24b6c6419d006329c0695c41c8954381204d4e5a`). The current checkout includes the report-only metadata corrections `cc9b1cd50d39fb2b2cef8d4edf84732ab35b084d` and `9d039db36e65d89c9f7942d4e845f66d1b52d3db`; the finalization commit containing this sentence does not change implementation or tests. The exact files in the implementation/test range are:
 
 - `.superpowers/sdd/portable-explorer-task-3-report.md`
 - `.superpowers/sdd/portable-explorer-task-4-report.md`
@@ -29,6 +29,8 @@ The Task 3 report is therefore in the ancestry range, although it is outside thi
 - `7becd69ba49da5cdf355ee600a188a50411dca93` - prior report metadata
 - `9cfd53f3f85e022ee379173e5f2d2734c2e8a1fd` - test typing fixes and final reviewed test state
 - `24b6c6419d006329c0695c41c8954381204d4e5a` - prior report metadata commit
+- `cc9b1cd50d39fb2b2cef8d4edf84732ab35b084d` - corrected implementation/test range metadata
+- `9d039db36e65d89c9f7942d4e845f66d1b52d3db` - clarified implementation/test range versus report-only commits
 
 ## Behavior coverage
 
