@@ -16,10 +16,12 @@ describe('ProjectFilesTab', () => {
     assert.match(source, /setSelectedFile\(null\)/);
     assert.match(source, /resolveProjectFileHubDeepLink/);
     assert.match(source, /capabilities\?\.create/);
-    assert.match(source, /capabilities\?\.restore/);
+    assert.match(source, /projectCapabilities\.restore === true/);
     assert.match(source, /summon\('upload'/);
     assert.match(source, /showConfirm/);
     assert.match(source, /standing_files/);
     assert.match(source, /deliverable_files/);
+    assert.doesNotMatch(source, /LegacyProjectFileDetail|ProjectFileDetail/);
+    assert.doesNotMatch(source, /canView:\s*true|canVersion:\s*true/);
   });
 });

@@ -14,9 +14,12 @@ describe('ProjectFileInspector', () => {
     assert.match(source, /projectFileVersions/);
     assert.match(source, /fileActivity/);
     assert.match(source, /showConfirm/);
-    assert.match(source, /canRestore/);
+    assert.match(source, /capabilities\.restore/);
     assert.doesNotMatch(source, /FileHubContext/);
-    assert.match(source, /canRestore && !version\.is_current/);
+    assert.match(source, /capabilities\.restore && !version\.is_current/);
+    assert.match(source, /capabilities=\{\{ canView: capabilities\.view/);
+    assert.match(source, /canVersion: capabilities\.version/);
+    assert.doesNotMatch(source, /canView:\s*true|canVersion:\s*true/);
   });
 
   it('resets selected-file state when the inspector identity changes', () => {
@@ -28,6 +31,9 @@ describe('ProjectFileInspector', () => {
     assert.match(source, /FilePreviewTeaser[\s\S]*uri=\{previewUrl/);
     assert.match(source, /version\.bucket[\s\S]*version\.storage_path[\s\S]*version\.original_name[\s\S]*version\.mime_type/);
     assert.match(source, /Download/);
-    assert.match(source, /canRestore && !version\.is_current/);
+    assert.match(source, /capabilities\.restore && !version\.is_current/);
+    assert.match(source, /capabilities\.view && version\.bucket/);
+    assert.match(source, /requestId === requestIdRef\.current && fileId === file\.id/);
+    assert.match(source, /signedUrls\[file\.id\]/);
   });
 });
