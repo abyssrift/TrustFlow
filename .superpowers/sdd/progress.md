@@ -11,9 +11,9 @@
 
 - Task 1: complete (shared-workspace package; review clean)
 - Task 2: complete (shared-workspace package; review clean; Docker check passed)
-- Task 3: pending
+- Task 3: complete (shared-workspace package; review clean with minor spinner/reduced-motion follow-ups)
 - Task 4: complete (implementation/test range a614076..24b6c64; report finalization through aabf11c; review PASS; focused tests, Babel, source checks, normalization, and compiler audit complete; browser walkthrough deferred because CUA kernel assets are unavailable)
-- Task 5: pending
+- Task 5: complete (commit 8668c5d, review PASS; portable explorer guide and discoverability links published)
 
 ## Portable File Explorer and Inspector (docs/superpowers/plans/2026-09-14-portable-file-explorer-inspector.md)
 
