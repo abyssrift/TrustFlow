@@ -22,7 +22,7 @@ describe('ExplorerInspectorShell', () => {
   });
 
   it('renders collection-only content with bounded collection placement', () => {
-    let renderer: TestRenderer.ReactTestRenderer;
+    let renderer: any;
     act(() => {
       renderer = TestRenderer.create(
         <ExplorerInspectorShell
@@ -40,7 +40,7 @@ describe('ExplorerInspectorShell', () => {
   });
 
   it('places optional navigation and header slots above the panes', () => {
-    let renderer: TestRenderer.ReactTestRenderer;
+    let renderer: any;
     act(() => {
       renderer = TestRenderer.create(
         <ExplorerInspectorShell
@@ -56,7 +56,7 @@ describe('ExplorerInspectorShell', () => {
 
     expect(renderer!.root.findByProps({ testID: 'explorer-navigation' })).toBeTruthy();
     expect(renderer!.root.findByProps({ testID: 'explorer-header' })).toBeTruthy();
-    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toEqual([
+    expect(renderer!.root.findAllByType('Text').map((node: any) => node.props.children)).toEqual([
       'navigation',
       'header',
       'collection',
@@ -66,7 +66,7 @@ describe('ExplorerInspectorShell', () => {
 
   it('splits collection and inspector on desktop with a bounded custom-width inspector', () => {
     viewportWidth = 1280;
-    let renderer: TestRenderer.ReactTestRenderer;
+    let renderer: any;
     act(() => {
       renderer = TestRenderer.create(
         <ExplorerInspectorShell
@@ -86,14 +86,16 @@ describe('ExplorerInspectorShell', () => {
     expect(collectionPane.props.className).toContain('min-w-0');
     expect(inspectorPane.props.style).toBeUndefined();
     expect(inspectorPane.props.className).toContain('w-[420px]');
+    expect(inspectorPane.props.className).not.toContain('flex-1');
+    expect(inspectorPane.props.className).not.toContain('flex-basis');
     expect(inspectorPane.props.className).toContain('max-w-full');
     expect(inspectorPane.props.className).toContain('flex-shrink-0');
     expect(inspectorPane.props.className).toContain('overflow-hidden');
-    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toContain('inspector');
+    expect(renderer!.root.findAllByType('Text').map((node: any) => node.props.children)).toContain('inspector');
   });
 
   it('uses a safe static width class when inspectorWidth is unsupported', () => {
-    let renderer: TestRenderer.ReactTestRenderer;
+    let renderer: any;
     act(() => {
       renderer = TestRenderer.create(
         <ExplorerInspectorShell
@@ -112,7 +114,7 @@ describe('ExplorerInspectorShell', () => {
   });
 
   it('does not render an empty inspector pane when inspector is missing', () => {
-    let renderer: TestRenderer.ReactTestRenderer;
+    let renderer: any;
     act(() => {
       renderer = TestRenderer.create(
         <ExplorerInspectorShell
@@ -130,7 +132,7 @@ describe('ExplorerInspectorShell', () => {
   it('shows the controlled mobile inspector and invokes the collection back affordance', () => {
     viewportWidth = 390;
     const onRequestCollection = vi.fn();
-    let renderer: TestRenderer.ReactTestRenderer;
+    let renderer: any;
     act(() => {
       renderer = TestRenderer.create(
         <ExplorerInspectorShell
@@ -143,9 +145,9 @@ describe('ExplorerInspectorShell', () => {
     });
 
     expect(renderer!.root.findAllByProps({ testID: 'explorer-collection-pane' })).toHaveLength(0);
-    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toContain('inspector');
+    expect(renderer!.root.findAllByType('Text').map((node: any) => node.props.children)).toContain('inspector');
     const back = renderer!.root.findByProps({ testID: 'explorer-mobile-back' });
-    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toContain('←');
+    expect(renderer!.root.findAllByType('Text').map((node: any) => node.props.children)).toContain('←');
     expect(back.props.accessibilityLabel).toBe('Back to collection');
     act(() => back.props.onPress());
     expect(onRequestCollection).toHaveBeenCalledOnce();
@@ -153,7 +155,7 @@ describe('ExplorerInspectorShell', () => {
 
   it('shows the controlled mobile collection without a back affordance', () => {
     viewportWidth = 390;
-    let renderer: TestRenderer.ReactTestRenderer;
+    let renderer: any;
     act(() => {
       renderer = TestRenderer.create(
         <ExplorerInspectorShell
@@ -166,8 +168,8 @@ describe('ExplorerInspectorShell', () => {
     });
 
     expect(renderer!.root.findByProps({ testID: 'explorer-collection-pane' })).toBeTruthy();
-    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).toContain('collection');
-    expect(renderer!.root.findAllByType('Text').map((node) => node.props.children)).not.toContain('inspector');
+    expect(renderer!.root.findAllByType('Text').map((node: any) => node.props.children)).toContain('collection');
+    expect(renderer!.root.findAllByType('Text').map((node: any) => node.props.children)).not.toContain('inspector');
     expect(renderer!.root.findAllByProps({ testID: 'explorer-inspector-pane' })).toHaveLength(0);
     expect(renderer!.root.findAllByProps({ testID: 'explorer-mobile-back' })).toHaveLength(0);
   });
