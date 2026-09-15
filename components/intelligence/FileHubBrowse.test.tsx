@@ -21,7 +21,8 @@ vi.mock('@/contexts/ModalDispatchContext', () => ({ useModalDispatch: () => ({ s
 vi.mock('@/hooks/useDoubleTap', () => ({ useDoubleTap: () => () => false }));
 vi.mock('@/hooks/useImageLightbox', () => ({ useImageLightbox: () => ({ signedUrls: {} }) }));
 vi.mock('@/hooks/useThemeColors', () => ({ useThemeColors: () => ({ primary: '#2563eb', textMuted: '#64748b' }) }));
-vi.mock('@/lib/storage', () => ({ downloadFilesAsZip: vi.fn(), openStorageFile: vi.fn() }));
+const downloadFilesAsZipMock = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/storage', () => ({ downloadFilesAsZip: downloadFilesAsZipMock, openStorageFile: vi.fn() }));
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc: rpcMock } }));
 vi.mock('@/lib/webModifierKeys', () => ({
   isMultiSelectModifierActive: isMultiSelectMock,
@@ -95,6 +96,7 @@ describe('FileHubBrowse characterization', () => {
     browseTestState.searchDebounced = '';
     rpcMock.mockReset();
     rpcMock.mockResolvedValue({ data: { items: [], has_more: false, facets: null }, error: null });
+    downloadFilesAsZipMock.mockReset();
     isMultiSelectMock.mockReset();
     isMultiSelectMock.mockImplementation(() => browseTestState.multiSelect);
   });
@@ -131,6 +133,12 @@ describe('FileHubBrowse characterization', () => {
     expect(textLabels(renderer)).toContain('1 selected');
     expect(renderer.root.findByProps({ children: 'Download ZIP' })).toBeTruthy();
     expect(textLabels(renderer)).toContain('Folder');
+    const downloadButton = renderer.root.findByProps({ children: 'Download ZIP' }).parent;
+    await act(async () => { downloadButton.props.onPress(); });
+    expect(downloadFilesAsZipMock).toHaveBeenCalledWith(
+      [{ storage_path: 'a', bucket: 'files', original_name: 'a.txt', mime_type: 'text/plain' }],
+      'filehub-1-files.zip',
+    );
   });
 
   it('replaces the inspector detail without changing collection identity', async () => {

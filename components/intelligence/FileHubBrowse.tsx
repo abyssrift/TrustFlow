@@ -1,4 +1,5 @@
 import { useFileHub } from "@/contexts/FileHubContext";
+import { useModalDispatch } from "@/contexts/ModalDispatchContext";
 import { useDoubleTap } from "@/hooks/useDoubleTap";
 import { useImageLightbox, type LightboxMedia } from "@/hooks/useImageLightbox";
 import { useThemeColors } from "@/hooks/useThemeColors";
@@ -25,8 +26,11 @@ import FilterPanel, {
 import { FilePreviewCard } from "../common/FilePreviewCard";
 import Tooltip from "../common/Tooltip";
 import ExplorerCollection from "../filehub/explorer/ExplorerCollection";
+import ExplorerInspectorShell from "../filehub/explorer/ExplorerInspectorShell";
+import ExplorerUploadAction from "../filehub/explorer/ExplorerUploadAction";
 import FileHubDetailPane, { type DetailFile } from "./FileHubDetailPane";
 import { fileIcon, formatSize } from "./TaskFileResults";
+import { deriveExplorerCapabilities, type ExplorerOrigin } from "@/lib/fileExplorerMode";
 import {
   canonicalIdentityKey,
   getBrowseOriginLabel,
@@ -115,6 +119,7 @@ export function groupBrowseItems(rows: BrowseItem[]): BrowseItem[] {
 export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   const colors = useThemeColors();
   const { searchDebounced } = useFileHub();
+  const { summon } = useModalDispatch();
   const [sourceTab, setSourceTab] = useState(0);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [origin, setOrigin] = useState<string | null>(null);
@@ -133,6 +138,10 @@ export default function FileHubBrowse({ compact }: { compact?: boolean }) {
   const [zipping, setZipping] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const isDoubleTap = useDoubleTap();
+  const browseCapabilities = deriveExplorerCapabilities(
+    { kind: "global-browse", projectId, origin: (origin || "workspace") as ExplorerOrigin },
+    { view: true },
+  );
   const sources = SOURCE_TABS[sourceTab].value;
   const items = useMemo(
     () => groupBrowseItems(rawBrowseItems),
