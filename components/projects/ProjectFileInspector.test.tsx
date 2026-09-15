@@ -18,4 +18,16 @@ describe('ProjectFileInspector', () => {
     assert.doesNotMatch(source, /FileHubContext/);
     assert.match(source, /canRestore && !version\.is_current/);
   });
+
+  it('resets selected-file state when the inspector identity changes', () => {
+    assert.match(source, /useEffect\(\(\) => \{[\s\S]*setTab\('details'\)[\s\S]*setVersions\(null\)[\s\S]*setActivity\(null\)[\s\S]*\}, \[file\.id\]\)/);
+  });
+
+  it('uses the viewer preview URL and exposes gated per-version downloads', () => {
+    assert.match(source, /previewUrls\[file\.id\]/);
+    assert.match(source, /FilePreviewTeaser[\s\S]*uri=\{previewUrl/);
+    assert.match(source, /version\.bucket[\s\S]*version\.storage_path[\s\S]*version\.original_name[\s\S]*version\.mime_type/);
+    assert.match(source, /Download/);
+    assert.match(source, /canRestore && !version\.is_current/);
+  });
 });

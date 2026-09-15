@@ -41,3 +41,12 @@ Implemented the bounded Project Files explorer/inspector parity package. The exi
 
 - The checkout contained substantial unrelated dirty changes, including pre-existing Project Files hunks. Those were not reset or reverted.
 - Browser/manual verification at 1400px and 390px was not run in this session; the responsive shell uses the existing 768px breakpoint.
+
+## Review-fix evidence
+
+- Reset `details`/versions/activity state on `file.id` changes.
+- Preview teaser now uses `useFileViewer`'s signed `previewUrls` and shows a safe loading fallback until the URL resolves; viewer actions still sign on demand.
+- Added per-version Download actions using version storage metadata; Restore remains capability-gated and confirmation-protected.
+- Focused review-fix tests: `npx vitest run components/projects/ProjectFileInspector.test.tsx components/projects/ProjectFilesTab.test.tsx` — PASS (4 tests).
+- Inspector Babel check and ProjectFilesTab source check — PASS.
+- Review-fix commit: `3de8b60c06542b95b0029002337f3879e78c7c51`.
