@@ -1,27 +1,80 @@
-import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { describe, it } from 'vitest';
+import React from 'react';
+import TestRenderer, { act } from 'react-test-renderer';
+import { describe, expect, it, vi } from 'vitest';
 
-const source = readFileSync(join(process.cwd(), 'components/projects/ProjectFilesTab.tsx'), 'utf8');
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+const state = vi.hoisted(() => ({
+  width: 390,
+  envelope: {
+    standing_files: [{ id: 'client', name: 'client.pdf', mime_type: 'application/pdf', size_bytes: 10 }],
+    deliverable_files: [{ id: 'sealed', name: 'sealed.pdf', mime_type: 'application/pdf', size_bytes: 20 }],
+    deliverable_versions: [{ id: 'sealed-v1', version_no: 1 }],
+    workspace: {
+      root: { id: 'root', name: 'Workspace', parent_id: null, scope: 'project', project_id: 'project', project_root_kind: 'workspace', deleted_at: null, version_ids: [], activity_ids: [] },
+      folders: [],
+      files: [{ id: 'working', name: 'working.pdf', folder_id: 'root', project_id: 'project', mime_type: 'application/pdf', size_bytes: 30, bucket: 'project-files', storage_path: 'working.pdf', current_version_id: 'v1', tags: [], created_at: '2026-01-01', updated_at: '2026-01-02', activity_ids: [] }],
+      capabilities: { view: true, create: true, rename: true, move: true, delete: true, restore: true, upload: true, replace: true, version: true },
+    },
+  },
+  shellProps: null as any,
+  collectionProps: null as any,
+  blockTitles: [] as string[],
+  fileHub: null as any,
+}));
+state.fileHub = {
+  projectFiles: vi.fn(async () => state.envelope), projectWorkspaceBin: vi.fn(async () => ({ folders: [], files: [] })), ensureProjectWorkspace: vi.fn(async () => {}),
+  createProjectFolder: vi.fn(async () => {}), renameProjectFolder: vi.fn(async () => {}), moveProjectFolder: vi.fn(async () => {}), deleteProjectFolder: vi.fn(async () => {}), moveProjectFile: vi.fn(async () => {}), deleteProjectFile: vi.fn(async () => {}), restoreProjectFolder: vi.fn(async () => {}), restoreProjectFile: vi.fn(async () => {}), projectFileVersions: vi.fn(async () => []), restoreProjectFileVersion: vi.fn(async () => {}), fileActivity: vi.fn(async () => []), logActivity: vi.fn(),
+};
+
+vi.mock('react-native', () => ({
+  ActivityIndicator: 'ActivityIndicator', Image: 'Image', ScrollView: 'ScrollView', Text: 'Text', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity', View: 'View',
+  useWindowDimensions: () => ({ width: state.width, height: 800 }),
+}));
+vi.mock('@/contexts/ProjectDetailContext', () => ({ useProjectDetail: () => ({ projectId: 'project' }) }));
+vi.mock('@/contexts/FileHubContext', () => ({ useFileHub: () => state.fileHub }));
+vi.mock('@/contexts/ModalDispatchContext', () => ({ useModalDispatch: () => ({ summon: vi.fn() }) }));
+vi.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ errorToast: vi.fn(), successToast: vi.fn() }) }));
+vi.mock('@/contexts/AlertContext', () => ({ useAlert: () => ({ showConfirm: vi.fn() }) }));
+vi.mock('@/contexts/UploadManagerContext', () => ({ useUploadManager: () => ({ lastCompletedAt: 0 }) }));
+vi.mock('@/hooks/useThemeColors', () => ({ useThemeColors: () => ({ textMuted: '#888' }) }));
+vi.mock('@/lib/uploadHelpers', () => ({ formatFileSize: (size: number) => `${size} bytes` }));
+vi.mock('@/lib/storage', () => ({ openStorageFile: vi.fn() }));
+vi.mock('@/lib/supabase', () => ({ supabase: { storage: { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: 'signed' } }) }) } } }));
+vi.mock('@/components/common/FilePreview', () => ({ FilePreviewModal: 'FilePreviewModal', getPreviewKind: () => 'pdf' }));
+vi.mock('@/components/filehub/explorer/ExplorerInspectorShell', () => ({ default: function Shell(props: any) { state.shellProps = props; return null; } }));
+vi.mock('@/components/filehub/explorer/ExplorerCollection', () => ({ default: function Collection(props: any) { state.collectionProps = props; return null; } }));
+vi.mock('@/components/projects/ProjectFileInspector', () => ({ default: function Inspector(props: any) { return React.createElement('ProjectInspector', props); } }));
+vi.mock('@/components/common/Block', () => ({ default: function Block(props: any) { state.blockTitles.push(props.title); return props.children || null; } }));
+vi.mock('@/components/common/Popup', () => ({ default: () => null }));
+vi.mock('@/components/filehub/explorer/ExplorerBreadcrumbs', () => ({ default: () => null }));
+vi.mock('@/components/filehub/explorer/ExplorerUploadAction', () => ({ default: () => null }));
+vi.mock('@expo/vector-icons/FontAwesome', () => ({ default: (props: any) => React.createElement('Icon', props) }));
+
+import ProjectFilesTab from './ProjectFilesTab';
 
 describe('ProjectFilesTab', () => {
-  it('composes the portable shell while retaining domain-owned project authorities', () => {
-    assert.match(source, /ExplorerInspectorShell/);
-    assert.match(source, /ExplorerCollection/);
-    assert.match(source, /ProjectFileInspector/);
-    assert.match(source, /selectedFile \? <ProjectFileInspector/);
-    assert.match(source, /mobilePane=\{selectedFile \? 'inspector' : 'collection'\}/);
-    assert.match(source, /onRequestCollection=\{\(\) => \{/);
-    assert.match(source, /setSelectedFile\(null\)/);
-    assert.match(source, /resolveProjectFileHubDeepLink/);
-    assert.match(source, /capabilities\?\.create/);
-    assert.match(source, /projectCapabilities\.restore === true/);
-    assert.match(source, /summon\('upload'/);
-    assert.match(source, /showConfirm/);
-    assert.match(source, /standing_files/);
-    assert.match(source, /deliverable_files/);
-    assert.doesNotMatch(source, /LegacyProjectFileDetail|ProjectFileDetail/);
-    assert.doesNotMatch(source, /canView:\s*true|canVersion:\s*true/);
+  it('renders the portable shell with separate working, client, and sealed domains', async () => {
+    state.shellProps = null;
+    state.collectionProps = null;
+    state.blockTitles.length = 0;
+    let renderer!: TestRenderer.ReactTestRenderer;
+    await act(async () => { renderer = TestRenderer.create(React.createElement(ProjectFilesTab, { folderParam: 'root', fileParam: 'working' })); });
+    await act(async () => { TestRenderer.create(state.shellProps.collection); });
+    expect(state.shellProps.mobilePane).toBe('inspector');
+    expect(state.shellProps.inspector.type).toBeTypeOf('function');
+    expect(state.collectionProps.renderCard).not.toBe(state.collectionProps.renderRow);
+    expect(state.blockTitles).toEqual(expect.arrayContaining(['Client standing files', 'Sealed deliverable']));
+    let card!: TestRenderer.ReactTestRenderer;
+    await act(async () => { card = TestRenderer.create(state.collectionProps.renderCard(state.envelope.workspace.files[0], 'large')); });
+    expect(card.root.findAllByType('Text').map(node => String(node.props.children))).toEqual(expect.arrayContaining(['working.pdf', 'application/pdf']));
+    expect(card.root.findByType('Icon').props.name).toBe('file-o');
+    expect(renderer).toBeDefined();
+  });
+
+  it('mobile back returns to collection through the shell callback', async () => {
+    await act(async () => { TestRenderer.create(React.createElement(ProjectFilesTab, { folderParam: 'root', fileParam: 'working' })); });
+    await act(async () => { state.shellProps.onRequestCollection(); });
+    expect(state.shellProps.mobilePane).toBe('collection');
   });
 });

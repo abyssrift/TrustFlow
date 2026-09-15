@@ -12,6 +12,8 @@ assert.match(source, /kind: 'project'/);
 assert.match(source, /ExplorerCollection/);
 assert.match(source, /ExplorerBreadcrumbs/);
 assert.match(source, /ProjectFileInspector/);
+assert.match(source, /renderCard=\{renderCard\}/, 'large/medium modes must use the dedicated project card renderer');
+assert.match(source, /renderRow=\{renderItem\}/, 'list mode must retain the compact row renderer');
 assert.match(source, /ExplorerUploadAction/);
 assert.doesNotMatch(source, /expo-document-picker/);
 assert.doesNotMatch(source, /DocumentPicker|getDocumentAsync|startUpload|waitForUpload|projectUploadTarget/);
