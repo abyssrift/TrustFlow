@@ -3,12 +3,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const source = readFileSync(join(process.cwd(), 'components/projects/ProjectFilesTab.tsx'), 'utf8');
+const contextSource = readFileSync(join(process.cwd(), 'contexts/FileHubContext.tsx'), 'utf8');
 const route = readFileSync(join(process.cwd(), 'app/projects/[id].tsx'), 'utf8');
 
 assert.match(source, /useModalDispatch/);
 assert.match(source, /summon\('upload',\s*\{\s*destination:/s);
 assert.match(source, /kind: 'project'/);
 assert.match(source, /ExplorerCollection/);
+assert.match(source, /ExplorerBreadcrumbs/);
+assert.match(source, /ExplorerDetailPane/);
+assert.match(source, /ExplorerUploadAction/);
 assert.doesNotMatch(source, /expo-document-picker/);
 assert.doesNotMatch(source, /DocumentPicker|getDocumentAsync|startUpload|waitForUpload|projectUploadTarget/);
 assert.match(source, /resolveProjectFileHubDeepLink/);
@@ -25,5 +29,13 @@ assert.match(source, /lastUploadRefreshRef/);
 assert.match(source, /if \(!lastCompletedAt \|\| lastUploadRefreshRef\.current === lastCompletedAt\) return;/);
 assert.match(source, /lastUploadRefreshRef\.current = lastCompletedAt;/);
 assert.match(source, /void refresh\(\)/);
+assert.match(source, /envelope\.workspace\?\.capabilities\?\.create[\s\S]*ensureProjectWorkspace/, 'view-only project viewers must not create a workspace on mount');
+assert.match(source, /Move \$\{item\.name\}[\s\S]*stopPropagation/, 'project move controls must isolate their press event');
+assert.match(source, /Delete \$\{item\.name\}[\s\S]*stopPropagation/, 'project delete controls must isolate their press event');
+assert.match(source, /capabilities\?\.restore/, 'project version restore must use the restore capability');
+assert.doesNotMatch(source, /capabilities\?\.version/, 'project version restore must not use the nonexistent version capability');
+assert.match(contextSource, /enqueueFileHubActivity/, 'project FileHub mutations must use the shared activity logger');
+assert.match(contextSource, /enqueueFileHubActivity\(\{ folderId: data as string, action: 'folder_create'/, 'project folder creation must log activity');
+assert.match(contextSource, /enqueueFileHubActivity\(\{ fileId, action: 'move'/, 'project file moves must log activity');
 
 console.log('ProjectFilesTab: source checks passed');

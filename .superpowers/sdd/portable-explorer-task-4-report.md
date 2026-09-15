@@ -4,6 +4,11 @@
 
 Implemented the bounded Project Files explorer/inspector parity package. The existing Project Files RPC and capability handlers remain in the tab and are passed into the new inspector; standing files and sealed deliverables remain separate read-only domain slots.
 
+## Commits
+
+- Implementation/report commit: `763e1d17245b53ac7926e598040e12fd08f7ba64` (inspector, focused tests, initial report).
+- Integration commit: `3a61d3a81b8c6ee234d9846576f651ff07b5e188`; contains only the Task 4 ProjectFilesTab/check hunks needed to compose the shell and wire the inspector.
+
 ## RED/GREEN evidence
 
 - RED: focused tests failed because `ProjectFileInspector.tsx` and shell composition were absent.
