@@ -11,7 +11,8 @@ The previous report listed a nonexistent integration SHA. The actual checkout an
 - `763e1d17245b53ac7926e598040e12fd08f7ba64` - initial Task 4 inspector/tests/report
 - `d83046b` - Project Files explorer integration
 - `f6dae0387f2af61d244969ae21c9b2992b641869` - inspector review fixes
-- Final bounded commit subject: `feat: bring project files to explorer parity` (SHA is recorded in the handoff after commit)
+- Baseline implementation commit: `be477c0` (`feat: bring project files to explorer parity`)
+- Review-fix commit: `0ef1768` (`fix: close remaining project files review blockers`)
 
 ## RED/GREEN evidence
 
@@ -47,7 +48,7 @@ The previous report listed a nonexistent integration SHA. The actual checkout an
 
 ## Verification
 
-- `npx vitest run components/projects/ProjectFileInspector.test.tsx components/projects/ProjectFilesTab.test.tsx` - PASS (2 files, 4 tests).
+- `npx vitest run components/projects/ProjectFileInspector.test.tsx components/projects/ProjectFilesTab.test.tsx` - PASS (2 files, 5 behavior tests).
 - `node scripts/babelcheck.mjs components/projects/ProjectFilesTab.tsx components/projects/ProjectFileInspector.tsx` - PASS.
 - `npx tsx components/projects/ProjectFilesTab.check.ts` - PASS.
 - `npx tsx lib/projectFileHubNormalization.check.ts` - PASS.
