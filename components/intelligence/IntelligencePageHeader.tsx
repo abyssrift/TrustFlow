@@ -3,6 +3,16 @@ import { Text, View } from 'react-native';
 import Animated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import { useCollapseProgress } from '@/hooks/useCollapsibleHeader';
 
+type IntelligencePageHeaderDensity = 'standard' | 'compact';
+
+type IntelligencePageHeaderProps = {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  density?: IntelligencePageHeaderDensity;
+};
+
 // The fixed page header every Intelligence desktop page repeated by hand — an
 // `px-10` border-b container with an "Intelligence Hub" eyebrow + a
 // `text-4xl font-black` title, then a page-specific controls cluster, sitting
@@ -21,12 +31,9 @@ export default function IntelligencePageHeader({
   title,
   subtitle,
   right,
-}: {
-  eyebrow?: string;
-  title: string;
-  subtitle?: string;
-  right?: React.ReactNode;
-}) {
+  density = 'standard',
+}: IntelligencePageHeaderProps) {
+  const isCompact = density === 'compact';
   const collapse = useCollapseProgress();
   const [eyebrowH, setEyebrowH] = useState(0);
   const [subH, setSubH] = useState(0);
@@ -35,8 +42,8 @@ export default function IntelligencePageHeader({
   // paddingTop can lag a frame before `collapse` is first written on this web
   // build, which reads as "no header padding" on the first paint.
   const padStyle = useAnimatedStyle(() => ({
-    paddingTop: interpolate(collapse.value, [0, 1], [32, 12]),
-    paddingBottom: interpolate(collapse.value, [0, 1], [24, 12]),
+    paddingTop: interpolate(collapse.value, [0, 1], [isCompact ? 20 : 32, 12]),
+    paddingBottom: interpolate(collapse.value, [0, 1], [isCompact ? 12 : 24, 12]),
   }));
   const titleScaleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: interpolate(collapse.value, [0, 1], [1, 0.78]) }],
@@ -54,41 +61,54 @@ export default function IntelligencePageHeader({
     marginTop: interpolate(collapse.value, [0, 1], [16, 8]),
   }));
 
+  const identity = (
+    <View className={isCompact ? 'min-w-0 flex-1' : 'min-w-0'}>
+      {!!eyebrow && (
+        <Animated.View style={[eyebrowStyle, { overflow: 'hidden' }]}>
+          <View onLayout={(e) => { if (!eyebrowH) setEyebrowH(e.nativeEvent.layout.height); }}>
+            <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">{eyebrow}</Text>
+          </View>
+        </Animated.View>
+      )}
+      <Animated.View style={titleScaleStyle}>
+        <Text className={`text-typography-main ${isCompact ? 'text-3xl' : 'text-4xl'} font-black tracking-tight`}>{title}</Text>
+      </Animated.View>
+      {!!subtitle && (
+        <Animated.View style={[subtitleStyle, { overflow: 'hidden' }]}>
+          <View onLayout={(e) => { if (!subH) setSubH(e.nativeEvent.layout.height); }}>
+            <Text className="text-typography-muted text-sm mt-1">{subtitle}</Text>
+          </View>
+        </Animated.View>
+      )}
+    </View>
+  );
+
   return (
     <Animated.View
       className="px-10 border-b border-surface-border flex-shrink-0"
-      style={[{ alignSelf: 'stretch', width: '100%', paddingTop: 32, paddingBottom: 24 }, padStyle]}
+      style={[{ alignSelf: 'stretch', width: '100%', paddingTop: isCompact ? 20 : 32, paddingBottom: isCompact ? 12 : 24 }, padStyle]}
     >
-      {/* Identity block (collapses on scroll) */}
-      <View className="min-w-0">
-        {!!eyebrow && (
-          <Animated.View style={[eyebrowStyle, { overflow: 'hidden' }]}>
-            <View onLayout={(e) => { if (!eyebrowH) setEyebrowH(e.nativeEvent.layout.height); }}>
-              <Text className="text-brand-primary font-black uppercase tracking-[0.3em] text-[9px] mb-1">{eyebrow}</Text>
-            </View>
-          </Animated.View>
-        )}
-        <Animated.View style={titleScaleStyle}>
-          <Text className="text-typography-main text-4xl font-black tracking-tight">{title}</Text>
-        </Animated.View>
-        {!!subtitle && (
-          <Animated.View style={[subtitleStyle, { overflow: 'hidden' }]}>
-            <View onLayout={(e) => { if (!subH) setSubH(e.nativeEvent.layout.height); }}>
-              <Text className="text-typography-muted text-sm mt-1">{subtitle}</Text>
-            </View>
-          </Animated.View>
-        )}
-      </View>
+      {isCompact ? (
+        <View className="flex-row flex-wrap items-center gap-x-6 gap-y-3">
+          {identity}
+          {!!right && <View className="flex-row flex-wrap items-center gap-3">{right}</View>}
+        </View>
+      ) : (
+        <>
+          {/* Identity block (collapses on scroll) */}
+          {identity}
 
-      {/* Full-width controls row. `width:100%` on the plain wrap <View> (not just
-          the class) so its own flex-wrap engages under an Animated ancestor on
-          RNW; the Animated wrapper only tweens marginTop. */}
-      {!!right && (
-        <Animated.View style={[{ alignSelf: 'stretch', width: '100%' }, rightRowStyle]}>
-          <View className="flex-row flex-wrap items-center gap-3" style={{ width: '100%' }}>
-            {right}
-          </View>
-        </Animated.View>
+          {/* Full-width controls row. `width:100%` on the plain wrap <View> (not just
+              the class) so its own flex-wrap engages under an Animated ancestor on
+              RNW; the Animated wrapper only tweens marginTop. */}
+          {!!right && (
+            <Animated.View style={[{ alignSelf: 'stretch', width: '100%' }, rightRowStyle]}>
+              <View className="flex-row flex-wrap items-center gap-3" style={{ width: '100%' }}>
+                {right}
+              </View>
+            </Animated.View>
+          )}
+        </>
       )}
     </Animated.View>
   );
