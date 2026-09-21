@@ -197,6 +197,16 @@ describe('ContextualGuideProvider', () => {
     renderer.unmount();
   });
 
+  it('exposes when guide progress is using the device fallback', async () => {
+    state.fallbackActive = true;
+    let guide: ReturnType<typeof useContextualGuide> | null = null;
+    function Actions() { guide = useContextualGuide(); return null; }
+    let renderer!: Renderer;
+    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
+    expect(guide!.fallbackActive).toBe(true);
+    renderer.unmount();
+  });
+
   it('exposes completion, skip-as-familiar, and new-guide acknowledgement actions', async () => {
     let guide: ReturnType<typeof useContextualGuide> | null = null;
     function Actions() { guide = useContextualGuide(); return null; }
