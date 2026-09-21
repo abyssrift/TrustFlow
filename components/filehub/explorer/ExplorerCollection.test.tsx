@@ -51,7 +51,7 @@ describe('ExplorerCollection', () => {
     const onEndReached = vi.fn();
     const onScroll = vi.fn();
 
-    let renderer: TestRenderer.ReactTestRenderer;
+    let renderer: any;
     act(() => {
       renderer = TestRenderer.create(
         <ExplorerCollection<Item>
@@ -88,11 +88,11 @@ describe('ExplorerCollection', () => {
     const row = renderer!.root.findByProps({ accessibilityRole: 'button' });
     act(() => row.props.onPress({ nativeEvent: {} }));
 
-    expect(renderer!.root.findAllByType('Text').some((node) => node.props.children === 'One')).toBe(true);
+    expect(renderer!.root.findAllByType('Text').some((node: any) => node.props.children === 'One')).toBe(true);
     expect(renderRow).toHaveBeenCalledWith(item);
     expect(onItemPress).toHaveBeenCalledWith(item);
 
-    let cardRenderer: TestRenderer.ReactTestRenderer;
+    let cardRenderer: any;
     act(() => {
       cardRenderer = TestRenderer.create(
         <ExplorerCollection<Item>
@@ -109,10 +109,10 @@ describe('ExplorerCollection', () => {
       );
     });
 
-    expect(cardRenderer!.root.findAllByType('Text').some((node) => node.props.children === 'One-medium')).toBe(true);
+    expect(cardRenderer!.root.findAllByType('Text').some((node: any) => node.props.children === 'One-medium')).toBe(true);
     expect(renderCard).toHaveBeenCalledWith(item, 'medium');
 
-    let detailsRenderer: TestRenderer.ReactTestRenderer;
+    let detailsRenderer: any;
     act(() => {
       detailsRenderer = TestRenderer.create(
         <ExplorerCollection<Item>
@@ -129,12 +129,12 @@ describe('ExplorerCollection', () => {
       );
     });
 
-    expect(detailsRenderer!.root.findAllByType('Text').some((node) => node.props.children === 'One')).toBe(true);
+    expect(detailsRenderer!.root.findAllByType('Text').some((node: any) => node.props.children === 'One')).toBe(true);
     expect(renderColumn).toHaveBeenCalledWith(item);
 
     const onActiveSelection = vi.fn();
     const onActiveOpen = vi.fn();
-    let selectionRenderer: TestRenderer.ReactTestRenderer;
+    let selectionRenderer: any;
     act(() => {
       selectionRenderer = TestRenderer.create(
         <ExplorerCollection<Item>

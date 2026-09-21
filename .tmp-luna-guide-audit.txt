@@ -1,0 +1,26 @@
+## Findings
+
+The surface that can appear disconnected is the **movable To Do checklist panel**. The top-bar **Help** button is a separate launcher for the Top Bar guide; it does not position the checklist. `GuideHost` renders the To Do launcher in a fixed overlay, while `GuideChecklist` positions its panel from a separate default or a saved coordinate.
+
+- **Desktop, 1400×900:** The launcher sits 16 px from the right edge, 24 px from the top. With a 384 px panel, the default panel position is **(1000, 72)**: its right edge aligns with the launcher’s, and it begins just below the 64 px top bar. That’s the intended connected default. The host has z-index 1000, above the retractable top bar’s 100; the checklist panel is z-index 1001.
+- **Mobile web, 390 px wide:** The panel defaults to **x=16, y=72**, at 358 px wide. The launcher instead sits above the bottom navigation (`bottom = 86` on web). At a 390×844 viewport, that puts the launcher around y=714, far from the panel. The panel can be up to 560 px tall; its actual height depends on content and is measured after layout.
+- **Saved coordinates:** The `guide-checklist:panel-position` key accepts any finite x/y pair, then clamps it to the current viewport. It does not re-anchor a saved position when the launcher moves or the viewport changes. A user-moved panel therefore remains wherever the saved coordinate—after clamping—puts it. Reset returns it to the current default.
+- **Coach mark behavior:** A measured desktop guide anchor intentionally places the coach panel near the guided content, above or below it as placement allows; it is not tied to the To Do launcher. If an anchor is missing, web falls back to `Popup presentation="auto"`; native also uses that Popup. Mobile web uses the Popup path even when an anchor exists. These are deliberate guide presentation modes, not checklist positioning failures. The anchored desktop coach overlay uses z-index 10000/10001, above the checklist.
+- **Top-bar placement:** `GuideHelpButton` is inside the TopBar, immediately before ProfilePill. The To Do launcher is independently placed at the viewport’s top-right on desktop, so it can overlap the profile area; its host stacking order is higher than the TopBar’s.
+
+## Smallest safe patch
+
+If the goal is to keep the **initial mobile panel** visually associated with its bottom launcher, make the checklist’s *default* position responsive: retain the current right-aligned position below the top bar on desktop, and place the mobile default just above the bottom launcher, clamped to the viewport. Keep drag, keyboard movement, reset, and persistence intact; saved user-moved coordinates should continue to win.
+
+Do **not** change the persistence key. A new key would discard users’ saved panel positions and undermine the requested persistence. Re-anchoring every saved position would also override intentional moves. Existing saved positions may therefore remain visually detached until the user resets or moves the panel; the code cannot distinguish an old default coordinate from a deliberate move.
+
+Preserve the current coach-mark anchor and Popup fallback behavior, guide semantics, and capability filtering. This positioning change needs no motion dependency.
+
+## Exact tests to add
+
+- Extend `guidePanelPosition.test.ts` to assert desktop default placement and responsive mobile placement relative to the launcher, including clamping for short viewports and oversized panels.
+- Extend `GuideHost.test.tsx` to cover 1400×900 and 390 px mobile placement, a previously persisted coordinate across viewport changes, preservation of a moved coordinate, and Reset restoring the responsive default.
+- Add or extend a web coach-mark test to assert: desktop with a measured anchor uses anchored placement; desktop with a missing anchor uses Popup fallback; mobile uses Popup fallback even when an anchor exists.
+- Keep the existing drag, arrow-key/Shift movement, reset, clamping, and local-storage assertions.
+
+No files were changed and no tests were run. `git status --short` showed a substantially dirty tree, including untracked guide files; I left it untouched. `graphify query` and read-only source inspection were used for this audit.

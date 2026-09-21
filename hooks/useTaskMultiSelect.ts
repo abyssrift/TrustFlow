@@ -51,6 +51,11 @@ export function useTaskMultiSelect() {
     setSelected(new Set(ids));
   }, []);
 
+  /** Replace the whole selection from an already-reconciled result. */
+  const replaceSelection = useCallback((ids: string[]) => {
+    setSelected(new Set(ids));
+  }, []);
+
   const isSelected = useCallback((id: string) => selected.has(id), [selected]);
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
 
@@ -63,6 +68,7 @@ export function useTaskMultiSelect() {
     toggle,
     addFromModifierClick,
     replaceFromMarquee,
+    replaceSelection,
     isSelected,
   };
 }

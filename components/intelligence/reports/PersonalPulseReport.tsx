@@ -63,7 +63,7 @@ export function PersonalPulseReportPages({ data, jobId, isModule }: { data: Pers
 
         <KpiRow items={[
           { label: 'Flap Rate',     value: sf(flapRate, 2),   note: flapNote,               accent: flapColor, color: flapColor },
-          { label: 'Total Tasks',   value: String(taskCount), note: 'Assigned over 30 days', accent: C.primary },
+          { label: 'Total Tasks',   value: String(taskCount), note: 'All tasks assigned to you', accent: C.primary },
         ]} />
 
         {dailyPts === 0 && monthlyPts === 0 && (

@@ -14,6 +14,7 @@ import { useProjectDetail } from '@/contexts/ProjectDetailContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useUploadManager } from '@/contexts/UploadManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { addOrRemoveSelection, pruneSelection, selectRange } from '@/lib/multiSelection';
 import { formatFileSize } from '@/lib/uploadHelpers';
 import { openStorageFile } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
@@ -70,6 +71,9 @@ export default function ProjectFilesTab({ folderParam, fileParam }: ProjectFiles
   const [loading, setLoading] = useState(true);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<ProjectFileHubFile | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectionActive, setSelectionActive] = useState(false);
+  const selectionAnchorRef = useRef<string | null>(null);
   const [mobilePage, setMobilePage] = useState<'folders' | 'files' | 'detail'>('folders');
   const [dialog, setDialog] = useState<'create' | 'rename' | null>(null);
   const [dialogValue, setDialogValue] = useState('');
@@ -85,11 +89,27 @@ export default function ProjectFilesTab({ folderParam, fileParam }: ProjectFiles
     setEnvelope(null);
     setSelectedFolderId(null);
     setSelectedFile(null);
+    setSelectedIds([]);
+    setSelectionActive(false);
+    selectionAnchorRef.current = null;
     setWorkspaceBin(null);
     setShowBin(false);
     setMobilePage('folders');
   }, [projectId]);
-  const refresh = useCallback(async () => { setLoading(true); try { const next = await projectFiles(projectId); setEnvelope(next); if (next.workspace?.root && !selectedFolderIdRef.current) setSelectedFolderId(next.workspace.root.id); } catch { setEnvelope(null); } finally { setLoading(false); } }, [projectId, projectFiles]);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const next = await projectFiles(projectId);
+      const nextWorkspace = next.workspace;
+      const nextIds = nextWorkspace ? [nextWorkspace.root?.id, ...nextWorkspace.folders.map((folder: ProjectFileHubFolder) => folder.id), ...nextWorkspace.files.map((file: ProjectFileHubFile) => file.id)].filter((id): id is string => Boolean(id)) : [];
+      setEnvelope(next);
+      setSelectedIds(current => pruneSelection(current, nextIds));
+      if (nextWorkspace?.root && !selectedFolderIdRef.current) setSelectedFolderId(nextWorkspace.root.id);
+      else if (selectedFolderIdRef.current && !nextIds.includes(selectedFolderIdRef.current)) setSelectedFolderId(nextWorkspace?.root?.id || null);
+      setSelectedFile(current => current ? nextWorkspace?.files.find((file: ProjectFileHubFile) => file.id === current.id) || null : null);
+    } catch { setEnvelope(null); }
+    finally { setLoading(false); }
+  }, [projectId, projectFiles]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
     if (!lastCompletedAt || lastUploadRefreshRef.current === lastCompletedAt) return;
@@ -169,13 +189,19 @@ export default function ProjectFilesTab({ folderParam, fileParam }: ProjectFiles
   };
   const restoreBinEntry = async (entry: ProjectFileHubBin['folders'][number]) => {
     if (!canRestore) return;
-    try {
-      if (entry.item_type === 'folder') await restoreProjectFolder(projectId, entry.id);
-      else await restoreProjectFile(projectId, entry.id);
-      successToast(`${entry.item_type === 'folder' ? 'Folder' : 'File'} restored.`);
-      setWorkspaceBin(await projectWorkspaceBin(projectId));
-      await refresh();
-    } catch (error: any) { errorToast(error?.message || 'Restore failed.'); }
+    return showConfirm(
+      `Restore ${entry.item_type}?`,
+      `Restore "${entry.name}" from the workspace bin?`,
+      async () => {
+        try {
+          if (entry.item_type === 'folder') await restoreProjectFolder(projectId, entry.id);
+          else await restoreProjectFile(projectId, entry.id);
+          successToast(`${entry.item_type === 'folder' ? 'Folder' : 'File'} restored.`);
+          setWorkspaceBin(await projectWorkspaceBin(projectId));
+          await refresh();
+        } catch (error: any) { errorToast(error?.message || 'Restore failed.'); }
+      },
+    );
   };
   const upload = () => { if (!currentFolder || projectCapabilities.upload !== true) return; summon('upload', { destination: { kind: 'project', projectId, folderId: currentFolder.id } }); };
   if (loading && !envelope) return <View className="flex-1 items-center justify-center py-24"><ActivityIndicator color={colors.textMuted} /></View>;
@@ -183,7 +209,7 @@ export default function ProjectFilesTab({ folderParam, fileParam }: ProjectFiles
   const renderCard = (item: WorkspaceItem, density: 'large' | 'medium') => <View className={`min-h-[150px] flex-1 rounded-2xl border border-surface-border bg-surface-background p-4 ${density === 'large' ? 'min-w-[180px]' : 'min-w-[140px]'}`}><View className="h-12 w-12 items-center justify-center rounded-xl bg-surface-card"><FontAwesome name={iconFor(item)} size={24} color={colors.textMuted} /></View><Text className="mt-4 text-typography-main text-sm font-black" numberOfLines={2}>{item.name}</Text><Text className="mt-1 text-typography-muted text-[10px]">{item.itemType === 'folder' ? 'Folder' : item.mime_type || formatFileSize(item.size_bytes)}</Text></View>;
   const renderItem = (item: WorkspaceItem) => <View className="min-h-[60px] flex-row items-center gap-3 rounded-xl border border-surface-border bg-surface-background px-3 py-2"><FontAwesome name={iconFor(item)} size={16} color={colors.textMuted} /><View className="flex-1 min-w-0"><Text className="text-typography-main text-xs font-bold" numberOfLines={1}>{item.name}</Text><Text className="mt-0.5 text-typography-muted text-[10px]">{item.itemType === 'folder' ? 'Folder' : formatFileSize(item.size_bytes)}</Text></View>{(canMove || canDelete) && (item.itemType !== 'folder' || item.id !== root?.id) ? <View className="flex-row items-center">{canMove && <TouchableOpacity accessibilityLabel={`Move ${item.name}`} onPress={event => { (event as any)?.stopPropagation?.(); setMoveItem({ id: item.id, itemType: item.itemType, name: item.name }); }} className="h-11 w-11 items-center justify-center"><FontAwesome name="arrows" size={11} color={colors.textMuted} /></TouchableOpacity>}{canDelete && <TouchableOpacity accessibilityLabel={`Delete ${item.name}`} onPress={event => { (event as any)?.stopPropagation?.(); deleteItem(item); }} className="h-11 w-11 items-center justify-center"><FontAwesome name="trash-o" size={11} color={colors.textMuted} /></TouchableOpacity>}</View> : null}</View>;
   const columns: MultiViewColumn<WorkspaceItem>[] = [{ key: 'name', label: 'Name', flex: 2, render: renderItem }, { key: 'type', label: 'Type', render: item => <Text className="text-typography-muted text-xs">{item.itemType}</Text> }];
-  const list = <ExplorerCollection items={children} keyExtractor={item => item.id} storageKey={`project-files-${projectId}-${currentFolder?.id || 'root'}`} defaultMode="list" modes={['list', 'details']} renderCard={renderCard} renderRow={renderItem} columns={columns} onItemPress={item => item.itemType === 'folder' ? chooseFolder(item) : (setSelectedFile(item), isMobile && setMobilePage('detail'))} emptyState={{ icon: 'folder-open-o', title: 'This folder is empty', body: canMutate ? 'Upload a file or create a folder to get started.' : 'No files are available here.' }} />;
+  const list = <ExplorerCollection items={children} keyExtractor={item => item.id} storageKey={`project-files-${projectId}-${currentFolder?.id || 'root'}`} defaultMode="list" modes={['list', 'details']} renderCard={renderCard} renderRow={renderItem} columns={columns} selection={{ selectedIds, active: selectionActive, onToggle: item => { setSelectionActive(true); setSelectedIds(current => addOrRemoveSelection(current, item.id)); selectionAnchorRef.current = item.id; }, onLongPress: item => { setSelectionActive(true); setSelectedIds(current => addOrRemoveSelection(current, item.id)); selectionAnchorRef.current = item.id; }, onPress: (item, press) => { setSelectionActive(true); const visibleIds = children.map(child => child.id); if (press.shiftKey) setSelectedIds(current => press.ctrlKey || press.metaKey ? Array.from(new Set([...current, ...selectRange(visibleIds, selectionAnchorRef.current || item.id, item.id)])) : selectRange(visibleIds, selectionAnchorRef.current || item.id, item.id)); else setSelectedIds(current => addOrRemoveSelection(current, item.id)); selectionAnchorRef.current = item.id; } }} onItemPress={item => item.itemType === 'folder' ? chooseFolder(item) : (setSelectedFile(item), isMobile && setMobilePage('detail'))} emptyState={{ icon: 'folder-open-o', title: 'This folder is empty', body: canMutate ? 'Upload a file or create a folder to get started.' : 'No files are available here.' }} />;
   const tree = <Block title="Project workspace" hint="Working files for this project" icon={<FontAwesome name="folder-open-o" size={15} />} right={canMutate ? <View className="flex-row gap-2">{canCreate && <Action icon="plus" label="Folder" onPress={() => setDialog('create')} />}{canRestore && <Action icon="trash-o" label="Bin" onPress={toggleBin} />}</View> : undefined}><ExplorerBreadcrumbs items={breadcrumbItems} onNavigate={id => { const target = id ? folders.find(folder => folder.id === id) : root; if (target) chooseFolder(target); }} /><ScrollView className="max-h-[420px]" contentContainerClassName="gap-1.5">{root && <TouchableOpacity onPress={() => chooseFolder(root)} className={`min-h-[44px] justify-center rounded-xl px-3 ${currentFolder?.id === root.id ? 'bg-brand-primary/10' : ''}`}><Text className="text-typography-main text-xs font-bold">{root.name}</Text></TouchableOpacity>}{folders.filter(f => f.id !== root?.id).map(folder => <TouchableOpacity key={folder.id} onPress={() => chooseFolder(folder)} className={`min-h-[44px] flex-row items-center gap-2 rounded-xl px-3 ${currentFolder?.id === folder.id ? 'bg-brand-primary/10' : ''}`}><FontAwesome name="folder-o" size={12} color={colors.textMuted} /><Text className="flex-1 text-typography-main text-xs" numberOfLines={1}>{folder.name}</Text>{canRename && <TouchableOpacity accessibilityLabel={`Rename ${folder.name}`} onPress={event => { (event as any)?.stopPropagation?.(); setSelectedFolderId(folder.id); setDialogValue(folder.name); setDialog('rename'); }} className="h-11 w-11 items-center justify-center"><FontAwesome name="pencil" size={11} color={colors.textMuted} /></TouchableOpacity>}</TouchableOpacity>)}</ScrollView></Block>;
   const filesBlock = <Block title={currentFolder?.name || 'Files'} hint="Select a file to preview, download, or inspect" right={projectCapabilities.upload === true ? <ExplorerUploadAction destination={{ label: 'Upload', accessibilityLabel: 'Upload to project workspace', disabled: false, onPress: upload }} /> : undefined} bodyClassName="flex-1">{list}</Block>;
   const binBlock = showBin && <Block title="Workspace bin" hint="Deleted workspace items remain restorable for 15 days." icon={<FontAwesome name="trash-o" size={15} />}>

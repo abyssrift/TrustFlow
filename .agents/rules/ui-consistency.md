@@ -105,6 +105,12 @@ All layout must follow consistent spacing rules.
 
 ### Buttons
 
+* Whenever a button is required, use a minimal icon-only button first and
+  prioritize the icon-only design as far as possible. If visible text is truly
+  necessary, the button label must contain at most one word.
+* Icon-only buttons must retain an accessible name. Use the shared `Tooltip`
+  (`components/common/Tooltip.tsx`) when contextual explanation is appropriate;
+  follow its conventions in `.agents/rules/ux-consistency.md`.
 * Must use `bg-brand-primary`
 * Must include hover + active states
 * Must be `rounded-xl`

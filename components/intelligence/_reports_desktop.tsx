@@ -12,10 +12,9 @@ import ReportFiltersPanelBody, {
 import Tooltip from '@/components/common/Tooltip';
 import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
-import { useBillingPlan } from '@/hooks/useBillingPlan';
+import { useCapability } from '@/hooks/useCapability';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
-import { getAnalyticsLimits } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -128,8 +127,7 @@ export default function IntelligenceReports() {
 function IntelligenceReportsInner() {
   const colors = useThemeColors();
   const headerScroll = useCollapsibleHeaderScroll();
-  const { limits: planLimits } = useBillingPlan();
-  const limits = getAnalyticsLimits(planLimits);
+  const reportCapability = useCapability('report.generate');
   const [reports, setReports]         = useState<any[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showModal, setShowModal]     = useState(false);
@@ -199,6 +197,7 @@ function IntelligenceReportsInner() {
   };
 
   const handleGenerate = async (params: any) => {
+    if (!reportCapability.allowed) return;
     try {
       const { data: jobId, error } = await supabase.rpc('rpc_request_report', {
         p_report_type: params.type || 'performance_audit',
@@ -259,7 +258,7 @@ function IntelligenceReportsInner() {
                 <FontAwesome name="refresh" size={13} color={colors.primary} />
               </TouchableOpacity>
             </Tooltip>
-            {limits.reports ? (
+            {reportCapability.allowed ? (
               <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2">
                 <FontAwesome name="file-pdf-o" size={12} color="white" />
                 <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
@@ -343,9 +342,9 @@ function IntelligenceReportsInner() {
             <Text className="text-typography-muted text-center mb-6 text-sm leading-relaxed">
               Generate a PDF audit report to track performance, compliance, and team health metrics.
             </Text>
-            <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-8 py-3 rounded-2xl">
+            {reportCapability.allowed && <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-8 py-3 rounded-2xl">
               <Text className="text-white font-black uppercase tracking-widest text-xs">Generate First Report</Text>
-            </TouchableOpacity>
+            </TouchableOpacity>}
           </View>
         </View>
       ) : filteredReports.length === 0 ? (

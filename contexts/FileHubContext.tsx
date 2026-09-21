@@ -255,8 +255,8 @@ type FileHubContextType = {
   refreshFolders: () => void;
   markRead: (fileId: string) => Promise<void>;
   markAllRead: () => Promise<void>;
-  hideFile: (fileId: string) => Promise<void>;
-  deleteFile: (fileId: string) => Promise<void>;
+  hideFile: (fileId: string) => Promise<boolean>;
+  deleteFile: (fileId: string) => Promise<boolean>;
   // Bin
   binFiles: FileHubFile[];
   binLoading: boolean;
@@ -290,9 +290,9 @@ type FileHubContextType = {
   }) => Promise<string>;
   createFolder: (name: string, parentId?: string | null, scope?: FileHubFolderScope, groupId?: string | null) => Promise<void>;
   renameFolder: (id: string, name: string) => Promise<void>;
-  deleteFolder: (id: string) => Promise<void>;
-  moveFolder: (id: string, newParentId: string | null) => Promise<void>;
-  moveFile: (fileId: string, folderId: string | null) => Promise<void>;
+  deleteFolder: (id: string) => Promise<boolean>;
+  moveFolder: (id: string, newParentId: string | null) => Promise<boolean>;
+  moveFile: (fileId: string, folderId: string | null) => Promise<boolean>;
   tagSuggestions: (prefix: string) => Promise<string[]>;
   checkDuplicate: (hash: string, folderId: string | null) => Promise<any[]>;
   // Versioning
@@ -384,6 +384,15 @@ function folderActivityDisplay(folder: FileHubFolder | undefined, folders: FileH
     ...(folder.name ? { target_name: folder.name } : {}),
     ...(location ? { from_location: location } : {}),
   };
+}
+
+function enqueueFileHubActivity({ fileId = null, folderId = null, action, metadata = null }: { fileId?: string | null; folderId?: string | null; action: string; metadata?: Record<string, any> | null }) {
+  supabase.rpc('rpc_filehub_log_activity', {
+    p_file_id: fileId,
+    p_folder_id: folderId,
+    p_action: action,
+    p_metadata: metadata,
+  }).then(() => {}, () => {});
 }
 
 export function FileHubProvider({ children }: { children: React.ReactNode }) {
@@ -644,17 +653,20 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
 
   const hideFile = useCallback(async (fileId: string) => {
     const { error } = await supabase.rpc('rpc_filehub_recipient_hide', { p_file_id: fileId });
+    if (error) { showAlert('Error', error.message); return false; }
     if (!error) {
       setFiles(prev => prev.filter(f => f.id !== fileId));
       setGroupFiles(prev => prev.filter(f => f.id !== fileId));
     }
+    return true;
   }, []);
 
   const deleteFile = useCallback(async (fileId: string) => {
     const { error } = await supabase.rpc('rpc_filehub_delete', { p_file_id: fileId });
-    if (error) { showAlert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return false; }
     setFiles(prev => prev.filter(f => f.id !== fileId));
     setGroupFiles(prev => prev.filter(f => f.id !== fileId));
+    return true;
   }, []);
 
   // ── Bin (deleted/hidden files, restorable for 15 days) ─────────────────────
@@ -823,6 +835,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.rpc('rpc_project_ensure_workspace_folder', { p_project_id: projectId });
     if (error) { showAlert('Error', error.message); throw error; }
     if (typeof data !== 'string' || !data) throw new Error('Workspace creation returned no folder identity.');
+    enqueueFileHubActivity({ folderId: data, action: 'folder_create', metadata: { project_id: projectId, project_root_kind: 'workspace', target_name: 'Workspace' } });
     return data;
   }, [showAlert]);
 
@@ -840,6 +853,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     });
     if (error) { showAlert('Error', error.message); throw error; }
     if (typeof data !== 'string' || !data) throw new Error('Folder creation returned no folder identity.');
+    enqueueFileHubActivity({ folderId: data as string, action: 'folder_create', metadata: { project_id: projectId, parent_id: parentId, target_name: name.trim() } });
     return data;
   }, [showAlert]);
 
@@ -848,6 +862,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_id: folderId, p_name: name, p_project_id: projectId,
     });
     if (error) { showAlert('Error', error.message); throw error; }
+    enqueueFileHubActivity({ folderId, action: 'rename', metadata: { project_id: projectId, target_name: name.trim() } });
   }, [showAlert]);
 
   const moveProjectFolder = useCallback(async (projectId: string, folderId: string, newParentId: string): Promise<void> => {
@@ -856,18 +871,21 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_id: folderId, p_new_parent_id: newParentId,
     });
     if (error) { showAlert('Error', error.message); throw error; }
+    enqueueFileHubActivity({ folderId, action: 'move', metadata: { project_id: projectId, to_folder_id: newParentId } });
   }, [showAlert]);
 
   const deleteProjectFolder = useCallback(async (projectId: string, folderId: string): Promise<void> => {
     void projectId;
     const { error } = await supabase.rpc('rpc_filehub_folder_delete', { p_id: folderId });
     if (error) { showAlert('Error', error.message); throw error; }
+    enqueueFileHubActivity({ folderId, action: 'folder_delete', metadata: { project_id: projectId } });
   }, [showAlert]);
 
   const restoreProjectFolder = useCallback(async (projectId: string, folderId: string): Promise<void> => {
     void projectId;
     const { error } = await supabase.rpc('rpc_filehub_folder_restore', { p_id: folderId });
     if (error) { showAlert('Error', error.message); throw error; }
+    enqueueFileHubActivity({ folderId, action: 'restore', metadata: { project_id: projectId } });
   }, [showAlert]);
 
   const moveProjectFile = useCallback(async (projectId: string, fileId: string, folderId: string): Promise<void> => {
@@ -876,18 +894,21 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       p_file_id: fileId, p_folder_id: folderId,
     });
     if (error) { showAlert('Error', error.message); throw error; }
+    enqueueFileHubActivity({ fileId, action: 'move', metadata: { project_id: projectId, to_folder_id: folderId } });
   }, [showAlert]);
 
   const deleteProjectFile = useCallback(async (projectId: string, fileId: string): Promise<void> => {
     void projectId;
     const { error } = await supabase.rpc('rpc_filehub_delete', { p_file_id: fileId });
     if (error) { showAlert('Error', error.message); throw error; }
+    enqueueFileHubActivity({ fileId, action: 'delete', metadata: { project_id: projectId } });
   }, [showAlert]);
 
   const restoreProjectFile = useCallback(async (projectId: string, fileId: string): Promise<void> => {
     void projectId;
     const { error } = await supabase.rpc('rpc_filehub_restore', { p_file_id: fileId });
     if (error) { showAlert('Error', error.message); throw error; }
+    enqueueFileHubActivity({ fileId, action: 'restore', metadata: { project_id: projectId } });
   }, [showAlert]);
 
   const projectFileVersions = useCallback(async (projectId: string, fileId: string): Promise<FileVersion[]> => {
@@ -898,10 +919,12 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   }, [showAlert]);
 
   const restoreProjectFileVersion = useCallback(async (projectId: string, versionId: string): Promise<void> => {
+    const { data: versionTarget } = await supabase.from('filehub_file_versions').select('file_id, version_no').eq('id', versionId).maybeSingle();
     const { error } = await supabase.rpc('rpc_project_filehub_restore_version', {
       p_project_id: projectId, p_version_id: versionId,
     });
     if (error) { showAlert('Error', error.message); throw error; }
+    if (versionTarget?.file_id) enqueueFileHubActivity({ fileId: versionTarget.file_id, action: 'restore', metadata: { project_id: projectId, version_id: versionId, version_no: versionTarget.version_no } });
   }, [showAlert]);
 
   const replaceProjectFile = useCallback(async (
@@ -964,7 +987,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
   const deleteFolder = useCallback(async (id: string) => {
     const previous = folders.find(f => f.id === id);
     const { error } = await supabase.rpc('rpc_filehub_folder_delete', { p_id: id });
-    if (error) { showAlert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return false; }
     if (previous?.parent_id) {
       // The deleted folder is ON DELETE CASCADE for activity rows. Log against
       // its surviving parent so the audit row remains durable. Root folders
@@ -978,12 +1001,13 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     }
     setSelectedFolderIdState(prev => (prev === id ? null : prev));
     await fetchFolders();
+    return true;
   }, [fetchFolders, folders]);
 
   const moveFolder = useCallback(async (id: string, newParentId: string | null) => {
     const previous = folders.find(f => f.id === id);
     const { error } = await supabase.rpc('rpc_filehub_folder_move', { p_id: id, p_new_parent_id: newParentId });
-    if (error) { showAlert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return false; }
     const toParentLocation = newParentId ? folderPath(folders, newParentId) : '';
     logFolderActivity(id, 'move', {
       from_folder_id: previous?.parent_id ?? null,
@@ -992,12 +1016,13 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
       ...(previous?.name ? { to_location: toParentLocation ? `${toParentLocation} / ${previous.name}` : 'FileHub root' } : {}),
     });
     await fetchFolders();
+    return true;
   }, [fetchFolders, folders]);
 
   const moveFile = useCallback(async (fileId: string, folderId: string | null) => {
     const previous = [...files, ...groupFiles].find(f => f.id === fileId);
     const { error } = await supabase.rpc('rpc_filehub_file_move', { p_file_id: fileId, p_folder_id: folderId });
-    if (error) { showAlert('Error', error.message); return; }
+    if (error) { showAlert('Error', error.message); return false; }
     const toLocation = folderId ? folderPath(folders, folderId) : '';
     logActivity(fileId, 'move', {
       from_folder_id: previous?.folder_id ?? null,
@@ -1007,6 +1032,7 @@ export function FileHubProvider({ children }: { children: React.ReactNode }) {
     });
     refresh();
     fetchGroupFiles();
+    return true;
   }, [refresh, fetchGroupFiles, files, groupFiles, folders]);
 
   const tagSuggestions = useCallback(async (prefix: string): Promise<string[]> => {

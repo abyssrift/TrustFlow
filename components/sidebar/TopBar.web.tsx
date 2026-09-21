@@ -16,6 +16,8 @@ import ProfilePill from './ProfilePill.web';
 import ThemeButton from './ThemeButton.web';
 import TimelineDropdown from './timeline/TimelineDropdown.web';
 import TimelineStrip from './timeline/TimelineStrip.web';
+import GuideAnchor from '../guides/GuideAnchor';
+import GuideHelpButton from '../guides/GuideHelpButton';
 
 cssInterop(FontAwesome, {
   className: {
@@ -141,39 +143,40 @@ export default function TopBar({
 
   return (
       <View className="h-16 flex-row items-center gap-3 border-b border-surface-border bg-surface-background px-5">
-        <Pressable
-          onPress={openPalette}
-          className="h-9 flex-1 max-w-md flex-row items-center gap-2 rounded-xl bg-surface-card px-3"
-        >
-          <FontAwesome name="search" size={12} color={colors.textDim} />
-          <TextInput
-            ref={searchInputRef}
-            value={topSearch}
-            onChangeText={(t) => { setTopSearch(t); onRequestPalette?.(t); }}
-            onFocus={openPalette}
-            returnKeyType="search"
-            placeholder="Search projects, tasks, files…"
-            placeholderTextColor={colors.textDim}
-            className="flex-1 text-sm text-typography-main"
-            style={{ paddingVertical: 0 }}
+        <GuideAnchor id="top-bar:navigation" className="flex-1 flex-row items-center gap-3">
+          <Pressable
+            onPress={openPalette}
+            className="h-9 flex-1 max-w-md flex-row items-center gap-2 rounded-xl bg-surface-card px-3"
+          >
+            <FontAwesome name="search" size={12} color={colors.textDim} />
+            <TextInput
+              ref={searchInputRef}
+              value={topSearch}
+              onChangeText={(t) => { setTopSearch(t); onRequestPalette?.(t); }}
+              onFocus={openPalette}
+              returnKeyType="search"
+              placeholder="Search projects, tasks, files…"
+              placeholderTextColor={colors.textDim}
+              className="flex-1 text-sm text-typography-main"
+              style={{ paddingVertical: 0 }}
+            />
+            {/* Visual cue only — the whole field opens the palette; this just
+                tells you the shortcut (matches the palette's own keycap chips). */}
+            <View className="px-1.5 py-0.5 rounded-md" style={{ borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ fontFamily: 'SpaceMono', fontSize: 10, color: colors.textDim }}>⌘K</Text>
+            </View>
+          </Pressable>
+
+          <PinnedShortcuts
+            visibleShortcuts={visibleShortcuts}
+            pipelines={pipelines}
+            portfolios={portfolios}
+            portfoliosLoading={portfoliosLoading}
+            onOpenChange={onPickerOpenChange}
           />
-          {/* Visual cue only — the whole field opens the palette; this just
-              tells you the shortcut (matches the palette's own keycap chips). */}
-          <View className="px-1.5 py-0.5 rounded-md" style={{ borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ fontFamily: 'SpaceMono', fontSize: 10, color: colors.textDim }}>⌘K</Text>
-          </View>
-        </Pressable>
 
-        <PinnedShortcuts
-          visibleShortcuts={visibleShortcuts}
-          pipelines={pipelines}
-          portfolios={portfolios}
-          portfoliosLoading={portfoliosLoading}
-          onOpenChange={onPickerOpenChange}
-        />
-
-        <View className="flex-1 px-6">
-          <View ref={timelineWrapRef} className="relative flex-row items-center gap-2">
+          <View className="flex-1 px-6">
+            <View ref={timelineWrapRef} className="relative flex-row items-center gap-2">
             <div ref={timelineStripWrapRef} style={{ position: 'relative', flex: 1 }}>
               <TimelineStrip tasks={upcomingTasks} projects={upcomingProjects} onPress={expandCalendarFromStrip} />
               {/* Transparent bridge over the 12px gap to the dropdown, same trick as
@@ -215,8 +218,9 @@ export default function TopBar({
                 <FontAwesome name="binoculars" size={11} color={colors.textMuted} />
               </Pressable>
             </Tooltip>
+            </View>
           </View>
-        </View>
+        </GuideAnchor>
 
         <ThemeButton />
 
@@ -243,6 +247,7 @@ export default function TopBar({
           <NotificationsDropdown visible={notifOpen} onClose={closeNotifications} />
         </View>
 
+        <GuideHelpButton guideId="top-bar" />
         <ProfilePill profileAvatarUrl={profileAvatarUrl} profileLabel={profileLabel} />
       </View>
   );

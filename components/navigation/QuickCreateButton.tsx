@@ -1,6 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useModalDispatch } from '@/contexts/ModalDispatchContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useCapability } from '@/hooks/useCapability';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -50,6 +51,7 @@ export default function QuickCreateButton({
   const colors = useThemeColors();
   const router = useRouter();
   const { hasPermission } = useAuth();
+  const reportCapability = useCapability('report.generate');
   const { summon } = useModalDispatch();
   // Kept mounted through the closing animation, then dropped.
   const [rendered, setRendered] = useState(open);
@@ -80,17 +82,19 @@ export default function QuickCreateButton({
   // ponytail: flat list, one row each. Projects/portfolios are still in dev —
   // add a row + its permission key here when they ship.
   // Task, report and upload all go through the global modal dispatcher (#323 /
-  // #340); ModalHost owns the actual modals. (On native the upload modal is a
-  // stub that redirects to /filehub — see components/filehub/UploadComposerModal.tsx.)
+  // #340); ModalHost owns the actual modals on web and native.
   const actions: { id: string; icon: IconName; label: string; permission?: string; run: () => void }[] = [
     { id: 'task', icon: 'check-square-o', label: 'New Task', permission: 'task.create', run: () => summon('create-task') },
-    { id: 'report', icon: 'file-text-o', label: 'New Report', permission: 'report.view', run: () => summon('generate-report') },
+    { id: 'report', icon: 'file-text-o', label: 'New Report', permission: 'report.view', run: () => {
+      if (reportCapability.allowed) summon('generate-report');
+    } },
     { id: 'upload', icon: 'cloud-upload', label: 'Upload File', permission: 'filehub:view', run: () => summon('upload') },
     { id: 'search', icon: 'search', label: 'Search', run: () => router.push('/search') },
     { id: 'deadlines', icon: 'calendar-o', label: 'Deadlines', run: () => router.push('/deadlines') },
   ];
 
-  const items = actions.filter((a) => !a.permission || hasPermission(a.permission));
+  const items = actions.filter((a) => !a.permission || hasPermission(a.permission))
+    .filter((a) => a.id !== 'report' || reportCapability.allowed);
 
   // Relative wrapper sized exactly to the FAB — the menu is absolutely
   // positioned off of it, so it never participates in the tab bar's row layout

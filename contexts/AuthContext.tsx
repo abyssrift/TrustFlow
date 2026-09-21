@@ -198,7 +198,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id);
+      // Company creation and joining change more than the profile row: they
+      // also change the user's role assignments and effective permissions.
+      // Refresh all three together so onboarding cannot route an owner into
+      // the app with the pre-company empty permission snapshot.
+      await Promise.all([
+        fetchProfile(user.id),
+        fetchPermissions(),
+        fetchRoles(),
+      ]);
     }
   };
 

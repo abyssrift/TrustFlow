@@ -1,6 +1,7 @@
 import React from 'react'
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
 import { C, F, base } from './theme'
+import { computeRatePercent } from '@/lib/reporting/reportCalculations'
 import { Cover, Footer, Section, SectionDivider, Sub, KpiRow, Table, HBar, Empty, Insight, sf, fmtDate } from './shared'
 
 const s = StyleSheet.create({
@@ -31,7 +32,7 @@ export function TargetsReportPages({ data, jobId, isModule }: { data: TargetsDat
   const hit     = targets.filter(t => t.status === 'hit')
   const active  = targets.filter(t => t.status === 'active')
   const expired = targets.filter(t => t.status === 'expired')
-  const hitRate = targets.length > 0 ? Math.round((hit.length / targets.length) * 100) : 0
+  const hitRate = computeRatePercent(hit.length, targets.length)
 
   const renderGroup = (items: TargetItem[], label: string, color: string) => {
     if (items.length === 0) return null
@@ -82,7 +83,7 @@ export function TargetsReportPages({ data, jobId, isModule }: { data: TargetsDat
           { label: 'Hit',             value: String(hit.length),         accent: C.success, color: hit.length > 0 ? C.success : C.muted },
           { label: 'Active',          value: String(active.length),      accent: C.primary },
           { label: 'Expired',         value: String(expired.length),     accent: C.danger,  color: expired.length > 0 ? C.danger : C.muted },
-          { label: 'Hit Rate',        value: `${hitRate}%`,              accent: hitRate >= 70 ? C.success : hitRate >= 40 ? C.warning : C.danger, color: hitRate >= 70 ? C.success : hitRate >= 40 ? C.warning : C.danger },
+          { label: 'Hit Rate',        value: hitRate === null ? 'N/A' : `${hitRate}%`, accent: hitRate === null ? C.muted : hitRate >= 70 ? C.success : hitRate >= 40 ? C.warning : C.danger, color: hitRate === null ? C.muted : hitRate >= 70 ? C.success : hitRate >= 40 ? C.warning : C.danger },
         ]} />
 
         {targets.length === 0 ? (
@@ -105,7 +106,7 @@ export function TargetsReportPages({ data, jobId, isModule }: { data: TargetsDat
             {renderGroup(active,  'ACTIVE',  C.primary)}
             {renderGroup(expired, 'EXPIRED', C.danger)}
 
-            {hitRate >= 70 && <Insight text={`${hitRate}% of targets have been hit — strong objective achievement this period.`} color={C.success} />}
+            {hitRate !== null && hitRate >= 70 && <Insight text={`${hitRate}% of targets have been hit — strong objective achievement this period.`} color={C.success} />}
             {expired.length > 0 && <Insight text={`${expired.length} target${expired.length > 1 ? 's' : ''} expired without being hit. Review feasibility and adjust future targets accordingly.`} color={C.warning} />}
             {active.length > 0 && active.some(t => t.deadline && new Date(t.deadline) < new Date(Date.now() + 7 * 86400000)) && (
               <Insight text={`${active.filter(t => t.deadline && new Date(t.deadline) < new Date(Date.now() + 7 * 86400000)).length} active target(s) have deadlines within the next 7 days.`} color={C.warning} />

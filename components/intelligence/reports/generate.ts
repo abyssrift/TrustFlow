@@ -1,6 +1,8 @@
 import { Document, Page, pdf } from '@react-pdf/renderer'
 import { SupabaseClient } from '@supabase/supabase-js'
 import React from 'react'
+import { countOverlappingTeamMembers, resolveScopedCompletedTasks } from '@/lib/reporting/reportCalculations'
+import { requireCompleteReportRows, requireReportCount, requireReportMutationRow, requireReportQueryData, sumValidatedSessionHours } from '@/lib/reporting/reportData'
 
 import { GeneralData, GeneralReport, GeneralReportPages, computeGeneralInsights } from './GeneralReport'
 import { PersonalPulseData, PersonalPulseReport, PersonalPulseReportPages } from './PersonalPulseReport'
@@ -12,6 +14,10 @@ import { TargetsData, TargetsReport, TargetsReportPages } from './TargetsReport'
 import { TeamComparisonData, TeamComparisonReport, TeamComparisonReportPages } from './TeamComparisonReport'
 import { C, base } from './theme'
 import { ThroughputData, ThroughputReport, ThroughputReportPages } from './ThroughputReport'
+
+// Keep aligned with supabase/config.toml api.max_rows; never let its server cap
+// silently turn large team reports into plausible but incomplete totals.
+const REPORT_QUERY_MAX_ROWS = 1000
 import { UserSeriesData, UserSeriesReport, UserSeriesReportPages } from './UserSeriesReport'
 import { UserSummaryData, UserSummaryReport, UserSummaryReportPages } from './UserSummaryReport'
 import { WorkerComparisonData, WorkerComparisonReport, WorkerComparisonReportPages } from './WorkerComparisonReport'
@@ -19,21 +25,24 @@ import { WorkerComparisonData, WorkerComparisonReport, WorkerComparisonReportPag
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function getCompanyName(sb: SupabaseClient, userId: string): Promise<string> {
-  const { data } = await sb
+  const { data, error } = await sb
     .from('users')
     .select('companies(name)')
     .eq('id', userId)
     .single()
-  return (data as any)?.companies?.name || 'Organization'
+  const user = requireReportQueryData('Report company name', { data, error })
+  return (user as any)?.companies?.name || 'Organization'
 }
 
 async function getWorkerName(sb: SupabaseClient, userId: string): Promise<string> {
-  const { data } = await sb.from('users').select('full_name').eq('id', userId).single()
+  const { data, error } = await sb.from('users').select('full_name').eq('id', userId).single()
+  requireReportQueryData('Report worker name', { data, error })
   return (data as any)?.full_name || 'Person'
 }
 
 async function getPipelineName(sb: SupabaseClient, pipelineId: string): Promise<string> {
-  const { data } = await sb.from('pipelines').select('name').eq('id', pipelineId).single()
+  const { data, error } = await sb.from('pipelines').select('name').eq('id', pipelineId).single()
+  requireReportQueryData('Report pipeline name', { data, error })
   return (data as any)?.name || 'Pipeline'
 }
 
@@ -91,32 +100,52 @@ async function fetchTeamComparison(sb: SupabaseClient, p: any, companyName: stri
     : [p.team_a_id, p.team_b_id].filter(Boolean)
 
   if (teamIds.length === 0) {
-    const { data: all } = await sb.from('teams').select('id').is('deleted_at', null)
-    teamIds = (all || []).map((t: any) => t.id)
+    const { data: all, error, count } = await sb.from('teams').select('id', { count: 'exact' })
+      .is('deleted_at', null).order('id').range(0, REPORT_QUERY_MAX_ROWS - 1)
+    teamIds = requireCompleteReportRows('teams', { data: all, error, count }).map((t: any) => t.id)
   }
 
-  const { data: teamsData } = await sb.from('teams').select('id, name').in('id', teamIds)
+  teamIds = [...new Set(teamIds)]
+
+  const { data: teamsData, error: teamsError, count: teamsCount } = await sb.from('teams')
+    .select('id, name', { count: 'exact' }).in('id', teamIds).order('id').range(0, REPORT_QUERY_MAX_ROWS - 1)
+  const teamRows = requireCompleteReportRows('teams', { data: teamsData, error: teamsError, count: teamsCount }, teamIds.length)
   const teamMap: Record<string, string> = {}
-  ;(teamsData || []).forEach((t: any) => { teamMap[t.id] = t.name })
+  teamRows.forEach((t: any) => { teamMap[t.id] = t.name })
+  const memberIdsByTeam: string[][] = []
 
   const calcStats = async (teamId: string) => {
-    const { data: members } = await sb.from('team_members').select('user_id').eq('team_id', teamId)
-    const uids = (members || []).map((m: any) => m.user_id)
+    const { data: members, error: memberError, count: membersCount } = await sb.from('team_members')
+      .select('user_id', { count: 'exact' }).eq('team_id', teamId).is('removed_at', null)
+      .order('user_id').range(0, REPORT_QUERY_MAX_ROWS - 1)
+    const memberRows = requireCompleteReportRows(`team_members (${teamId})`, { data: members, error: memberError, count: membersCount })
+    const uids = memberRows.map((m: any) => m.user_id)
+    memberIdsByTeam.push(uids)
     if (uids.length === 0) return { id: teamId, name: teamMap[teamId] || teamId, count: 0, completed: 0, failed: 0, pts: 0, hours: 0 }
-    const { data: parts } = await sb.from('task_participants').select('task_id').in('user_id', uids)
-    const taskIds = [...new Set((parts || []).map((p: any) => p.task_id))]
-    if (taskIds.length === 0) return { id: teamId, name: teamMap[teamId] || teamId, count: uids.length, completed: 0, failed: 0, pts: 0, hours: 0 }
-    const { data: tasks } = await sb.from('tasks').select('weight, completed_at, failed_at').in('id', taskIds)
-    const { data: sessions } = await sb.from('task_work_sessions').select('started_at, last_heartbeat_at').in('user_id', uids).gte('started_at', from).lte('started_at', to)
+    const { data: parts, error: participantError, count: participantCount } = await sb.from('task_participants')
+      .select('task_id, user_id', { count: 'exact' }).in('user_id', uids)
+      .order('user_id').order('task_id').range(0, REPORT_QUERY_MAX_ROWS - 1)
+    const participantRows = requireCompleteReportRows('task_participants', { data: parts, error: participantError, count: participantCount })
+    const taskIds = [...new Set(participantRows.map((p: any) => p.task_id))]
+    const { data: tasks, error: taskError, count: taskCount } = await sb.from('tasks')
+      .select('id, weight, completed_at, failed_at', { count: 'exact' }).in('id', taskIds)
+      .order('id').range(0, REPORT_QUERY_MAX_ROWS - 1)
+    const taskRows = requireCompleteReportRows('tasks', { data: tasks, error: taskError, count: taskCount })
+    const { data: sessions, error: sessionError, count: sessionCount } = await sb.from('task_work_sessions')
+      .select('id, started_at, last_heartbeat_at', { count: 'exact' }).in('user_id', uids)
+      .gte('started_at', from).lte('started_at', to).order('started_at').order('id')
+      .range(0, REPORT_QUERY_MAX_ROWS - 1)
+    const sessionRows = requireCompleteReportRows('task_work_sessions', { data: sessions, error: sessionError, count: sessionCount })
     const inRange = (t: string) => t >= from && t <= to
-    const comp = (tasks || []).filter((t: any) => t.completed_at && inRange(t.completed_at))
-    const fail = (tasks || []).filter((t: any) => t.failed_at && inRange(t.failed_at))
-    const hrs  = (sessions || []).reduce((s: number, ws: any) => s + (new Date(ws.last_heartbeat_at).getTime() - new Date(ws.started_at).getTime()) / 3600000, 0)
+    const comp = taskRows.filter((t: any) => t.completed_at && inRange(t.completed_at))
+    const fail = taskRows.filter((t: any) => t.failed_at && inRange(t.failed_at))
+    const hrs  = sumValidatedSessionHours(sessionRows)
     return { id: teamId, name: teamMap[teamId] || teamId, count: uids.length, completed: comp.length, failed: fail.length, pts: comp.reduce((s: number, t: any) => s + (t.weight || 0), 0), hours: hrs }
   }
 
   const teams = await Promise.all(teamIds.map(calcStats))
-  return { teams, company: companyName, dateRange: dateRange(from, to) }
+  const overlappingMemberCount = countOverlappingTeamMembers(memberIdsByTeam)
+  return { teams, company: companyName, dateRange: dateRange(from, to), overlappingMemberCount }
 }
 
 async function fetchUserSeries(sb: SupabaseClient, p: any, userId: string, companyName: string): Promise<UserSeriesData> {
@@ -139,7 +168,9 @@ async function fetchUserSummary(sb: SupabaseClient, p: any, companyName: string)
 
 async function fetchStageDwell(sb: SupabaseClient, p: any, companyName: string): Promise<StageDwellData> {
   const { data, error } = await sb.rpc('rpc_get_pipeline_stage_dwell', {
-    p_pipeline_id: p.pipeline_id, p_from: p.date_start, p_to: p.date_end,
+    p_pipeline_id: p.pipeline_id,
+    p_from: p.date_start_local || p.date_start,
+    p_to: p.date_end_local || p.date_end,
   })
   if (error) throw new Error(`Stage dwell: ${error.message}`)
   const pipelineName = await getPipelineName(sb, p.pipeline_id)
@@ -157,10 +188,10 @@ async function fetchThroughput(sb: SupabaseClient, p: any, companyName: string):
 
 async function fetchPersonnel(sb: SupabaseClient, p: any, companyName: string): Promise<PersonnelData> {
   const { data, error } = await sb.rpc('rpc_compare_personnel', {
-    p_user_ids: p.user_ids, p_from: p.date_start, p_to: p.date_end, p_salaries: p.salaries || {},
+    p_user_ids: p.user_ids, p_from: p.date_start, p_to: p.date_end, p_salaries: {},
   })
   if (error) throw new Error(`Personnel comparison: ${error.message}`)
-  return { rows: data || [], dateStart: p.date_start, dateEnd: p.date_end, company: companyName, hasSalaries: Object.keys(p.salaries || {}).length > 0 }
+  return { rows: data || [], dateStart: p.date_start, dateEnd: p.date_end, company: companyName }
 }
 
 async function fetchTargets(sb: SupabaseClient, companyName: string): Promise<TargetsData> {
@@ -182,7 +213,8 @@ async function fetchPersonalPulse(sb: SupabaseClient, userId: string, companyNam
   const { data, error } = await sb.rpc('rpc_get_personal_pulse')
   if (error) throw new Error(`Personal pulse: ${error.message}`)
   const name = await getWorkerName(sb, userId)
-  const { data: parts } = await sb.from('task_participants').select('task_id', { count: 'exact', head: true }).eq('user_id', userId)
+  const { count, error: partsError } = await sb.from('task_participants').select('task_id', { count: 'exact', head: true }).eq('user_id', userId)
+  const taskCount = requireReportCount('Personal pulse task count', { data: count, error: partsError })
   return {
     workerName:          name,
     dailyPts:            (data as any)?.daily_points       || 0,
@@ -190,7 +222,7 @@ async function fetchPersonalPulse(sb: SupabaseClient, userId: string, companyNam
     activeSecondsToday:  (data as any)?.active_seconds_today || 0,
     isWorking:           (data as any)?.is_working         || false,
     flapRate:            (data as any)?.flap_rate_score    || 0,
-    taskCount:           (parts as any)?.count             || 0,
+    taskCount,
     company:             companyName,
   }
 }
@@ -221,8 +253,9 @@ async function fetchProjects(sb: SupabaseClient, p: any, companyName: string): P
   const pipelineIds = [...new Set(projects.map((pr: any) => pr.pipeline_id).filter(Boolean))]
   const pipelineMap: Record<string, string> = {}
   if (pipelineIds.length > 0) {
-    const { data: pipes } = await sb.from('pipelines').select('id, name').in('id', pipelineIds)
-    ;(pipes || []).forEach((pp: any) => { pipelineMap[pp.id] = pp.name })
+    const { data: pipes, error: pipelineError } = await sb.from('pipelines').select('id, name').in('id', pipelineIds)
+    const pipelineRows = requireReportQueryData('Project pipelines', { data: pipes, error: pipelineError }) || []
+    pipelineRows.forEach((pp: any) => { pipelineMap[pp.id] = pp.name })
   }
 
   // Lifetime stats via the existing RPC (this respects company RLS)
@@ -235,14 +268,18 @@ async function fetchProjects(sb: SupabaseClient, p: any, companyName: string): P
   // If date range scope is provided, also count tasks completed inside that window per project for the "rate" view
   let scopedDoneMap: Record<string, number> = {}
   if (fromIso && toIso) {
-    const { data: scoped } = await sb
+    let scopedQuery = sb
       .from('tasks')
       .select('project_id, completed_at')
       .in('project_id', ids)
       .gte('completed_at', fromIso)
-      .lte('completed_at', toIso)
       .not('completed_at', 'is', null)
-    ;(scoped || []).forEach((t: any) => {
+    scopedQuery = p.date_end_exclusive
+      ? scopedQuery.lt('completed_at', p.date_end_exclusive)
+      : scopedQuery.lte('completed_at', toIso)
+    const { data: scoped, error: scopedError } = await scopedQuery
+    const scopedRows = requireReportQueryData('Project date-scoped tasks', { data: scoped, error: scopedError }) || []
+    scopedRows.forEach((t: any) => {
       if (!t.project_id) return
       scopedDoneMap[t.project_id] = (scopedDoneMap[t.project_id] || 0) + 1
     })
@@ -256,9 +293,10 @@ async function fetchProjects(sb: SupabaseClient, p: any, companyName: string): P
     const createdMs = pr.created_at ? new Date(pr.created_at).getTime() : nowMs
     const daysActive = Math.max(1, (nowMs - createdMs) / 86400000)
 
-    const completedForRate = fromIso && toIso ? (scopedDoneMap[pr.id] ?? st.completed_tasks) : st.completed_tasks
+    const scopedCompleted = fromIso && toIso ? scopedDoneMap[pr.id] : undefined
+    const completedForRate = resolveScopedCompletedTasks(scopedCompleted, st.completed_tasks)
     const windowDays = fromIso && toIso
-      ? Math.max(1, (new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86400000)
+      ? Math.max(1, Number(p.days) || (new Date(toIso).getTime() - new Date(fromIso).getTime()) / 86400000)
       : daysActive
     const tasksPerDay = completedForRate / windowDays
 
@@ -432,9 +470,17 @@ export async function generateAndUploadReport(
   }
 
   log(`start type=${reportType}`)
-  await sb.from('reporting_jobs').update({ status: 'processing', updated_at: new Date().toISOString() }).eq('id', jobId)
+  const startedIso = new Date().toISOString()
 
   try {
+    const { data: startedJob, error: startErr } = await sb.from('reporting_jobs').update({
+      status: 'processing',
+      started_at: startedIso,
+      updated_at: startedIso,
+    }).eq('id', jobId).select('id').maybeSingle()
+    if (startErr) throw new Error(`Status update failed: ${startErr.message}`)
+    if (!startedJob) throw new Error('Report job could not be started; it may not exist or may not be accessible.')
+
     const company = await getCompanyName(sb, userId)
     const p = parameters || {}
 
@@ -561,24 +607,35 @@ export async function generateAndUploadReport(
     if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`)
     log('uploaded, marking completed')
 
+    const { data: signed, error: signedError } = await sb.storage.from('reports').createSignedUrl(path, 300)
+    requireReportQueryData('Report signed URL', { data: signed, error: signedError })
+    const signedUrl = signed?.signedUrl
+    if (!signedUrl) throw new Error('Report file was uploaded but a download URL could not be created.')
+
     const completedIso = new Date().toISOString()
-    const { error: dbErr } = await sb.from('reporting_jobs').update({
+    const { data: completedJob, error: dbErr } = await sb.from('reporting_jobs').update({
       status: 'completed',
       file_url: path,
       completed_at: completedIso,
       updated_at: completedIso,
-    }).eq('id', jobId)
-    if (dbErr) throw new Error(`Status update failed: ${dbErr.message}`)
+    }).eq('id', jobId).select('id').maybeSingle()
+    requireReportMutationRow('Report completion status update', { data: completedJob, error: dbErr })
     log('row completed in DB')
 
-    const { data: signed } = await sb.storage.from('reports').createSignedUrl(path, 300)
-    return signed?.signedUrl || ''
+    return signedUrl
 
   } catch (err: any) {
     console.error(`[report ${jobId.slice(0, 8)}] FAILED:`, err?.message || err)
-    await sb.from('reporting_jobs').update({
-      status: 'failed', error_log: err.message, updated_at: new Date().toISOString(),
-    }).eq('id', jobId)
+    const failedIso = new Date().toISOString()
+    try {
+      const { data: failedJob, error: failureStatusError } = await sb.from('reporting_jobs').update({
+        status: 'failed', error_log: err.message, completed_at: failedIso, updated_at: failedIso,
+      }).eq('id', jobId).select('id').maybeSingle()
+      requireReportMutationRow('Report failure status update', { data: failedJob, error: failureStatusError })
+    } catch (statusError: any) {
+      const generationError = err?.message || String(err)
+      throw new Error(`${generationError}. Failed status could not be persisted: ${statusError?.message || statusError}`, { cause: err })
+    }
     throw err
   }
 }

@@ -1,13 +1,15 @@
 import { BackButton } from '@/components/common/BackButton';
 import UserLink from '@/components/common/UserLink';
+import { ConversionFunnelDetails, PipelineLoadDetails } from '@/components/intelligence/AdaptivePipelineDetails';
 import { DateRangeControls, useGranularity } from '@/components/intelligence/DateRangeFilter';
 import PortfolioFlowTab from '@/components/intelligence/PortfolioFlowTab';
 import { PersonnelRow, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
+import type { OrganizationalAudit } from '@/lib/analyticsMetrics';
 import { bucketLabel } from '@/lib/chartBuckets';
 import { localIsoDay } from '@/lib/time';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
-import { getAnalyticsLimits } from '@/lib/planLimits';
+import { AnalyticsLimits, getAnalyticsLimits } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -189,11 +191,9 @@ function DwellChart({ data }: { data: StageDwell[] }) {
 
 // ─── Pipeline Tab ─────────────────────────────────────────────────────────────
 
-function PipelineTab() {
+function PipelineTab({ limits, billingReady }: { limits: AnalyticsLimits; billingReady: boolean }) {
   const colors = useThemeColors();
-  const { limits: planLimits } = useBillingPlan();
-  const limits = getAnalyticsLimits(planLimits);
-  const { getPipelineStageDwell, getPipelineThroughputRange } = useAnalytics();
+  const { getOrganizationalAudit, getPipelineStageDwell, getPipelineThroughputRange } = useAnalytics();
   const [pipelines, setPipelines]       = useState<any[]>([]);
   const [selectedPipeline, setSelected] = useState<string | null>(null);
   const granularity = useGranularity();
@@ -206,6 +206,7 @@ function PipelineTab() {
 
   const [dwell, setDwell]           = useState<StageDwell[]>([]);
   const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
+  const [auditData, setAuditData]   = useState<OrganizationalAudit | null>(null);
   const [loading, setLoading]       = useState(false);
   const [loaded, setLoaded]         = useState(false);
 
@@ -218,12 +219,18 @@ function PipelineTab() {
     if (!selectedPipeline) return;
     setLoading(true);
     try {
-      const [d, t] = await Promise.all([
+      const nDays = Math.max(7, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000));
+      const [d, t, audit] = await Promise.all([
         getPipelineStageDwell(selectedPipeline, from, to),
         getPipelineThroughputRange(selectedPipeline, from, to, buckets),
+        getOrganizationalAudit(selectedPipeline, nDays).catch(error => {
+          console.error('[Analytics] Failed to load organizational audit:', error);
+          return null;
+        }),
       ]);
       setDwell(d);
       setThroughput(t);
+      setAuditData(audit);
       setLoaded(true);
     } finally { setLoading(false); }
   }, [selectedPipeline, from, to, buckets]);
@@ -263,16 +270,11 @@ function PipelineTab() {
       ) : (
         <>
           {/* Throughput chart */}
-          {limits.throughput ? (
+          {billingReady && limits.throughput && (
             <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
               <Text className="text-typography-main font-black text-base mb-1">Throughput Over Time</Text>
               <Text className="text-typography-muted text-[10px] mb-5">Tasks completed vs failed per period</Text>
               <ThroughputChart data={throughput} />
-            </View>
-          ) : (
-            <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2">
-              <FontAwesome name="lock" size={11} color={colors.textMuted} />
-              <Text className="text-typography-muted text-xs">Not available on your plan</Text>
             </View>
           )}
 
@@ -282,6 +284,9 @@ function PipelineTab() {
             <Text className="text-typography-muted text-[10px] mb-5">Avg time tasks spend per stage</Text>
             <DwellChart data={dwell} />
           </View>
+
+          {auditData && <PipelineLoadDetails audit={auditData} />}
+          {auditData && billingReady && limits.funnel && <ConversionFunnelDetails audit={auditData} />}
         </>
       )}
     </View>
@@ -459,8 +464,15 @@ export default function AdminAnalyticsNative() {
   // simply loading this screen at native/narrow-web width. The desktop
   // sibling (_analytics_desktop.tsx) already calls it unconditionally
   // before its own early returns; this just matches that.
-  const { limits: planLimits } = useBillingPlan();
+  const { limits: planLimits, loading: planLoading, error: planError, ready: billingReady } = useBillingPlan();
+  const limits = getAnalyticsLimits(planLimits);
   const [activeTab, setActiveTab] = useState<AdminTab>('pipeline');
+
+  useEffect(() => {
+    if (billingReady && !limits.personnel && activeTab === 'personnel') {
+      setActiveTab('pipeline');
+    }
+  }, [activeTab, billingReady, limits.personnel]);
 
   if (!permissionsLoaded) {
     return (
@@ -484,8 +496,25 @@ export default function AdminAnalyticsNative() {
     );
   }
 
+  if (planLoading) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <Stack.Screen options={{ title: 'Analytics' }} />
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (planError || !billingReady) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center px-6">
+        <Stack.Screen options={{ title: 'Analytics' }} />
+        <Text className="text-typography-muted text-sm text-center">Plan information unavailable.</Text>
+      </View>
+    );
+  }
+
   const canCompare = hasPermission('analytics.compare');
-  const limits = getAnalyticsLimits(planLimits);
 
   return (
     <ScrollView className="flex-1 bg-surface-background" contentContainerStyle={{ paddingBottom: 40 }}>
@@ -512,15 +541,17 @@ export default function AdminAnalyticsNative() {
             Pipeline
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => canCompare && setActiveTab('personnel')}
-          disabled={!canCompare}
-          className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'personnel' ? 'bg-brand-primary' : ''} ${!canCompare ? 'opacity-40' : ''}`}
-        >
-          <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'personnel' ? 'text-white' : 'text-typography-muted'}`}>
-            Personnel
-          </Text>
-        </TouchableOpacity>
+        {billingReady && limits.personnel && (
+          <TouchableOpacity
+            onPress={() => canCompare && setActiveTab('personnel')}
+            disabled={!canCompare}
+            className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'personnel' ? 'bg-brand-primary' : ''} ${!canCompare ? 'opacity-40' : ''}`}
+          >
+            <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'personnel' ? 'text-white' : 'text-typography-muted'}`}>
+              Personnel
+            </Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           onPress={() => setActiveTab('portfolio')}
           className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'portfolio' ? 'bg-brand-primary' : ''}`}
@@ -532,16 +563,10 @@ export default function AdminAnalyticsNative() {
       </View>
 
       <View className="px-6">
-        {activeTab === 'pipeline' && <PipelineTab />}
+        {activeTab === 'pipeline' && <PipelineTab limits={limits} billingReady={billingReady} />}
         {activeTab === 'portfolio' && <PortfolioFlowTab />}
-        {activeTab === 'personnel' && canCompare && limits.personnel && <PersonnelTab />}
-        {activeTab === 'personnel' && canCompare && !limits.personnel && (
-          <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2 mt-2">
-            <FontAwesome name="lock" size={11} color={colors.textMuted} />
-            <Text className="text-typography-muted text-xs">Not available on your plan</Text>
-          </View>
-        )}
-        {activeTab === 'personnel' && !canCompare && (
+        {activeTab === 'personnel' && canCompare && billingReady && limits.personnel && <PersonnelTab />}
+        {activeTab === 'personnel' && billingReady && limits.personnel && !canCompare && (
           <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
             <FontAwesome name="lock" size={28} color={colors.primary} />
             <Text className="text-typography-main font-black">Permission Required</Text>

@@ -2,6 +2,7 @@ import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
 import { CompareGrid, Cover, Empty, Footer, HBar, Insight, KpiRow, Section, SectionDivider, Sub, Table, sf } from './shared'
 import { C, base } from './theme'
+import { compareTeamMetric, computeAverageObservedMetric, findTopTeamPointLeaders, tallyComparisonWins } from '@/lib/reporting/reportCalculations'
 
 const s = StyleSheet.create({ page: { ...base.page } })
 
@@ -31,20 +32,23 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
   // ── 2-worker head-to-head layout ──────────────────────────────────────────
   if (workers.length === 2) {
     const [wA, wB] = workers
+    const metric = (value: unknown): number | null => typeof value === 'number' && Number.isFinite(value) ? value : null
     const rows = [
-      { label: 'Weight Points',    vA: String(wA.weight_points || 0),       vB: String(wB.weight_points || 0),       winA: (wA.weight_points || 0) >= (wB.weight_points || 0) },
-      { label: 'Tasks Completed',  vA: String(wA.completed_tasks || 0),     vB: String(wB.completed_tasks || 0),     winA: (wA.completed_tasks || 0) >= (wB.completed_tasks || 0) },
-      { label: 'Tasks Failed',     vA: String(wA.failed_tasks || 0),        vB: String(wB.failed_tasks || 0),        winA: (wA.failed_tasks || 0) <= (wB.failed_tasks || 0) },
-      { label: 'Active Hours',     vA: `${sf(wA.active_hours, 1)}h`,        vB: `${sf(wB.active_hours, 1)}h`,        winA: (wA.active_hours || 0) >= (wB.active_hours || 0) },
-      { label: 'On-Time Rate',     vA: `${sf(wA.on_time_rate, 1)}%`,        vB: `${sf(wB.on_time_rate, 1)}%`,        winA: (wA.on_time_rate || 0) >= (wB.on_time_rate || 0) },
-      { label: 'Timer Efficiency', vA: `${sf(wA.timer_efficiency, 1)}%`,    vB: `${sf(wB.timer_efficiency, 1)}%`,    winA: (wA.timer_efficiency || 0) >= (wB.timer_efficiency || 0) },
-      { label: 'Points / Hour',    vA: sf(wA.points_per_hour, 2),           vB: sf(wB.points_per_hour, 2),           winA: (wA.points_per_hour || 0) >= (wB.points_per_hour || 0) },
-      { label: 'Revisions',        vA: String(wA.revision_count || 0),      vB: String(wB.revision_count || 0),      winA: (wA.revision_count || 0) <= (wB.revision_count || 0) },
-      { label: 'Activity Count',   vA: String(wA.activity_count || 0),      vB: String(wB.activity_count || 0),      winA: (wA.activity_count || 0) >= (wB.activity_count || 0) },
+      { label: 'Weight Points',    vA: String(wA.weight_points || 0),       vB: String(wB.weight_points || 0),       winA: compareTeamMetric(metric(wA.weight_points), metric(wB.weight_points)) },
+      { label: 'Tasks Completed',  vA: String(wA.completed_tasks || 0),     vB: String(wB.completed_tasks || 0),     winA: compareTeamMetric(metric(wA.completed_tasks), metric(wB.completed_tasks)) },
+      { label: 'Tasks Failed',     vA: String(wA.failed_tasks || 0),        vB: String(wB.failed_tasks || 0),        winA: compareTeamMetric(metric(wA.failed_tasks), metric(wB.failed_tasks), 'lower') },
+      { label: 'Active Hours',     vA: `${sf(wA.active_hours, 1)}h`,        vB: `${sf(wB.active_hours, 1)}h`,        winA: compareTeamMetric(metric(wA.active_hours), metric(wB.active_hours)) },
+      { label: 'On-Time Rate',     vA: `${sf(wA.on_time_rate, 1)}%`,        vB: `${sf(wB.on_time_rate, 1)}%`,        winA: compareTeamMetric(metric(wA.on_time_rate), metric(wB.on_time_rate)) },
+      { label: 'Timer Efficiency', vA: `${sf(wA.timer_efficiency, 1)}%`,    vB: `${sf(wB.timer_efficiency, 1)}%`,    winA: compareTeamMetric(metric(wA.timer_efficiency), metric(wB.timer_efficiency)) },
+      { label: 'Points / Hour',    vA: sf(wA.points_per_hour, 2),           vB: sf(wB.points_per_hour, 2),           winA: compareTeamMetric(metric(wA.points_per_hour), metric(wB.points_per_hour)) },
+      { label: 'Revisions',        vA: String(wA.revision_count || 0),      vB: String(wB.revision_count || 0),      winA: compareTeamMetric(metric(wA.revision_count), metric(wB.revision_count), 'lower') },
+      { label: 'Activity Count',   vA: String(wA.activity_count || 0),      vB: String(wB.activity_count || 0),      winA: compareTeamMetric(metric(wA.activity_count), metric(wB.activity_count)) },
     ]
-    const winsA  = rows.filter(r => r.winA).length
-    const winsB  = rows.length - winsA
-    const winner = winsA > winsB ? wA.full_name : winsB > winsA ? wB.full_name : null
+    const tally = tallyComparisonWins(rows.map(row => row.winA))
+    const winsA = tally.winsA
+    const winsB = tally.winsB
+    const decided = tally.decided
+    const winner = tally.winner === 'a' ? wA.full_name : tally.winner === 'b' ? wB.full_name : null
 
     return (
       <>
@@ -55,7 +59,7 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
           <KpiRow items={[
             { label: wA.full_name || 'Person A', value: `${winsA} wins`,  note: 'Categories leading', accent: C.success },
             { label: wB.full_name || 'Person B', value: `${winsB} wins`,  note: 'Categories leading', accent: C.primary },
-            { label: 'Overall Winner', value: winner || 'TIE', note: winner ? `${Math.round((Math.max(winsA, winsB) / rows.length) * 100)}% categories` : 'Equal performance', accent: winner ? C.success : C.muted },
+            { label: 'Overall Winner', value: winner || 'TIE', note: winner ? `${Math.round((Math.max(winsA, winsB) / decided) * 100)}% of decided categories` : 'No clear leader', accent: winner ? C.success : C.muted },
           ]} />
           <Sub title="Metric Breakdown" />
           <CompareGrid
@@ -64,7 +68,7 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
             rows={rows}
           />
           {winner && (
-            <Insight text={`${winner} leads in ${Math.max(winsA, winsB)} of ${rows.length} measured categories.`} color={C.success} />
+            <Insight text={`${winner} leads in ${Math.max(winsA, winsB)} of ${decided} decided categories.`} color={C.success} />
           )}
           <Footer jobId={jobId} />
         </Page>
@@ -73,10 +77,13 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
   }
 
   // ── N-worker table layout ─────────────────────────────────────────────────
-  const maxPts  = Math.max(...workers.map(w => w.weight_points || 0), 1)
-  const topPerf = workers.reduce((best, w) => (w.weight_points || 0) > (best.weight_points || 0) ? w : best, workers[0])
-  const avgOtr  = workers.reduce((s, w) => s + (w.on_time_rate || 0), 0) / workers.length
-  const avgEff  = workers.reduce((s, w) => s + (w.timer_efficiency || 0), 0) / workers.length
+  const ranking = findTopTeamPointLeaders(workers.map(w => ({ ...w, pts: w.weight_points || 0 })))!
+  const maxPts = ranking.maxPoints
+  const topPerformers = ranking.leaders
+  const topPerf = topPerformers[0]
+  const avgOtr = computeAverageObservedMetric(workers.map(w => w.on_time_rate))
+  const avgEff = computeAverageObservedMetric(workers.map(w => w.timer_efficiency))
+  const formatPercent = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? `${sf(value, 1)}%` : '—'
 
   return (
     <>
@@ -86,9 +93,9 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
         <Section title="Group Overview" />
         <KpiRow items={[
           { label: 'People Compared',   value: String(workers.length),                                 accent: C.primary },
-          { label: 'Top Performer',     value: String(topPerf.full_name || '—').substring(0, 14),      note: `${topPerf.weight_points || 0} pts`, accent: C.success },
-          { label: 'Avg On-Time Rate',  value: `${sf(avgOtr, 1)}%`,  accent: avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger, color: avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger },
-          { label: 'Avg Efficiency',    value: `${sf(avgEff, 1)}%`,  accent: avgEff <= 110 ? C.success : C.warning },
+          { label: topPerformers.length === 1 ? 'Top Performer' : 'Top Performers', value: topPerformers.length === 1 ? String(topPerf.full_name || '—').substring(0, 14) : `${topPerformers.length} tied`, note: `${maxPts} pts${topPerformers.length === 1 ? '' : ' each'}`, accent: C.success },
+          { label: 'Avg On-Time Rate',  value: avgOtr === null ? 'N/A' : `${sf(avgOtr, 1)}%`, accent: avgOtr === null ? C.muted : avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger, color: avgOtr === null ? C.muted : avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger },
+          { label: 'Avg Efficiency',    value: avgEff === null ? 'N/A' : `${sf(avgEff, 1)}%`, accent: avgEff === null ? C.muted : avgEff <= 110 ? C.success : C.warning },
         ]} />
 
         <Sub title="Points Ranking" />
@@ -109,8 +116,8 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
               String(w.completed_tasks || 0),
               String(w.failed_tasks || 0),
               `${sf(w.active_hours, 1)}h`,
-              `${sf(w.on_time_rate, 1)}%`,
-              `${sf(w.timer_efficiency, 1)}%`,
+              formatPercent(w.on_time_rate),
+              formatPercent(w.timer_efficiency),
               sf(w.points_per_hour, 2),
             ],
             colors: [
@@ -118,15 +125,17 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
               null, null,
               (w.failed_tasks || 0) > 0 ? C.danger : null,
               null,
-              (w.on_time_rate || 0) >= 80 ? C.success : (w.on_time_rate || 0) >= 60 ? C.warning : C.danger,
-              (w.timer_efficiency || 0) <= 110 ? C.success : C.warning,
+              typeof w.on_time_rate !== 'number' || !Number.isFinite(w.on_time_rate) ? null : w.on_time_rate >= 80 ? C.success : w.on_time_rate >= 60 ? C.warning : C.danger,
+              typeof w.timer_efficiency !== 'number' || !Number.isFinite(w.timer_efficiency) ? null : w.timer_efficiency <= 110 ? C.success : C.warning,
               null,
             ],
           }))}
         />
 
         <Insight
-          text={`${topPerf.full_name || 'Top person'} leads with ${topPerf.weight_points || 0} pts — ${sf(((topPerf.weight_points || 0) / maxPts) * 100, 0)}% of the group maximum.`}
+          text={topPerformers.length === 1
+            ? `${topPerf.full_name || 'Top person'} leads with ${maxPts} pts.`
+            : `${topPerformers.length} people tie for the lead at ${maxPts} pts.`}
           color={C.success}
         />
         <Footer jobId={jobId} />

@@ -286,10 +286,8 @@ export const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: 
   useEffect(() => { if (visible) setSelected(currentWidgets || []); }, [visible, currentWidgets]);
   const library = [
     { id: 'throughput', name: 'Throughput', desc: 'Total tasks completed in timeframe' },
-    { id: 'efficiency', name: 'Efficiency', desc: 'General success rate' },
-    { id: 'flow_ratio', name: 'Flow Ratio', desc: 'Backlog shrinkage (>1) or growth (<1)' },
-    { id: 'first_pass_yield', name: 'First-Pass Yield', desc: '% reaching end without revisions' },
-    { id: 'automation_offload', name: 'Automation Score', desc: '% handled by machines' }
+    { id: 'efficiency', name: 'Success Rate', desc: '% completed successfully' },
+    { id: 'first_pass_yield', name: 'First-Pass Integrity', desc: '% completed without revisions' }
   ];
   const toggleWidget = (id: string) => {
     if (selected.includes(id)) setSelected(selected.filter(w => w !== id));

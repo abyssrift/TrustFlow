@@ -1,6 +1,7 @@
 import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
 import { RecentActivitySidebar } from '@/components/intelligence/RecentActivitySidebar';
 import ProfileAvatar from '@/components/profile/ProfileAvatar';
+import GuideAnchor from '@/components/guides/GuideAnchor';
 import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
 import SecurityForm from '@/components/profile/SecurityForm';
 import Tooltip from '@/components/common/Tooltip';
@@ -111,7 +112,7 @@ export default function ProfilePageWeb() {
       
       {/* Internal Sidebar */}
       <View className="w-80 border-r border-surface-border p-8 gap-8">
-        <View className="items-center mb-4">
+        <GuideAnchor id="profile:identity" className="items-center mb-4">
           <ProfileAvatar 
             url={profileData.avatar_url} 
             name={profileData.display_name || profileData.full_name || 'User'} 
@@ -126,7 +127,7 @@ export default function ProfilePageWeb() {
           <Text className="text-[10px] font-bold text-brand-primary uppercase tracking-[0.2em] mt-1">
             {profileData.job_title || (profileData.is_owner ? 'Workspace Owner' : 'Workspace Member')}
           </Text>
-        </View>
+        </GuideAnchor>
 
         <View className="gap-2">
           <TabButton 

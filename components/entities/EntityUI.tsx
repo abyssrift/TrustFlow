@@ -420,6 +420,7 @@ export type ProjectCardRow = {
 export function ProjectCard({
   row,
   onPress,
+  onLongPress,
   actions,
   innerRef,
   dimmed,
@@ -428,7 +429,8 @@ export function ProjectCard({
   footer,
 }: {
   row: ProjectCardRow;
-  onPress: () => void;
+  onPress: (event?: any) => void;
+  onLongPress?: (event?: any) => void;
   /** Row-level menu / move button, top-right. §17: reachable where the user is looking. */
   actions?: React.ReactNode;
   /** For useDragSource — the board attaches its drag ref to the card itself. */
@@ -444,6 +446,7 @@ export function ProjectCard({
     <TouchableOpacity
       ref={innerRef}
       onPress={onPress}
+      onLongPress={onLongPress}
       disabled={dimmed}
       // NO accessibilityRole="button" here, deliberately. react-native-web
       // emits a real <button> element for that role, and this card contains

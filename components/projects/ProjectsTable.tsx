@@ -1,5 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   Text,
@@ -23,8 +23,12 @@ import {
 } from '@/components/entities/EntityUI';
 import { SkeletonList } from '@/components/Skeleton';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useCollectionSelection } from '@/hooks/useCollectionSelection';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useAlert } from '@/contexts/AlertContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import {
   fieldSortValue,
   formatFieldValue,
@@ -35,6 +39,8 @@ import {
 import { ageColor, dueColor, fmtDate, fmtDue } from '@/lib/projectPresentation';
 import { supabase } from '@/lib/supabase';
 import { formatCompact } from '@/lib/time';
+import { reconcileMutationSelection } from '@/lib/multiSelection';
+import { getMultiSelectPressAction, normalizeWebModifierPressEvent } from '@/lib/webModifierKeys';
 import { InlineRename, ProjectActionsButton, useProjectActions } from './ProjectActionsMenu';
 import { CustomColumnsControl, CustomFieldFilterControl, type CustomFieldFilter } from './ProjectsTableCustomFields';
 
@@ -95,6 +101,34 @@ function sortValue(row: ProjectRow, key: SortKey, fieldDefsByKey: Map<string, Pr
     case 'blocked': return row.blocked ? 1 : 0;
     case 'hours': return row.tracked_seconds ?? 0;
   }
+}
+
+function ProjectSelectionButton({
+  selected,
+  active,
+  onPress,
+  onLongPress,
+}: {
+  selected: boolean;
+  active: boolean;
+  onPress: (event: any) => void;
+  onLongPress: (event: any) => void;
+}) {
+  const c = useThemeColors();
+  return (
+    <TouchableOpacity
+      onPress={(event) => { event.stopPropagation(); onPress(event); }}
+      onLongPress={(event) => { event.stopPropagation(); onLongPress(event); }}
+      hitSlop={8}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={selected ? 'Deselect project' : 'Select project'}
+      className={`items-center justify-center rounded-lg hover:bg-brand-primary/10 active:bg-brand-primary/20 ${active || selected ? 'bg-brand-primary/10' : ''}`}
+      style={{ width: 30, height: 30 }}
+    >
+      <FontAwesome name={selected ? 'check-square-o' : 'square-o'} size={17} color={selected ? c.primary : c.textMuted} />
+    </TouchableOpacity>
+  );
 }
 
 /**
@@ -160,6 +194,9 @@ export default function ProjectsTable({
   onCreateProject?: () => void;
 }) {
   const c = useThemeColors();
+  const { hasPermission } = useAuth();
+  const { showConfirm } = useAlert();
+  const { successToast, errorToast } = useToast();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
@@ -169,6 +206,8 @@ export default function ProjectsTable({
   const [rpcMissing, setRpcMissing] = useState(false);
   const [page, setPage] = useState(0);
   const [localRefresh, setLocalRefresh] = useState(0);
+  const [selectionActive, setSelectionActive] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 400);
@@ -207,6 +246,13 @@ export default function ProjectsTable({
   const actions = useProjectActions({
     onChanged: () => setLocalRefresh(k => k + 1),
     onOpenProject,
+  });
+
+  const selection = useCollectionSelection({
+    active: selectionActive,
+    selectedIds,
+    onActiveChange: setSelectionActive,
+    onSelectedIdsChange: setSelectedIds,
   });
 
   useEffect(() => { setPage(0); }, [debouncedSearch, stageId, blockedOnly, portfolioId, customFilter]);
@@ -262,6 +308,70 @@ export default function ProjectsTable({
 
   const hasMore = rows.length === LIMIT;
   const activeFilters = (stageId ? 1 : 0) + (blockedOnly ? 1 : 0) + (customFilter ? 1 : 0);
+  const visibleIds = useMemo(() => sortedRows.map(row => row.id), [sortedRows]);
+  const selectProjectFromPress = (id: string, event?: any) => {
+    const press = normalizeWebModifierPressEvent(event);
+    if (press.shiftKey && selection.anchorId) selection.selectRange(visibleIds, id, true);
+    else if (!selection.active) selection.enter(id);
+    else selection.toggle(id);
+  };
+  const handleProjectPress = (id: string, event?: any) => {
+    if (getMultiSelectPressAction(event, selection.active) === 'select') selectProjectFromPress(id, event);
+    else onOpenProject(id);
+  };
+
+  const archiveSelected = useCallback(() => {
+    if (!hasPermission('project.delete') || selectedIds.length === 0) return;
+    showConfirm(
+      `Archive ${selectedIds.length} project${selectedIds.length === 1 ? '' : 's'}?`,
+      'The selected projects and their tasks move to cold storage. An owner can restore them later.',
+      async () => {
+        const results = await Promise.all(selectedIds.map(async id => {
+          try {
+            const { error } = await supabase.rpc('rpc_archive_project', { p_project_id: id });
+            return { id, error };
+          } catch (error) {
+            return { id, error: error instanceof Error ? error : new Error('Archive request did not complete.') };
+          }
+        }));
+        const succeeded = results.filter(result => !result.error).map(result => result.id);
+        const failed = results.filter(result => !!result.error);
+        if (succeeded.length > 0) {
+          setSelectedIds(current => reconcileMutationSelection(current, succeeded));
+          if (failed.length === 0) setSelectionActive(false);
+          setLocalRefresh(k => k + 1);
+        }
+        if (failed.length === 0) {
+          successToast(`${succeeded.length} project${succeeded.length === 1 ? '' : 's'} archived.`);
+        } else {
+          errorToast(`${failed.length} project${failed.length === 1 ? '' : 's'} could not be archived. They remain selected.`, 'Archive partially failed');
+        }
+      },
+      undefined,
+      'Archive',
+      'Keep them',
+      'destructive',
+    );
+  }, [errorToast, hasPermission, selectedIds, showConfirm, successToast]);
+
+  const selectionBar = selectionActive && (
+    <View className="flex-row items-center gap-2 px-4 py-2.5 bg-brand-primary/10 border-b border-brand-primary/20">
+      <Text className="text-typography-main text-xs font-bold">{selection.count} selected</Text>
+      <TouchableOpacity onPress={() => selection.selectAllVisible(visibleIds)} className="px-2.5 py-1.5 rounded-lg border border-surface-border">
+        <Text className="text-typography-main text-[11px] font-semibold">Select visible</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={selection.clear} className="px-2.5 py-1.5 rounded-lg border border-surface-border">
+        <Text className="text-typography-muted text-[11px] font-semibold">Clear</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={archiveSelected}
+        disabled={!hasPermission('project.delete') || selection.count === 0}
+        className="ml-auto px-3 py-1.5 rounded-lg bg-state-danger/10 border border-state-danger/20 hover:bg-state-danger/20 active:bg-state-danger/30 disabled:bg-surface-overlay disabled:border-surface-border"
+      >
+        <Text className={`text-[11px] font-bold ${!hasPermission('project.delete') || selection.count === 0 ? 'text-typography-muted' : 'text-state-danger'}`}>Archive selected</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   // One row of quiet controls, not a search box + a chip rail + a red Switch
   // all competing. "Blocked only" is now the same chip shape as the stage
@@ -441,10 +551,18 @@ export default function ProjectsTable({
     sortedRows.map((row, i) => (
       <ListRow
         key={row.id}
-        onPress={() => onOpenProject(row.id)}
+        onPress={(event) => handleProjectPress(row.id, event)}
+        onLongPress={() => selection.enter(row.id)}
+        selected={selection.isSelected(row.id)}
         isLast={i === sortedRows.length - 1}
         accessibilityLabel={`Open ${row.name}`}
       >
+        <ProjectSelectionButton
+          active={selection.active}
+          selected={selection.isSelected(row.id)}
+          onPress={(event) => selectProjectFromPress(row.id, event)}
+          onLongPress={() => selection.enter(row.id)}
+        />
         {/* Project — glyph first, so the row is identifiable before it's read */}
         <View style={{ flex: 2.6 }} className="pr-3 flex-row items-center gap-2.5">
           <EntityGlyph kind="project" size={28} color={row.color} />
@@ -536,8 +654,19 @@ export default function ProjectsTable({
           key={row.id}
           row={row}
           showOwner
-          onPress={() => onOpenProject(row.id)}
-          actions={<ProjectActionsButton onPress={() => actions.openMenu(row)} label={`Actions for ${row.name}`} />}
+          onPress={(event) => handleProjectPress(row.id, event)}
+          onLongPress={() => selection.enter(row.id)}
+          actions={
+            <View className="flex-row items-center gap-1">
+              <ProjectSelectionButton
+                active={selection.active}
+                selected={selection.isSelected(row.id)}
+                onPress={(event) => selectProjectFromPress(row.id, event)}
+                onLongPress={() => selection.enter(row.id)}
+              />
+              <ProjectActionsButton onPress={() => actions.openMenu(row)} label={`Actions for ${row.name}`} />
+            </View>
+          }
           footer={
             actions.renamingId === row.id ? (
               <View className="mt-2.5">
@@ -573,6 +702,7 @@ export default function ProjectsTable({
     return (
       <View>
         {filterBar}
+        {selectionBar}
         {mobileSortRow}
         {body}
         {!loading && !rpcMissing && pagination}
@@ -584,7 +714,11 @@ export default function ProjectsTable({
   return (
     <ListCard>
       {filterBar}
+      {selectionBar}
       <View className="flex-row items-center px-5 py-2 border-b border-surface-border bg-surface-background/50">
+        <TouchableOpacity onPress={() => { setSelectionActive(true); selection.selectAllVisible(visibleIds); }} style={{ width: 30 }} accessibilityLabel="Select visible projects">
+          <FontAwesome name={visibleIds.length > 0 && visibleIds.every(id => selection.isSelected(id)) ? 'check-square-o' : 'square-o'} size={17} color={c.textMuted} />
+        </TouchableOpacity>
         <SortHeader label="Project" sortK="name" flex={2.6} />
         <SortHeader label="Stage" sortK="stage" flex={1.2} />
         <SortHeader label="In stage" sortK="age" flex={0.9} />

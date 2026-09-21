@@ -255,8 +255,12 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
       supabase.rpc('rpc_project_files', { p_project_id: destination.projectId }).then(({ data, error }) => {
         if (cancelled) return;
         const workspace = data && typeof data === 'object' ? (data as any).workspace : null;
+        const workspaceRows = workspace?.folders || [];
         const projectFolders = workspace
-          ? [workspace.root, ...(workspace.folders || [])].filter(Boolean).map((folder: any) => ({ ...folder, scope: 'project', group_id: null }))
+          ? [
+              ...(workspace.root && !workspaceRows.some((folder: any) => folder?.id === workspace.root.id) ? [workspace.root] : []),
+              ...workspaceRows,
+            ].filter(Boolean).map((folder: any) => ({ ...folder, scope: 'project', group_id: null }))
           : [];
         if (error || !workspace || !workspace.root || !workspace.capabilities?.upload) {
           setProjectLoadError('Project workspace is unavailable for uploads.');
@@ -610,7 +614,7 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
             {Platform.OS === 'web' && (
               <>
                 <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
-                <input ref={folderInputRef} type="file" {...({ webkitdirectory: '', multiple: '' } as any)} style={{ display: 'none' }} onChange={handleFolderChange} />
+                {!isProjectDestination && <input ref={folderInputRef} type="file" {...({ webkitdirectory: '', multiple: '' } as any)} style={{ display: 'none' }} onChange={handleFolderChange} />}
               </>
             )}
 
@@ -636,10 +640,10 @@ export default function UploadComposerModal({ visible, onClose, folderId, initia
                     <FontAwesome name="files-o" size={12} color="#fff" />
                     <Text className="text-white font-black text-sm">Files</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose folder" onPress={() => folderInputRef.current?.click()} className="min-h-11 flex-row items-center gap-2 border px-5 py-2.5 rounded-xl" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
+                  {!isProjectDestination && <TouchableOpacity accessibilityRole="button" accessibilityLabel="Choose folder" onPress={() => folderInputRef.current?.click()} className="min-h-11 flex-row items-center gap-2 border px-5 py-2.5 rounded-xl" style={{ backgroundColor: colors.background, borderColor: colors.border }}>
                     <FontAwesome name="folder-open-o" size={12} color={colors.textMuted} />
                     <Text className="font-black text-sm" style={{ color: colors.textMuted }}>Folder</Text>
-                  </TouchableOpacity>
+                  </TouchableOpacity>}
                 </View>
               </View>
             ) : (

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAlert } from '@/contexts/AlertContext';
 import { supabase } from '@/lib/supabase';
 import ProfileAvatar from '@/components/profile/ProfileAvatar';
+import GuideAnchor from '@/components/guides/GuideAnchor';
 import ProfileGeneralForm from '@/components/profile/ProfileGeneralForm';
 import SecurityForm from '@/components/profile/SecurityForm';
 import { ProfileAnalytics } from '@/components/analytics/ProfileAnalytics';
@@ -114,7 +115,7 @@ export default function ProfilePage() {
       <Stack.Screen options={{ title: 'My Profile', headerLargeTitle: true }} />
 
       {/* Header Section */}
-      <View className="items-center mb-8">
+      <GuideAnchor id="profile:identity"><View className="items-center mb-8">
         <ProfileAvatar 
           url={profileData.avatar_url} 
           name={profileData.display_name || profileData.full_name || 'User'} 
@@ -128,7 +129,7 @@ export default function ProfilePage() {
         <Text className="text-sm font-bold text-brand-primary uppercase tracking-widest">
           {profileData.job_title || (profileData.is_owner ? 'Workspace Owner' : 'New Member')}
         </Text>
-      </View>
+      </View></GuideAnchor>
 
       {/* Analytics Section */}
       {user?.id && (

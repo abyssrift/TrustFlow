@@ -1,0 +1,11 @@
+Implemented the two eligibility corrections in the four assigned files.
+
+- The provider now gets `isMobile` from the existing `useResponsive()` hook. Tests cover desktop and mobile eligibility.
+- The team assignments guide now requires `role.manage`; users with only `user.view_all` remain eligible for the team directory guide.
+- Existing guide IDs, content, phase grouping, progress behavior, and initial-load marker behavior were left intact.
+
+**Verification:** Focused tests passed (23/23), and Babel checks passed for all four files. `tsc --noEmit` reported 173 diagnostics elsewhere in the dirty tree and none in the owned files. `graphify update .` completed.
+
+**Manual follow-up:** Check the guide list at desktop (~1400px) and mobile web (~390px); confirm deadlines appears only on mobile, and team assignments appears for managers but not view-only users. I did not run that browser walkthrough.
+
+Files: [contextualGuides.ts](C:/Users/j/Documents/Github/TrustFlow/lib/contextualGuides.ts), [contextualGuides.test.ts](C:/Users/j/Documents/Github/TrustFlow/lib/contextualGuides.test.ts), [ContextualGuideContext.tsx](C:/Users/j/Documents/Github/TrustFlow/contexts/ContextualGuideContext.tsx), [ContextualGuideContext.test.tsx](C:/Users/j/Documents/Github/TrustFlow/contexts/ContextualGuideContext.test.tsx).

@@ -1,0 +1,9 @@
+**Package B handoff**
+
+Updated the guide launcher and checklist to use the catalog’s phases, show a subtle marker for unacknowledged capability guides, count familiar guides as complete, and keep the checklist manually reopenable after it auto-hides. Desktop panel placement now stays below the top bar; mobile placement remains above the bottom-safe launcher.
+
+Changed only the five owned files: [GuideHost.tsx](C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideHost.tsx), [GuideHost.test.tsx](C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideHost.test.tsx), [GuideChecklist.tsx](C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideChecklist.tsx), [guidePanelPosition.ts](C:/Users/j/Documents/Github/TrustFlow/lib/guidePanelPosition.ts), and [guidePanelPosition.test.ts](C:/Users/j/Documents/Github/TrustFlow/lib/guidePanelPosition.test.ts).
+
+**Verification:** The requested RED baseline had 8 failures. The focused suite now passes: 15 tests. Babel checks pass for all five files. Full TypeScript checking fails on diagnostics elsewhere in the shared worktree; it reported none in the owned files.
+
+**Follow-up:** I couldn’t complete a browser walkthrough at ~1400px and 390px: Expo/Metro remained in a full crawl and never opened port 8081. I also left `graphify update .` for integration because it can change files outside this package’s ownership.

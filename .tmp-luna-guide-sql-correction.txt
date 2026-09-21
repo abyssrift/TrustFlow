@@ -1,0 +1,10 @@
+**Findings:** The SQL helper supported only six stale guide definitions, with final steps 0 or 1. The live catalog has 13 v1 guides, each ending at step 2.
+
+**Files changed:**
+
+- [user_guide_progress.sql](C:/Users/j/Documents/Github/TrustFlow/supabase/migrations/20260920110000_user_guide_progress.sql) now supports all 13 catalog IDs at final step 2. It retains `profile` v2 only as a documented fixture for version-reset coverage.
+- [check_user_guide_progress.sql](C:/Users/j/Documents/Github/TrustFlow/supabase/checks/check_user_guide_progress.sql) asserts every v1 ID and final step, rejects unsupported definitions, completes every guide at step 2, and retains tenant scoping and terminal-state coverage.
+
+**Verification:** The file-specific static comparison passed: 13 catalog IDs matched, all final steps were 2, and the synthetic fixture was present. Whitespace checks reported no issues.
+
+`npm run verify:agent` did not pass: self-checks reported **147/152**, Vitest reported **4 failures** across project-file and report tests, TypeScript diagnostics differed from baseline, and Babel checking failed because `'C:\Program'` was not recognized. The web export completed. These failures are outside the SQL files. The transactional SQL check could not run: Docker could not connect to its Linux engine, and Supabase CLI/`psql` were unavailable. No database pass is claimed.

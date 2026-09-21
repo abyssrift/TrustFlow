@@ -41,3 +41,30 @@ export const webModifierKeys = state;
 export function isMultiSelectModifierActive(): boolean {
   return state.ctrl || state.meta;
 }
+
+export type WebModifierPressEvent = {
+  key?: string;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  preventDefault?: () => void;
+};
+
+/** Normalize RN Web's synthetic press event and the live DOM modifier fallback. */
+export function normalizeWebModifierPressEvent(event?: any): WebModifierPressEvent {
+  const nativeEvent = event?.nativeEvent ?? event ?? {};
+  return {
+    key: nativeEvent.key,
+    ctrlKey: !!nativeEvent.ctrlKey || state.ctrl,
+    metaKey: !!nativeEvent.metaKey || state.meta,
+    shiftKey: !!nativeEvent.shiftKey || state.shift,
+    altKey: !!nativeEvent.altKey || state.alt,
+    preventDefault: nativeEvent.preventDefault,
+  };
+}
+
+export function getMultiSelectPressAction(event: any, selectionActive: boolean): 'select' | 'open' {
+  const modifiers = normalizeWebModifierPressEvent(event);
+  return selectionActive || modifiers.ctrlKey || modifiers.metaKey || modifiers.shiftKey ? 'select' : 'open';
+}

@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useRef } from 'react';
+import React, { createContext, useContext, useLayoutEffect, useRef } from 'react';
+import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
+import type { OrganizationalAudit } from '../lib/analyticsMetrics';
+import {
+  analyticsCacheKeyMatchesPrefix,
+  buildAnalyticsCacheKey,
+  buildAnalyticsCacheScopeIdentity,
+} from '../lib/analyticsCache';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -180,6 +187,7 @@ export interface PortfolioCapacityRow {
 // ── Context interface ──────────────────────────────────────────────────────
 
 interface AnalyticsContextType {
+  getOrganizationalAudit: (pipelineId: string | null, days: number, forceRefresh?: boolean) => Promise<OrganizationalAudit>;
   getPersonalPulse: () => Promise<PersonalPulse>;
   getUserCompanyHistory: (userId: string) => Promise<CompanyHistoryEntry[]>;
   getUserPerformanceSeries: (userId: string, periodType: string, nPeriods: number, companyId?: string | null) => Promise<PerformancePeriod[]>;
@@ -216,8 +224,27 @@ const PULSE_TTL_MS  = 60 * 1000;     // 1 min for personal pulse (live metric)
 // ── Provider ───────────────────────────────────────────────────────────────
 
 export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, profile, permissions, roleIds, permissionsLoaded } = useAuth();
+  const cacheScope = {
+    userId: user?.id ?? null,
+    companyId: profile?.company_id ?? null,
+    permissions,
+    roleIds,
+    permissionsLoaded,
+  };
+  const scopeKey = buildAnalyticsCacheScopeIdentity(cacheScope);
   const cache    = useRef<Map<string, CacheEntry>>(new Map());
   const inFlight = useRef<Map<string, Promise<unknown>>>(new Map());
+  const scopeKeyRef = useRef(scopeKey);
+  const scopeEpochRef = useRef(0);
+
+  useLayoutEffect(() => {
+    if (scopeKeyRef.current === scopeKey) return;
+    scopeKeyRef.current = scopeKey;
+    scopeEpochRef.current += 1;
+    cache.current.clear();
+    inFlight.current.clear();
+  }, [scopeKey]);
 
   function fetchWithDedup<T>(
     key: string,
@@ -225,26 +252,33 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     ttlMs: number,
     permanent = false,
   ): Promise<T> {
-    const hit = cache.current.get(key);
+    const scopedKey = buildAnalyticsCacheKey(cacheScope, key);
+    const requestScopeKey = scopeKey;
+    const requestEpoch = scopeEpochRef.current;
+    const hit = cache.current.get(scopedKey);
     if (hit && (hit.permanent || Date.now() - hit.fetchedAt < ttlMs)) {
       return Promise.resolve(hit.data as T);
     }
 
-    const existing = inFlight.current.get(key);
+    const existing = inFlight.current.get(scopedKey);
     if (existing) return existing as Promise<T>;
 
-    const promise = fetcher()
+    let promise: Promise<T>;
+    promise = fetcher()
       .then(data => {
-        cache.current.set(key, { data, fetchedAt: Date.now(), permanent });
-        inFlight.current.delete(key);
+        if (scopeKeyRef.current !== requestScopeKey || scopeEpochRef.current !== requestEpoch) {
+          throw new Error('Analytics request discarded because the authorization context changed.');
+        }
+        cache.current.set(scopedKey, { data, fetchedAt: Date.now(), permanent });
+        if (inFlight.current.get(scopedKey) === promise) inFlight.current.delete(scopedKey);
         return data;
       })
       .catch(err => {
-        inFlight.current.delete(key);
+        if (inFlight.current.get(scopedKey) === promise) inFlight.current.delete(scopedKey);
         throw err;
       });
 
-    inFlight.current.set(key, promise);
+    inFlight.current.set(scopedKey, promise);
     return promise;
   }
 
@@ -260,6 +294,23 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       },
       PULSE_TTL_MS,
     );
+
+  const getOrganizationalAudit = (pipelineId: string | null, days: number, forceRefresh = false): Promise<OrganizationalAudit> => {
+    const key = `organizational_audit:${pipelineId ?? 'all'}:${days}`;
+    if (forceRefresh) cache.current.delete(buildAnalyticsCacheKey(cacheScope, key));
+    return fetchWithDedup(
+      key,
+      async () => {
+        const { data, error } = await supabase.rpc('rpc_get_organizational_audit', {
+          p_pipeline_id: pipelineId,
+          p_days: days,
+        });
+        if (error) throw error;
+        return data as OrganizationalAudit;
+      },
+      SERIES_TTL_MS,
+    );
+  };
 
   const getUserCompanyHistory = (userId: string): Promise<CompanyHistoryEntry[]> =>
     fetchWithDedup(
@@ -582,12 +633,13 @@ export const AnalyticsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const invalidate = (keyPrefix?: string) => {
     if (!keyPrefix) { cache.current.clear(); return; }
     for (const key of cache.current.keys()) {
-      if (key.startsWith(keyPrefix)) cache.current.delete(key);
+      if (analyticsCacheKeyMatchesPrefix(key, keyPrefix)) cache.current.delete(key);
     }
   };
 
   return (
     <AnalyticsContext.Provider value={{
+      getOrganizationalAudit,
       getPersonalPulse,
       getUserCompanyHistory,
       getUserPerformanceSeries,

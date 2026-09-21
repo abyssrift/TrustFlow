@@ -13,6 +13,7 @@ import Tooltip from '../common/Tooltip';
 import { fileIcon, formatSize } from './TaskFileResults';
 import { FileActivityRows } from './FileHubActivity';
 import { getBrowseOriginLabel, getProjectWorkspaceLink, hasCanonicalAlias } from './filehubShared';
+import ExplorerDetailPane from '../filehub/explorer/ExplorerDetailPane';
 
 export type DetailFile = {
   source: 'filehub' | 'submission' | 'task_brief';
@@ -270,10 +271,27 @@ export default function FileHubDetailPane({
     </View>
   );
 
+  const SharedProps = (
+    <ExplorerDetailPane
+      item={{ id: file.file_id, name: file.file_name, projectId: file.project_id, projectName: file.project_name, origin: file.origin, path: file.storage_path, canonicalPath: file.workspace_path, mimeType: file.mime_type, sizeBytes: file.size_bytes, createdAt: file.created_at }}
+      capabilities={{ canView: true, canCreate: false, canRename: false, canMove: false, canDelete: false, canRestore: false, canUpload: false, canReplace: false, canVersion: true }}
+      onClose={onClose}
+      renderHeader={() => <View className="flex-1 min-w-0"><Text className="text-typography-main text-base font-black" numberOfLines={2}>{file.file_name}</Text><View className="mt-2 flex-row items-center gap-2"><SourceBadge source={file.source} origin={file.origin} colors={colors} /><Text className="text-typography-muted text-[11px]">{formatSize(file.size_bytes)}</Text></View></View>}
+      renderActions={() => <><ActionBtn icon="external-link" label="Open" onPress={openFull} colors={colors} primary /><ActionBtn icon="download" label="Download" onPress={download} colors={colors} />{workspaceLink && <ActionBtn icon="briefcase" label="Open in project workspace" onPress={() => router.push(workspaceLink as any)} colors={colors} />}</>}
+    >
+      <View className="gap-3">
+        <View className="flex-row items-center gap-2">{(['details', 'versions', 'activity'] as const).map(t => <TouchableOpacity key={t} onPress={() => setTab(t)} className={'min-h-11 min-w-11 px-4 py-1.5 rounded-xl border ' + (tab === t ? 'bg-brand-primary/10 border-brand-primary/30' : 'bg-surface-background border-surface-border')}><Text className={'text-xs font-black capitalize ' + (tab === t ? 'text-brand-primary' : 'text-typography-muted')}>{t}</Text></TouchableOpacity>)}</View>
+        {tab === 'details' && <View className="gap-3"><Field label="Type" value={file.mime_type || 'Unknown'} colors={colors} /><Field label="Size" value={formatSize(file.size_bytes)} colors={colors} />{file.created_at && <Field label="Added" value={ago(file.created_at)} colors={colors} />}{file.task_title && <LinkField label="Task" value={file.task_title} onPress={() => file.task_id && router.push('/task/' + file.task_id as any)} colors={colors} />}{file.project_name && <Field label="Project" value={file.project_name} colors={colors} />}{file.workspace_path && <Field label="Path" value={file.workspace_path} colors={colors} />}<Field label="Origin" value={getBrowseOriginLabel(file.origin)} colors={colors} />{hasCanonicalAlias(file) && <Field label="Canonical file" value="Shared canonical bytes; this row is an alias." colors={colors} />}{file.task_category && <Field label="Category" value={file.task_category} colors={colors} />}</View>}
+        {tab === 'versions' && (versions === null ? <ActivityIndicator color={colors.primary} /> : versions.length === 0 ? <Text className="text-typography-muted text-sm">No version history.</Text> : <View className="gap-2">{versions.map(v => <View key={v.id} className="flex-row items-center gap-3 rounded-xl border border-surface-border px-3 py-2.5"><View className="flex-1 min-w-0"><View className="flex-row items-center gap-2"><Text className="text-typography-main text-sm font-bold">v{v.version_no}</Text>{v.is_current && <View className="bg-brand-primary/15 px-2 py-0.5 rounded-full"><Text className="text-brand-primary text-[8px] font-black uppercase">Current</Text></View>}</View><Text className="text-typography-muted text-[10px] mt-0.5" numberOfLines={1}>{[v.sub, ago(v.created_at)].filter(Boolean).join(' · ')}</Text></View>{v.dl && <Tooltip label="Download this version"><TouchableOpacity onPress={() => { if (activityId) logActivity(activityId, 'download', { version_no: v.version_no }); openStorageFile(v.dl!.bucket, v.dl!.storage_path, v.dl!.name, v.dl!.mime); }} className="min-h-11 min-w-11 rounded-lg items-center justify-center border border-surface-border"><FontAwesome name="download" size={11} color={colors.textMuted} /></TouchableOpacity></Tooltip>}</View>)}</View>)}
+        {tab === 'activity' && <FileActivityRows activity={activity} />}
+      </View>
+    </ExplorerDetailPane>
+  );
+
   return (
     <View className={`flex-1 bg-surface-card border border-surface-border rounded-3xl overflow-hidden ${compact ? 'flex-col' : 'flex-row'}`} style={{ minHeight: 0 }}>
       {Preview}
-      {Props}
+      {SharedProps}
       {viewer}
     </View>
   );

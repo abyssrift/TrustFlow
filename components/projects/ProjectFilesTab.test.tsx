@@ -26,6 +26,7 @@ const state = vi.hoisted(() => ({
   blockTitles: [] as string[],
   blockRecords: [] as any[],
   fileHub: null as any,
+  showConfirm: vi.fn(),
 }));
 state.fileHub = {
   projectFiles: vi.fn(async () => state.envelope), projectWorkspaceBin: vi.fn(async () => ({ folders: [], files: [] })), ensureProjectWorkspace: vi.fn(async () => {}),
@@ -40,7 +41,7 @@ vi.mock('@/contexts/ProjectDetailContext', () => ({ useProjectDetail: () => ({ p
 vi.mock('@/contexts/FileHubContext', () => ({ useFileHub: () => state.fileHub }));
 vi.mock('@/contexts/ModalDispatchContext', () => ({ useModalDispatch: () => ({ summon: vi.fn() }) }));
 vi.mock('@/contexts/ToastContext', () => ({ useToast: () => ({ errorToast: vi.fn(), successToast: vi.fn() }) }));
-vi.mock('@/contexts/AlertContext', () => ({ useAlert: () => ({ showConfirm: vi.fn() }) }));
+  vi.mock('@/contexts/AlertContext', () => ({ useAlert: () => ({ showConfirm: state.showConfirm }) }));
 vi.mock('@/contexts/UploadManagerContext', () => ({ useUploadManager: () => ({ lastCompletedAt: 0 }) }));
 vi.mock('@/hooks/useThemeColors', () => ({ useThemeColors: () => ({ textMuted: '#888' }) }));
 vi.mock('@/lib/uploadHelpers', () => ({ formatFileSize: (size: number) => `${size} bytes` }));
@@ -100,5 +101,102 @@ describe('ProjectFilesTab', () => {
     expect(state.blockRecords.find(record => record.title === 'Project workspace').right).toBeUndefined();
     expect(state.blockRecords.find(record => record.title === 'Workspace').right).toBeUndefined();
     state.envelope = previous;
+  });
+
+  it('exposes controlled collection selection without coupling it to inspector focus', async () => {
+    state.fileHub.projectFiles.mockReset().mockResolvedValue(state.envelope);
+    state.collectionProps = null;
+    state.envelope = {
+      ...state.envelope,
+      workspace: {
+        ...state.envelope.workspace,
+        files: [
+          state.envelope.workspace.files[0],
+          { ...state.envelope.workspace.files[0], id: 'second', name: 'second.pdf' },
+          { ...state.envelope.workspace.files[0], id: 'third', name: 'third.pdf' },
+        ],
+      },
+    };
+    await act(async () => { TestRenderer.create(React.createElement<ProjectFilesTabProps>(ProjectFilesTab, { folderParam: 'root' })); });
+    await act(async () => { TestRenderer.create(state.shellProps.collection); });
+    const selection = state.collectionProps.selection;
+    expect(selection).toBeDefined();
+    expect(selection.selectedIds).toEqual([]);
+
+    await act(async () => { selection.onPress(state.envelope.workspace.files[0], { ctrlKey: true, metaKey: false, shiftKey: false }); });
+    await act(async () => { TestRenderer.create(state.shellProps.collection); });
+    expect(state.collectionProps.selection.selectedIds).toEqual(['working']);
+    expect(state.shellProps.inspector).toBeUndefined();
+
+    await act(async () => { state.collectionProps.selection.onPress(state.envelope.workspace.files[2], { ctrlKey: false, metaKey: false, shiftKey: true }); });
+    await act(async () => { TestRenderer.create(state.shellProps.collection); });
+    expect(state.collectionProps.selection.selectedIds).toEqual(['working', 'second', 'third']);
+    expect(state.shellProps.inspector).toBeUndefined();
+  });
+
+  it('reconciles collection and inspector selections only after a refresh envelope is known', async () => {
+    const first = state.envelope;
+    const next = {
+      ...first,
+      workspace: { ...first.workspace, files: [{ ...first.workspace.files[0], id: 'working', name: 'working-renamed.pdf' }] },
+    };
+    state.envelope = first;
+    state.fileHub.projectFiles.mockResolvedValueOnce(first).mockResolvedValueOnce(next);
+    await act(async () => { TestRenderer.create(React.createElement<ProjectFilesTabProps>(ProjectFilesTab, { folderParam: 'root', fileParam: 'working' })); });
+    await act(async () => { TestRenderer.create(state.shellProps.collection); });
+    const selection = state.collectionProps.selection;
+    await act(async () => { selection.onPress(first.workspace.files[0], { ctrlKey: true, metaKey: false, shiftKey: false }); });
+    await act(async () => { TestRenderer.create(state.shellProps.collection); });
+    expect(state.collectionProps.selection.selectedIds).toEqual(['working']);
+    expect(state.shellProps.inspector).toBeDefined();
+
+    state.envelope = next;
+    await act(async () => { await state.shellProps.inspector.props.onRefresh(); });
+    await act(async () => { TestRenderer.create(state.shellProps.collection); });
+    expect(state.collectionProps.selection.selectedIds).toEqual(['working']);
+    expect(state.shellProps.inspector.props.file.name).toBe('working-renamed.pdf');
+
+    const removed = { ...next, workspace: { ...next.workspace, files: [] } };
+    state.fileHub.projectFiles.mockResolvedValueOnce(removed);
+    await act(async () => { await state.shellProps.inspector.props.onRefresh(); });
+    expect(state.collectionProps.selection.selectedIds).toEqual([]);
+    expect(state.shellProps.inspector).toBeUndefined();
+  });
+
+  it('falls back safely for stale and foreign deep links', async () => {
+    state.envelope = {
+      ...state.envelope,
+      workspace: { ...state.envelope.workspace, folders: [{ id: 'folder', name: 'Folder', parent_id: 'root', project_id: 'project', project_root_kind: null }] },
+    };
+    await act(async () => { TestRenderer.create(React.createElement<ProjectFilesTabProps>(ProjectFilesTab, { folderParam: 'missing', fileParam: 'working' })); });
+    expect(state.shellProps.mobilePane).toBe('collection');
+    expect(state.shellProps.inspector).toBeUndefined();
+
+    await act(async () => { TestRenderer.create(React.createElement<ProjectFilesTabProps>(ProjectFilesTab, { folderParam: 'folder', fileParam: 'working' })); });
+    expect(state.shellProps.mobilePane).toBe('collection');
+    expect(state.shellProps.inspector).toBeUndefined();
+  });
+
+  it('confirms workspace-bin restore before invoking the RPC', async () => {
+    state.blockRecords.length = 0;
+    state.fileHub.projectFiles.mockReset().mockResolvedValue(state.envelope);
+    state.showConfirm.mockReset();
+    state.envelope = {
+      ...state.envelope,
+      workspace: { ...state.envelope.workspace, capabilities: { ...state.envelope.workspace.capabilities, restore: true } },
+    };
+    state.fileHub.projectWorkspaceBin.mockResolvedValue({ folders: [{ id: 'deleted-folder', name: 'Deleted', item_type: 'folder', project_id: 'project', deleted_at: 'now' }], files: [] });
+    await act(async () => { TestRenderer.create(React.createElement<ProjectFilesTabProps>(ProjectFilesTab, { folderParam: 'root' })); });
+    await act(async () => {});
+    await act(async () => { TestRenderer.create(state.shellProps.navigation); });
+    const workspaceBlock = [...state.blockRecords].reverse().find(record => record.title === 'Project workspace');
+    const binAction = workspaceBlock.right.props.children.find((child: any) => child?.props?.label === 'Bin');
+    await act(async () => { binAction.props.onPress(); });
+    const binRecord = state.blockRecords.find(record => record.title === 'Workspace bin');
+    const binRenderer = TestRenderer.create(React.cloneElement(binRecord.children));
+    const restore = binRenderer.root.findAllByType('TouchableOpacity').find(node => node.props.accessibilityLabel === 'Restore');
+    await act(async () => { restore.props.onPress(); });
+    expect(state.showConfirm).toHaveBeenCalled();
+    expect(state.fileHub.restoreProjectFolder).not.toHaveBeenCalled();
   });
 });

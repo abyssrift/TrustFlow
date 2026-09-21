@@ -17,6 +17,7 @@ import * as Linking from 'expo-linking';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useCapability } from '@/hooks/useCapability';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '@/contexts/AlertContext';
 
@@ -90,6 +91,7 @@ const GenerateModal = ({ visible, onClose, onConfirm, pipelines, teams, users }:
 export default function IntelligenceReportsNative() {
   const colors = useThemeColors();
   const { showAlert } = useAlert();
+  const reportCapability = useCapability('report.generate');
   const [reports, setReports]   = useState<any[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -132,6 +134,10 @@ export default function IntelligenceReportsNative() {
   };
 
   const handleGenerate = async (params: any) => {
+    if (!reportCapability.allowed) {
+      showAlert('Access restricted', reportCapability.loading ? 'Checking report access.' : 'Report generation requires an active plan with report access.');
+      return;
+    }
     try {
       const { error } = await supabase.rpc('rpc_request_report', {
         p_report_type: 'performance_audit',
@@ -189,10 +195,10 @@ export default function IntelligenceReportsNative() {
               <FontAwesome name="refresh" size={13} color={colors.primary} />
             </TouchableOpacity>
           </Tooltip>
-          <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
+          {reportCapability.allowed && <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-5 py-3 rounded-2xl flex-row items-center gap-2">
             <FontAwesome name="file-pdf-o" size={11} color="white" />
             <Text className="text-white font-black text-[11px]">Generate</Text>
-          </TouchableOpacity>
+          </TouchableOpacity>}
         </View>
       </View>
 
@@ -266,9 +272,9 @@ export default function IntelligenceReportsNative() {
             <Text className="text-typography-muted text-center text-sm leading-relaxed mb-6">
               Generate a PDF audit report to track performance, compliance, and team health.
             </Text>
-            <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-8 py-3 rounded-2xl">
+            {reportCapability.allowed && <TouchableOpacity onPress={() => setShowArchitect(true)} className="bg-brand-primary px-8 py-3 rounded-2xl">
               <Text className="text-white font-black uppercase tracking-widest text-xs">Generate First Report</Text>
-            </TouchableOpacity>
+            </TouchableOpacity>}
           </View>
         </View>
       ) : filteredReports.length === 0 ? (

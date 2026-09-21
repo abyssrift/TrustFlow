@@ -1,0 +1,9 @@
+**Package B handoff**
+
+Changed the four owned files: [contextualGuides.ts](/C:/Users/j/Documents/Github/TrustFlow/lib/contextualGuides.ts), [contextualGuides.test.ts](/C:/Users/j/Documents/Github/TrustFlow/lib/contextualGuides.test.ts), [onboardingChecklist.ts](/C:/Users/j/Documents/Github/TrustFlow/lib/onboardingChecklist.ts), and [onboardingChecklist.test.ts](/C:/Users/j/Documents/Github/TrustFlow/lib/onboardingChecklist.test.ts).
+
+The guide catalog now has 13 screen-based entries across four ordered phases. It preserves the universal guides and derives capability guide eligibility from existing navigation visibility. Pure selectors support completed/familiar row hiding, explicit rediscovery, and subtle-new IDs only for newly eligible, unacknowledged, unfinished capability guides. The checklist adapter retains legacy items and supports catalog phase, order, and capability metadata.
+
+**Verification:** focused tests first showed the expected RED failures for missing catalog/selectors; after implementation, `npx.cmd vitest run lib/contextualGuides.test.ts lib/onboardingChecklist.test.ts` passed (12/12). Babel checks passed for all four files. Full `npx.cmd tsc --noEmit` exited 1 due to other dirty-worktree diagnostics; filtering reported no diagnostics in the two owned library files.
+
+**Integration risk:** existing hooks, persistence parsing, and checklist UI still contain six-guide assumptions. Updating them is outside this package’s ownership and is needed before the seven added guide IDs can be fully persisted and displayed. I left other files untouched and did not run `graphify update .` because it would write outside the owned files.

@@ -3,13 +3,16 @@ import Calendar from '@/components/common/Calendar';
 import CustomTooltip from '@/components/common/Tooltip';
 import { TargetCreationModal } from '@/components/intelligence/IntelligenceModals';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 import type { ThemeType } from '@/contexts/ThemeContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
+import { getTargetHistoryDate, toTargetScreenTarget } from '@/lib/analyticsTargets';
 import { supabase } from '@/lib/supabase';
+import { useCanonicalAnalyticsTargets } from '@/hooks/useCanonicalAnalyticsTargets';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -181,16 +184,20 @@ const TargetCircle = ({
 }) => {
   const palette = NATIVE_THEME_COLORS[activeTheme];
   const isVolume = target.target_type === 'volume';
-  const progress = isVolume
-    ? Math.min(((target.current_count ?? 0) / (target.target_quantity || 1)) * 100, 100)
-    : 50;
+  const volumeProgressAvailable = Number.isFinite(target.current_count)
+    && Number.isFinite(target.target_quantity)
+    && target.target_quantity > 0;
+  const progress = isVolume && volumeProgressAvailable
+    ? Math.min((target.current_count / (target.target_quantity || 1)) * 100, 100)
+    : 0;
   const strokeDashoffset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE;
 
   const isExpired =
     target.status === 'active' &&
     target.target_deadline &&
     new Date(target.target_deadline) < new Date();
-  const isMet = isVolume && target.status === 'active' && (target.current_count ?? 0) >= (target.target_quantity ?? 1);
+  const isMet = isVolume && volumeProgressAvailable && target.status === 'active'
+    && target.current_count >= (target.target_quantity ?? 1);
 
   const ringColor = target.status !== 'active'
     ? palette.textDim
@@ -220,8 +227,8 @@ const TargetCircle = ({
           stroke={palette.border}
           strokeWidth={STROKE}
         />
-        {/* Progress */}
-        <Circle {...{
+        {/* Volume progress only; performance targets have no observed percentage. */}
+        {isVolume && volumeProgressAvailable && <Circle {...{
           cx: CX, cy: CX, r: R, fill: 'none',
           stroke: `url(#grad-${target.id})`,
           strokeWidth: STROKE, strokeDasharray: CIRCUMFERENCE,
@@ -229,7 +236,7 @@ const TargetCircle = ({
           // SVG-native rotate about the center — CSS transformOrigin in an RNSVG
           // style leaks a kebab `transform-origin` DOM attr on web (React warns).
           transform: `rotate(-90, ${CX}, ${CX})`,
-        } as any} />
+        } as any} />}
         {/* Filled inner background */}
         <Circle cx={CX} cy={CX} r={R - STROKE / 2 - 1} fill={palette.card} />
       </Svg>
@@ -263,26 +270,21 @@ const TargetCircle = ({
           </Text>
         </View>
 
-        {/* Progress number */}
-        <View className="flex-row items-baseline">
-          <Text className="text-typography-main font-black" style={{ fontSize: 44, lineHeight: 48 }}>
-            {Math.round(progress)}
-          </Text>
-          <Text className="text-typography-muted font-black text-lg ml-0.5">%</Text>
-        </View>
-
         {/* Value display */}
         {isVolume ? (
           <Text className="text-typography-muted text-[11px] font-bold mt-1">
-            {target.current_count ?? 0} / {target.target_quantity} units
+            {volumeProgressAvailable ? `${target.current_count} / ${target.target_quantity} units` : 'Progress unavailable'}
           </Text>
         ) : (
           <View className="items-center mt-1">
+            <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2">
+              SLA budgets
+            </Text>
             <Text className="text-typography-muted text-[10px] font-bold">
-              {Math.round((target.target_active_seconds ?? 0) / 60)}m active
+              {target.target_active_seconds == null ? 'Active budget unavailable' : `${Math.round(target.target_active_seconds / 60)}m active budget`}
             </Text>
             <Text className="text-typography-dim text-[9px] font-bold">
-              {Math.round((target.target_lifecycle_seconds ?? 0) / 3600)}h max life
+              {target.target_lifecycle_seconds == null ? 'Lifecycle budget unavailable' : `${Math.round(target.target_lifecycle_seconds / 3600)}h lifecycle budget`}
             </Text>
           </View>
         )}
@@ -343,6 +345,25 @@ const TargetCircle = ({
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function IntelligenceTargets() {
+  const colors = useThemeColors();
+  const { hasPermission, permissionsLoaded } = useAuth();
+
+  if (!permissionsLoaded) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!hasPermission('target.view')) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center p-10">
+        <Text className="text-typography-main font-black text-xl text-center">Access Restricted</Text>
+      </View>
+    );
+  }
+
   return (
     <CollapsibleHeaderProvider>
       <IntelligenceTargetsInner />
@@ -352,14 +373,16 @@ export default function IntelligenceTargets() {
 
 function IntelligenceTargetsInner() {
   const colors = useThemeColors();
+  const { showAlert } = useAlert();
   const headerScroll = useCollapsibleHeaderScroll();
   const { profile } = useAuth();
   const { theme: activeTheme } = useTheme();
-  const [targets, setTargets]       = useState<any[]>([]);
-  const [history, setHistory]       = useState<any[]>([]);
+  const { targets: canonicalTargets, loading, error, refresh } = useCanonicalAnalyticsTargets();
+  const targets = canonicalTargets.map(toTargetScreenTarget);
+  const activeTargets = targets.filter(target => target.status === 'active');
+  const history = targets.filter(target => target.status !== 'active');
   const [pipelines, setPipelines]   = useState<any[]>([]);
   const [allStages, setAllStages]   = useState<any[]>([]);
-  const [loading, setLoading]       = useState(true);
   const [showModal, setShowModal]   = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -374,34 +397,7 @@ function IntelligenceTargetsInner() {
       if (p.data) setPipelines(p.data);
       if (s.data) setAllStages(s.data);
     });
-    fetchTargets();
   }, []);
-
-  const fetchTargets = async () => {
-    setLoading(true);
-    try {
-      const { data: res } = await supabase
-        .from('pipeline_stage_targets')
-        .select('*, stage:pipeline_stages(name, pipeline_id)')
-        .order('created_at', { ascending: false });
-
-      const enriched = await Promise.all((res || []).map(async t => {
-        if (t.target_type === 'volume' && t.status === 'active') {
-          const { count } = await supabase
-            .from('tasks')
-            .select('*', { count: 'exact', head: true })
-            .eq('current_stage_id', t.stage_id)
-            .is('deleted_at', null);
-          return { ...t, current_count: count || 0 };
-        }
-        return { ...t, current_count: t.target_quantity };
-      }));
-
-      setTargets(enriched.filter(t => t.status === 'active'));
-      setHistory(enriched.filter(t => t.status !== 'active'));
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
 
   const handleCreate = async (params: any) => {
     try {
@@ -416,28 +412,41 @@ function IntelligenceTargetsInner() {
         status: 'active',
       });
       if (error) throw error;
-      fetchTargets();
-    } catch (e: any) { console.error(e); }
+      await refresh();
+    } catch (e: any) {
+      showAlert('Target creation failed', e?.message || 'Could not create the target.');
+    }
   };
 
   const handleClear = async (id: string, newStatus: string) => {
-    const { error } = await supabase
-      .from('pipeline_stage_targets')
-      .update({
-        status: newStatus,
-        completed_at: newStatus === 'completed' ? new Date().toISOString() : null,
-      })
-      .eq('id', id);
-    if (!error) fetchTargets();
+    try {
+      const { error } = await supabase
+        .from('pipeline_stage_targets')
+        .update({
+          status: newStatus,
+          completed_at: newStatus === 'completed' ? new Date().toISOString() : null,
+        })
+        .eq('id', id);
+      if (error) throw error;
+      await refresh();
+    } catch (e: any) {
+      showAlert('Target update failed', e?.message || 'Could not update the target status.');
+    }
   };
 
   const handleUpdateTarget = async (id: string, updates: Record<string, any>) => {
-    const { error } = await supabase.from('pipeline_stage_targets').update(updates).eq('id', id);
-    if (!error) fetchTargets();
+    try {
+      const { error } = await supabase.from('pipeline_stage_targets').update(updates).eq('id', id);
+      if (error) throw error;
+      await refresh();
+    } catch (e: any) {
+      showAlert('Target update failed', e?.message || 'Could not update the target.');
+    }
   };
 
   const filteredHistory = history.filter(h => {
-    const date = new Date(h.completed_at || h.created_at);
+    const date = getTargetHistoryDate(h);
+    if (!date) return timeframe === 'ALL';
     const now = new Date();
     if (timeframe === '7D') return now.getTime() - date.getTime() < 7 * 86400000;
     if (timeframe === '30D') return now.getTime() - date.getTime() < 30 * 86400000;
@@ -445,33 +454,38 @@ function IntelligenceTargetsInner() {
     return true;
   });
 
+  const datedHistory = filteredHistory.flatMap(target => {
+    const date = getTargetHistoryDate(target);
+    return date ? [{ target, date }] : [];
+  });
+
   const chartData = Object.values(
-    filteredHistory.reduce((acc: any, t) => {
-      const date = new Date(t.completed_at || t.created_at).toLocaleDateString(undefined, {
+    datedHistory.reduce((acc: any, { target, date }) => {
+      const dateLabel = date.toLocaleDateString(undefined, {
         month: 'short', day: 'numeric',
       });
-      acc[date] = acc[date] || { date, met: 0, missed: 0 };
-      if (t.status === 'completed') acc[date].met += 1;
-      if (t.status === 'expired') acc[date].missed += 1;
+      acc[dateLabel] = acc[dateLabel] || { date: dateLabel, timestamp: date.getTime(), met: 0, missed: 0 };
+      if (target.status === 'completed') acc[dateLabel].met += 1;
+      if (target.status === 'expired') acc[dateLabel].missed += 1;
       return acc;
     }, {})
-  ).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  ).sort((a: any, b: any) => a.timestamp - b.timestamp);
 
   const timelineCategories = Array.from(
-    new Set(filteredHistory.filter(h => h.status === 'completed').map(h => h.stage?.name || 'Global'))
+    new Set(datedHistory.filter(({ target }) => target.status === 'completed').map(({ target }) => target.stage?.name || 'Global'))
   ).sort();
 
-  const timelineData = filteredHistory
-    .filter(h => h.status === 'completed')
-    .map(h => ({
-      y: timelineCategories.indexOf(h.stage?.name || 'Global'),
-      x: new Date(h.completed_at || h.created_at).getTime(),
-      name: h.stage?.name || 'Global',
-      type: h.target_type,
-      dateLabel: new Date(h.completed_at).toLocaleDateString(),
+  const timelineData = datedHistory
+    .filter(({ target }) => target.status === 'completed')
+    .map(({ target, date }) => ({
+      y: timelineCategories.indexOf(target.stage?.name || 'Global'),
+      x: date.getTime(),
+      name: target.stage?.name || 'Global',
+      type: target.target_type,
+      dateLabel: date.toLocaleDateString(),
     }));
 
-  const filteredTargets = targets.filter(t =>
+  const filteredTargets = activeTargets.filter(t =>
     t.stage?.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -509,6 +523,10 @@ function IntelligenceTargetsInner() {
         {loading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : error ? (
+          <View className="flex-1 items-center justify-center p-10">
+            <Text className="text-typography-muted font-bold text-sm">Target data is unavailable right now.</Text>
           </View>
         ) : (
           <ScrollView className="flex-1" showsVerticalScrollIndicator={false} {...headerScroll}>
@@ -653,7 +671,11 @@ function IntelligenceTargetsInner() {
               </View>
 
               <View style={{ height: 320 }}>
-                {filteredHistory.length > 0 ? (
+                {error ? (
+                  <View className="flex-1 items-center justify-center bg-surface-background/50 rounded-2xl border border-dashed border-surface-border">
+                    <Text className="text-typography-muted text-[10px] font-black">TARGET DATA UNAVAILABLE</Text>
+                  </View>
+                ) : chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} opacity={0.1} />
@@ -701,13 +723,17 @@ function IntelligenceTargetsInner() {
                   <Text className="text-typography-main font-black uppercase tracking-[0.2em] text-[10px]">Recent Activity</Text>
                 </View>
                 <CustomTooltip label="Refresh targets">
-                  <TouchableOpacity onPress={fetchTargets}>
+                  <TouchableOpacity onPress={() => void refresh()}>
                     <FontAwesome name="refresh" size={10} color={colors.muted} />
                   </TouchableOpacity>
                 </CustomTooltip>
               </View>
 
-              {filteredHistory.length === 0 ? (
+              {error ? (
+                <View className="p-10 items-center justify-center bg-surface-card/30 rounded-3xl border border-surface-border border-dashed">
+                  <Text className="text-typography-muted text-[10px] font-bold">TARGET DATA UNAVAILABLE</Text>
+                </View>
+              ) : filteredHistory.length === 0 ? (
                 <View className="p-10 items-center justify-center bg-surface-card/30 rounded-3xl border border-surface-border border-dashed">
                   <Text className="text-typography-muted text-[10px] font-bold">NO HISTORY IN RANGE</Text>
                 </View>
@@ -735,9 +761,9 @@ function IntelligenceTargetsInner() {
                         </Text>
                       </View>
                       <Text className="text-typography-muted text-[9px] font-bold">
-                        {new Date(h.completed_at || h.created_at).toLocaleDateString(undefined, {
+                        {getTargetHistoryDate(h)?.toLocaleDateString(undefined, {
                           month: 'short', day: 'numeric',
-                        })}
+                        }) ?? 'Date unavailable'}
                       </Text>
                     </View>
                   ))}

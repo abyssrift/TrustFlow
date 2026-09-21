@@ -1,10 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { supabase } from '@/lib/supabase';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useCollectionSelection } from '@/hooks/useCollectionSelection';
+import { reconcileMutationSelection } from '@/lib/multiSelection';
+import { getMultiSelectPressAction, normalizeWebModifierPressEvent } from '@/lib/webModifierKeys';
 import { useDragSource, useDropTarget } from '@/hooks/useWebDnd';
 import { friendlyStageError } from '@/hooks/useProjectLifecycle';
 import ProjectStagePicker from './ProjectStagePicker';
@@ -102,6 +106,29 @@ function emptyColumn(): ColumnState {
   return { rows: [], offset: 0, hasMore: false, loading: true };
 }
 
+function BoardSelectionButton({ selected, active, onPress, onLongPress }: {
+  selected: boolean;
+  active: boolean;
+  onPress: (event: any) => void;
+  onLongPress: (event: any) => void;
+}) {
+  const c = useThemeColors();
+  return (
+    <TouchableOpacity
+      onPress={(event) => { event.stopPropagation(); onPress(event); }}
+      onLongPress={(event) => { event.stopPropagation(); onLongPress(event); }}
+      hitSlop={8}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: selected }}
+      accessibilityLabel={selected ? 'Deselect project' : 'Select project'}
+      className={`items-center justify-center rounded-lg hover:bg-brand-primary/10 active:bg-brand-primary/20 ${active || selected ? 'bg-brand-primary/10' : ''}`}
+      style={{ width: 30, height: 30 }}
+    >
+      <FontAwesome name={selected ? 'check-square-o' : 'square-o'} size={17} color={selected ? c.primary : c.textMuted} />
+    </TouchableOpacity>
+  );
+}
+
 // ─── Card ──────────────────────────────────────────────────────────────────
 // Its own component (not a helper fn called from inside a .map) so
 // useDragSource -- a hook -- is called a fixed number of times per render:
@@ -109,7 +136,7 @@ function emptyColumn(): ColumnState {
 // mounts. Calling a hook from inside a loop body in the parent would violate
 // the rules of hooks the moment the row count changes between renders.
 function BoardProjectCard({
-  row, stageId, canEdit, dragEnabled, isMoving, justMoved, renaming, onOpen, onTapMove, onOpenMenu, onCommitRename, onCancelRename,
+  row, stageId, canEdit, dragEnabled, isMoving, justMoved, renaming, onOpen, onTapMove, onOpenMenu, onCommitRename, onCancelRename, selection, visibleIds,
 }: {
   row: BoardRow;
   stageId: string;
@@ -123,19 +150,36 @@ function BoardProjectCard({
   onOpenMenu: (row: BoardRow) => void;
   onCommitRename: (row: BoardRow, next: string) => void;
   onCancelRename: () => void;
+  selection: ReturnType<typeof useCollectionSelection>;
+  visibleIds: readonly string[];
 }) {
   const c = useThemeColors();
   const dragRef = useDragSource<DragPayload>({ projectId: row.id, fromStageId: stageId }, dragEnabled);
+  const selectProjectFromPress = (event?: any) => {
+    const press = normalizeWebModifierPressEvent(event);
+    if (press.shiftKey && selection.anchorId) selection.selectRange(visibleIds, row.id, true);
+    else if (!selection.active) selection.enter(row.id);
+    else selection.toggle(row.id);
+  };
   return (
     <View className="mb-2.5">
       <ProjectCard
         row={row}
         innerRef={dragRef}
-        onPress={() => onOpen(row.id)}
+        onPress={(event) => getMultiSelectPressAction(event, selection.active) === 'select' ? selectProjectFromPress(event) : onOpen(row.id)}
+        onLongPress={() => selection.enter(row.id)}
         dimmed={isMoving}
         highlighted={justMoved}
         actions={
           <View className="flex-row items-center gap-1.5">
+            <BoardSelectionButton
+              active={selection.active}
+              selected={selection.isSelected(row.id)}
+              onPress={(event) => {
+                selectProjectFromPress(event);
+              }}
+              onLongPress={() => selection.enter(row.id)}
+            />
             <Tooltip label={canEdit ? 'Move to another stage' : 'You need the “edit projects” permission to move a project'}>
               <TouchableOpacity
                 onPress={(e) => { e.stopPropagation(); if (canEdit) onTapMove(row); }}
@@ -173,7 +217,7 @@ function BoardProjectCard({
 // needs to be its own component rather than a function called from
 // stages.map() inside the parent's render.
 function ProjectColumn({
-  stage, col, canEdit, movePendingId, justMovedId, renamingId, onOpen, onTapMove, onDrop, onLoadMore, onOpenMenu, onCommitRename, onCancelRename,
+  stage, col, canEdit, movePendingId, justMovedId, renamingId, onOpen, onTapMove, onDrop, onLoadMore, onOpenMenu, onCommitRename, onCancelRename, selection, visibleIds,
 }: {
   stage: Stage;
   col: ColumnState;
@@ -188,6 +232,8 @@ function ProjectColumn({
   onOpenMenu: (row: BoardRow) => void;
   onCommitRename: (row: BoardRow, next: string) => void;
   onCancelRename: () => void;
+  selection: ReturnType<typeof useCollectionSelection>;
+  visibleIds: readonly string[];
 }) {
   const { ref: dropRef, isOver } = useDropTarget<DragPayload>(
     (payload) => onDrop(payload, stage),
@@ -224,6 +270,8 @@ function ProjectColumn({
               onOpenMenu={onOpenMenu}
               onCommitRename={onCommitRename}
               onCancelRename={onCancelRename}
+              selection={selection}
+              visibleIds={visibleIds}
             />
           ))}
           {col.hasMore && (
@@ -258,6 +306,7 @@ export default function ProjectBoard({
   const { width } = useWindowDimensions();
   const isDesktop = width >= DESKTOP_BREAKPOINT;
   const { hasPermission } = useAuth();
+  const { showConfirm } = useAlert();
   const { successToast, errorToast } = useToast();
   const canEdit = hasPermission('project.edit');
 
@@ -270,6 +319,14 @@ export default function ProjectBoard({
   const [movePendingId, setMovePendingId] = useState<string | null>(null);
   const [justMovedId, setJustMovedId] = useState<string | null>(null);
   const [pickerProject, setPickerProject] = useState<{ id: string; stageId: string | null } | null>(null);
+  const [selectionActive, setSelectionActive] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const selection = useCollectionSelection({
+    active: selectionActive,
+    selectedIds,
+    onActiveChange: setSelectionActive,
+    onSelectedIdsChange: setSelectedIds,
+  });
 
   // Phase 8 (#187) -- rename / roll-forward / save-as-template / archive from
   // the card itself, not only from the detail route (plan §17).
@@ -352,6 +409,58 @@ export default function ProjectBoard({
     stages.forEach(s => loadStage(s.id, 0));
   }, [stages, loadStage]);
   reloadBoardRef.current = reloadBoard;
+
+  const visibleIds = useMemo(
+    () => stages.flatMap(stage => (columns[stage.id]?.rows ?? []).map(row => row.id)),
+    [columns, stages],
+  );
+
+  const archiveSelected = useCallback(() => {
+    if (!hasPermission('project.delete') || selectedIds.length === 0) return;
+    showConfirm(
+      `Archive ${selectedIds.length} project${selectedIds.length === 1 ? '' : 's'}?`,
+      'The selected projects and their tasks move to cold storage. An owner can restore them later.',
+      async () => {
+        const results = await Promise.all(selectedIds.map(async id => {
+          try {
+            const { error } = await supabase.rpc('rpc_archive_project', { p_project_id: id });
+            return { id, error };
+          } catch (error) {
+            return { id, error: error instanceof Error ? error : new Error('Archive request did not complete.') };
+          }
+        }));
+        const succeeded = results.filter(result => !result.error).map(result => result.id);
+        const failed = results.filter(result => !!result.error);
+        if (succeeded.length > 0) {
+          setSelectedIds(current => reconcileMutationSelection(current, succeeded));
+          if (failed.length === 0) setSelectionActive(false);
+          reloadBoard();
+        }
+        if (failed.length === 0) successToast(`${succeeded.length} project${succeeded.length === 1 ? '' : 's'} archived.`);
+        else errorToast(`${failed.length} project${failed.length === 1 ? '' : 's'} could not be archived. They remain selected.`, 'Archive partially failed');
+      },
+      undefined,
+      'Archive',
+      'Keep them',
+      'destructive',
+    );
+  }, [errorToast, hasPermission, reloadBoard, selectedIds, showConfirm, successToast]);
+
+  const canArchiveSelection = hasPermission('project.delete') && selection.count > 0;
+  const selectionBar = selectionActive && (
+    <View className="flex-row items-center gap-2 mb-3 px-3 py-2.5 bg-brand-primary/10 border border-brand-primary/20 rounded-xl">
+      <Text className="text-typography-main text-xs font-bold">{selection.count} selected</Text>
+      <TouchableOpacity onPress={() => selection.selectAllVisible(visibleIds)} className="px-2.5 py-1.5 rounded-lg border border-surface-border">
+        <Text className="text-typography-main text-[11px] font-semibold">Select loaded</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={selection.clear} className="px-2.5 py-1.5 rounded-lg border border-surface-border">
+        <Text className="text-typography-muted text-[11px] font-semibold">Clear</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={archiveSelected} disabled={!canArchiveSelection} className="ml-auto px-3 py-1.5 rounded-lg bg-state-danger/10 border border-state-danger/20 hover:bg-state-danger/20 active:bg-state-danger/30 disabled:bg-surface-overlay disabled:border-surface-border">
+        <Text className={`text-[11px] font-bold ${canArchiveSelection ? 'text-state-danger' : 'text-typography-muted'}`}>Archive selected</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   const advanceProject = useCallback(async (projectId: string, toStageId: string): Promise<boolean> => {
     const { error } = await supabase.rpc('rpc_advance_project_stage', { p_project_id: projectId, p_to_stage_id: toStageId });
@@ -459,6 +568,7 @@ export default function ProjectBoard({
   if (isDesktop) {
     return (
       <View className="flex-1">
+        {selectionBar}
         {pipelineChips}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-1" contentContainerStyle={{ paddingBottom: 24 }}>
           {stages.map(stage => (
@@ -477,6 +587,8 @@ export default function ProjectBoard({
               onOpenMenu={actions.openMenu}
               onCommitRename={actions.commitRename}
               onCancelRename={actions.cancelRename}
+              selection={selection}
+              visibleIds={visibleIds}
             />
           ))}
         </ScrollView>
@@ -498,6 +610,7 @@ export default function ProjectBoard({
 
   return (
     <View className="flex-1 px-4">
+      {selectionBar}
       {pipelineChips}
       {/* flexGrow:0 -- see the identical note on pipelineChips above; without
           it this horizontal chip row stretches to fill the flex-1 column
@@ -554,6 +667,8 @@ export default function ProjectBoard({
                 onOpenMenu={actions.openMenu}
                 onCommitRename={actions.commitRename}
                 onCancelRename={actions.cancelRename}
+                selection={selection}
+                visibleIds={visibleIds}
               />
             ))}
             {activeCol.hasMore && activeStage && (

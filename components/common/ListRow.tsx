@@ -38,6 +38,7 @@ export function ListCard({
 /** One interactive list row: padding, divider, hover, optional selected/disabled treatment. */
 export function ListRow({
   onPress,
+  onLongPress,
   isLast,
   selected,
   disabled,
@@ -46,7 +47,8 @@ export function ListRow({
   style,
   accessibilityLabel,
 }: {
-  onPress?: () => void;
+  onPress?: (event?: any) => void;
+  onLongPress?: (event?: any) => void;
   /** Suppresses the bottom divider — pass true for the last row in the list. */
   isLast?: boolean;
   /** Tinted background + left accent bar. Off by default — Projects has no row selection today; here for the next screen that needs it. */
@@ -61,6 +63,7 @@ export function ListRow({
   return (
     <TouchableOpacity
       onPress={onPress}
+      onLongPress={onLongPress}
       disabled={disabled || !onPress}
       accessibilityLabel={accessibilityLabel}
       className={`flex-row items-center px-5 py-3 ${isLast ? '' : 'border-b border-surface-border/50'} hover:bg-surface-overlay/40 transition-colors ${disabled ? 'opacity-50' : ''} ${className ?? ''}`}

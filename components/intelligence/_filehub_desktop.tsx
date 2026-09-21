@@ -19,6 +19,8 @@ import FileHubAnalytics from './FileHubAnalytics';
 import FileHubBin from './FileHubBin';
 import FileHubOverview from './FileHubOverview';
 import FileHubBrowse from './FileHubBrowse';
+import GuideAnchor from '@/components/guides/GuideAnchor';
+import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import FileHubChannelsMultiView from './FileHubChannelsMultiView';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import FolderTreePicker from './FolderTreePicker';
@@ -26,6 +28,7 @@ import { ACTIVITY_META, ALLOWED_EXTENSIONS, ALLOWED_TYPES_MESSAGE, expiresInDays
 import { randomId } from '@/lib/randomId';
 import { downloadFilesAsZip, openStorageFile } from '@/lib/storage';
 import { isMultiSelectModifierActive } from '@/lib/webModifierKeys';
+import { reconcileFileHubSelection, settleFileHubMutations } from '@/lib/filehubSelection';
 import { useShareFile } from '../common/ShareFile';
 import TaskFileResults from './TaskFileResults';
 import { FileActivityRows } from './FileHubActivity';
@@ -2432,11 +2435,21 @@ function FileHubDesktopInner() {
     showConfirm(
       'Delete Selection',
       `Delete ${parts.join(' and ')}? Folders go to the Bin; files are removed.`,
-      () => {
-        Promise.all([
-          ...filesToDelete.map(f => (f.uploader?.id === user?.id ? deleteFile(f.id) : hideFile(f.id))),
-          ...folderIdsToDelete.map(id => deleteFolder(id)),
-        ]).then(() => exitSelection());
+      async () => {
+        const outcome = await settleFileHubMutations([
+          ...filesToDelete.map(f => ({ kind: 'file' as const, id: f.id, run: () => f.uploader?.id === user?.id ? deleteFile(f.id) : hideFile(f.id) })),
+          ...folderIdsToDelete.map(id => ({ kind: 'folder' as const, id, run: () => deleteFolder(id) })),
+        ]);
+        const next = reconcileFileHubSelection(
+          { fileIds: selectedFileIds, folderIds: selectedFolderIds },
+          outcome,
+        );
+        setSelectedFileIds(new Set(next.fileIds));
+        setSelectedFolderIds(new Set(next.folderIds));
+        if (outcome.failedFileIds.length + outcome.failedFolderIds.length > 0) {
+          showAlert('Some items could not be deleted', `${outcome.succeededFileIds.length + outcome.succeededFolderIds.length} succeeded; ${outcome.failedFileIds.length + outcome.failedFolderIds.length} remain selected to retry.`);
+        }
+        if (next.fileIds.length + next.folderIds.length === 0) exitSelection();
       },
       undefined, 'Delete', 'Cancel', 'destructive'
     );
@@ -2526,16 +2539,30 @@ function FileHubDesktopInner() {
   const totalVisible = displayFiles.length + subfolders.length;
   const allVisibleSelected = totalVisible > 0 && totalSelected === totalVisible;
 
-  const handleDropOnFolder = useCallback((payload: DragPayload, targetFolderId: string | null) => {
-    if (payload.type === 'file') moveFile(payload.id, targetFolderId);
-    else if (payload.type === 'files') { payload.ids.forEach(id => moveFile(id, targetFolderId)); exitSelection(); }
-    else if (payload.type === 'items') {
-      payload.fileIds.forEach(id => moveFile(id, targetFolderId));
-      payload.folderIds.forEach(id => { if (id !== targetFolderId) moveFolder(id, targetFolderId); });
-      exitSelection();
+  const handleDropOnFolder = useCallback(async (payload: DragPayload, targetFolderId: string | null) => {
+    const mutations = payload.type === 'file'
+      ? [{ kind: 'file' as const, id: payload.id, run: () => moveFile(payload.id, targetFolderId) }]
+      : payload.type === 'files'
+        ? payload.ids.map(id => ({ kind: 'file' as const, id, run: () => moveFile(id, targetFolderId) }))
+        : payload.type === 'items'
+          ? [
+              ...payload.fileIds.map(id => ({ kind: 'file' as const, id, run: () => moveFile(id, targetFolderId) })),
+              ...payload.folderIds.filter(id => id !== targetFolderId).map(id => ({ kind: 'folder' as const, id, run: () => moveFolder(id, targetFolderId) })),
+            ]
+          : payload.id === targetFolderId ? [] : [{ kind: 'folder' as const, id: payload.id, run: () => moveFolder(payload.id, targetFolderId) }];
+    if (mutations.length === 0) return;
+    const outcome = await settleFileHubMutations(mutations);
+    const next = reconcileFileHubSelection(
+      { fileIds: selectedFileIds, folderIds: selectedFolderIds },
+      outcome,
+    );
+    setSelectedFileIds(new Set(next.fileIds));
+    setSelectedFolderIds(new Set(next.folderIds));
+    if (outcome.failedFileIds.length + outcome.failedFolderIds.length > 0) {
+      showAlert('Some items could not be moved', `${outcome.succeededFileIds.length + outcome.succeededFolderIds.length} succeeded; ${outcome.failedFileIds.length + outcome.failedFolderIds.length} remain selected to retry.`);
     }
-    else if (payload.id !== targetFolderId) moveFolder(payload.id, targetFolderId);
-  }, [moveFile, moveFolder, exitSelection]);
+    if (next.fileIds.length + next.folderIds.length === 0) exitSelection();
+  }, [moveFile, moveFolder, exitSelection, selectedFileIds, selectedFolderIds, showAlert]);
 
   const handleCreateFolder = useCallback(
     (name: string) => createFolder(name, selectedFolderId, contextScope, contextGroupId),
@@ -2722,6 +2749,7 @@ function FileHubDesktopInner() {
           <Text className="text-typography-main text-3xl font-black tracking-tighter">File Hub</Text>
         </View>
         <View className="flex-row items-center gap-3 flex-nowrap justify-end">
+          <GuideHelpButton guideId="filehub" />
           <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[280px] min-w-[200px]">
             <FontAwesome name="search" size={12} color={colors.textMuted} />
             <TextInput
@@ -2779,6 +2807,7 @@ function FileHubDesktopInner() {
               for view-only override channels: you're not a member and lack manage-tier override,
               so the server would reject the upload. Manage-tier override can upload like any admin. */}
           {canUpload && (
+            <GuideAnchor id="filehub:primary-action" className="shrink-0">
             <TouchableOpacity
               onPress={() => summon('upload', {
                 folderId: selectedFolderId ?? undefined,
@@ -2794,6 +2823,7 @@ function FileHubDesktopInner() {
                 {mode === 'groups' && activeGroupId ? 'Upload to Channel' : 'Upload Files'}
               </Text>
             </TouchableOpacity>
+            </GuideAnchor>
           )}
           {mode === 'groups' && !activeGroupId && (canOverrideChannels || canManageOverride) && (
             <TouchableOpacity
@@ -2821,7 +2851,7 @@ function FileHubDesktopInner() {
       </View>
 
       {/* ── Tabs ── */}
-      <View className="px-10 pt-2 pb-2 flex-row items-center gap-2 flex-shrink-0 border-b border-surface-border">
+      <GuideAnchor id="filehub:navigation" className="px-10 pt-2 pb-2 flex-row items-center gap-2 flex-shrink-0 border-b border-surface-border">
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
@@ -2842,7 +2872,7 @@ function FileHubDesktopInner() {
             )}
           </TouchableOpacity>
         ))}
-      </View>
+      </GuideAnchor>
 
       {/* ── Overview / Browse tabs (own their data, full-width) ── */}
       {mode === 'overview' && (

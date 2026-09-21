@@ -1,0 +1,13 @@
+You are a bounded TrustFlow implementation worker running as gpt-5.6-luna with medium reasoning. Read AGENTS.md, CLAUDE.md, every Markdown file in .agents/rules/, .agents/skills/sol-architect-orchestration/SKILL.md, and the repository TDD instructions before acting. Preserve the very dirty worktree and all user/other-agent changes. Do not commit, revert, reset, clean, or interrupt other work.
+
+Own exactly these files:
+- lib/contextualGuides.ts
+- lib/contextualGuides.test.ts
+- contexts/ContextualGuideContext.tsx
+- contexts/ContextualGuideContext.test.tsx
+
+Task: correct two integration gaps without broadening scope or touching creation onboarding/UI components.
+1. Guide eligibility must use the actual responsive surface. The provider currently evaluates with isMobile=false, which can permanently hide mobile-only eligible guides such as deadlines. Use the existing responsive breakpoint/pattern from repository rules/components (do not invent a second breakpoint), and add focused tests proving desktop/mobile eligibility behavior.
+2. The team-assignments curriculum must only be eligible when the user can actually manage role/team assignments, not merely view the team directory. Extend the catalog eligibility metadata/filter minimally using existing capability/permission semantics (do not create a new authorization source), and add tests for view-only versus manager users.
+
+Keep catalog-driven phases, persistent progress semantics, initial-load no-new-marker semantics, and all existing guide IDs/content stable unless a test demonstrates a necessary correction. Use TDD. Run focused tests and Babel/type syntax checks for owned files. Provide a concise handoff: files changed, decisions, commands/results, risks.

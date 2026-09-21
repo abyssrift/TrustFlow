@@ -14,6 +14,8 @@ import { StageTrailLayer, useStageTransitionFX } from '@/components/tabs/StageTr
 import { boardCacheMeta, compareTasksBySortKey, fetchLinkedTasks, prefetchOtherBoards, TASK_SORT_OPTIONS, taskCache, type BoardSnapshot, type LinkedTask, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import GuideAnchor from '@/components/guides/GuideAnchor';
+import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import BulkTaskActionBar from '@/components/tasks/BulkTaskActionBar';
@@ -34,6 +36,7 @@ import { offerForceStopOnArchiveError } from '@/lib/archiveForceStop';
 import { fileToStaged } from '@/lib/pasteImage';
 import { supabase } from '@/lib/supabase';
 import { addPinnedTaskId, emptyColumnPage, mergeTasksById, stagePageQuery, TASK_PAGE_SIZE, type BoardFilters, type ColumnPage } from '@/lib/taskBoardPage';
+import { reconcileBulkSelection, type BulkOutcome } from '@/lib/bulkTaskActions';
 import { formatCompact, formatRelative } from '@/lib/time';
 import { createWheelStepper } from '@/lib/wheelGesture';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -1379,6 +1382,8 @@ export function TasksScreenWeb() {
 
   return (
     <View ref={taskDropRef} className="flex-1 bg-surface-background">
+      <GuideAnchor id="tasks:board" className="pointer-events-none absolute inset-0" />
+      <View className="absolute right-4 top-4 z-50"><GuideHelpButton guideId="tasks" /></View>
       {/* Phase 3 / 3.5: drop-to-create affordance — dim on every zone the instant
           a file drag enters the window, full-strength while it's over this
           screen. Web-only: taskDropOver / taskDropActive never trip on native. */}
@@ -1765,7 +1770,7 @@ export function TasksScreenWeb() {
             >
             
               {!fullscreenStageId && <LinkedTasksStrip tasks={linkedTasks} />}
-            <ScrollView
+            <GuideAnchor id="tasks:move" className="flex-1"><ScrollView
               ref={boardScrollRef}
               horizontal
               showsHorizontalScrollIndicator={!fullscreenStageId}
@@ -1893,7 +1898,7 @@ export function TasksScreenWeb() {
                   </View>
                 );
               })}
-            </ScrollView>
+            </ScrollView></GuideAnchor>
             <StageTrailLayer trails={stageFX.trails} color={stageFX.glowColor} actorInfo={stageFX.actorInfo} />
             {marqueeRect && (
               <View
@@ -1962,7 +1967,12 @@ export function TasksScreenWeb() {
           stages={stages}
           availablePipelines={availablePipelines}
           onClose={multiSelect.exit}
-          onDone={fetchData}
+          onDone={(outcome: BulkOutcome) => {
+            fetchData();
+            const remaining = reconcileBulkSelection(multiSelect.selectedIds, outcome);
+            multiSelect.replaceSelection(remaining);
+            if (remaining.length === 0) multiSelect.exit();
+          }}
         />
       )}
 

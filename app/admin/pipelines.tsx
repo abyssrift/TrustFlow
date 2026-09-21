@@ -7,6 +7,8 @@ import SubpipelineEditor from '@/components/pipeline-editor/SubpipelineEditor';
 import TransitionEditor from '@/components/pipeline-editor/TransitionEditor';
 import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { BackButton } from '@/components/common/BackButton';
+import GuideAnchor from '@/components/guides/GuideAnchor';
+import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -22,6 +24,10 @@ const SECTIONS = [
   { key: 'handshakes', label: 'Handshakes', icon: 'handshake-o' },
   { key: 'subpipelines', label: 'Subpipelines', icon: 'sitemap' },
 ] as const;
+
+function PipelineGuideHelp() {
+  return <GuideHelpButton guideId="workflow-pipelines" />;
+}
 
 function PipelineEditorInner() {
   const colors = useThemeColors();
@@ -46,14 +52,19 @@ function PipelineEditorInner() {
           <View className="bg-surface-card px-4 pt-6 pb-6 border-b border-surface-border">
             <View className="flex-row items-center justify-between">
               <BackButton />
-              <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20">
-                <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Pipeline Editor</Text>
+              <View className="flex-row items-center gap-3">
+                <View className="bg-brand-primary/10 px-3 py-1 rounded-full border border-brand-primary/20">
+                  <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Pipeline Editor</Text>
+                </View>
+                <PipelineGuideHelp />
               </View>
             </View>
           </View>
 
           <View className="flex-1 px-4 pt-4">
-            <PipelineList />
+            <GuideAnchor id="workflow-pipelines:list" className="flex-1">
+              <PipelineList />
+            </GuideAnchor>
           </View>
         </View>
       </SafeAreaView>
@@ -68,8 +79,11 @@ function PipelineEditorInner() {
         <View className="bg-surface-card px-4 pt-6 pb-4 border-b border-surface-border">
           <View className="flex-row items-center justify-between mb-4">
             <BackButton label="Pipelines" onPress={deselectPipeline} />
-            <View className="bg-brand-primary-dim px-3 py-1 rounded-full border border-brand-primary/20">
-              <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Editor</Text>
+            <View className="flex-row items-center gap-3">
+              <View className="bg-brand-primary-dim px-3 py-1 rounded-full border border-brand-primary/20">
+                <Text className="text-brand-primary text-[9px] font-black uppercase tracking-widest">Editor</Text>
+              </View>
+              <PipelineGuideHelp />
             </View>
           </View>
 
@@ -87,6 +101,7 @@ function PipelineEditorInner() {
           </View>
         </View>
 
+        <GuideAnchor id="workflow-pipelines:configuration" className="flex-1">
         <View className="flex-1 px-4 pt-4" style={Platform.OS === 'web' ? { display: 'flex', flexDirection: 'column', minHeight: 0 } : {}}>
 
         {/* Section Tabs */}
@@ -140,6 +155,7 @@ function PipelineEditorInner() {
           {activeSection === 'subpipelines' && <SubpipelineEditor />}
         </View>
         </View>
+        </GuideAnchor>
       </View>
     </SafeAreaView>
   );

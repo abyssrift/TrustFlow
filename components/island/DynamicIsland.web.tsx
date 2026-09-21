@@ -25,6 +25,7 @@ import { useIsland, type IslandAccent, type IslandActivity, type IslandTone } fr
 import { useThemeColors } from '@/hooks/useThemeColors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import React from 'react';
+import GuideAnchor from '../guides/GuideAnchor';
 
 type Colors = ReturnType<typeof useThemeColors>;
 
@@ -82,6 +83,7 @@ export default function DynamicIsland({ leading }: { leading: IslandLeading }) {
   const panelOpen = expanded && hasActivities;
 
   return (
+    <GuideAnchor id="top-bar:activity">
     <div
       style={{ position: 'relative', display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}
       onMouseEnter={() => { setHoverLead(true); open(); }}
@@ -201,6 +203,7 @@ export default function DynamicIsland({ leading }: { leading: IslandLeading }) {
         ))}
       </div>
     </div>
+    </GuideAnchor>
   );
 }
 

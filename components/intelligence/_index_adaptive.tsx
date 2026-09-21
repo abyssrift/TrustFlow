@@ -1,27 +1,26 @@
 import ConfirmModal from '@/components/common/ConfirmModal';
 import Popup from '@/components/common/Popup';
-import Block from '@/components/common/Block';
 import ReportGeneratorAdaptive from '@/components/intelligence/_ReportGenerator_adaptive';
 import { BackButton } from '@/components/common/BackButton';
 import { IntelligencePicker } from '@/components/intelligence/IntelligenceCommon';
 import ProjectLens from '@/components/intelligence/ProjectLens';
-import { SLARiskPulseDot, slaPulseStagger } from '@/components/intelligence/SLARiskPulse';
+import AtAGlance from '@/components/intelligence/AtAGlance';
+import TargetWatch from '@/components/intelligence/TargetWatch';
 import Tooltip from '@/components/common/Tooltip';
 
 import { useAlert } from '@/contexts/AlertContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { useBillingPlan } from '@/hooks/useBillingPlan';
-import { getAnalyticsLimits } from '@/lib/planLimits';
+import { useCapability } from '@/hooks/useCapability';
+import type { OrganizationalAudit } from '@/lib/analyticsMetrics';
+import { useAnalytics } from '@/contexts/AnalyticsContext';
 import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, G } from 'react-native-svg';
+import { ActivityIndicator, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 
 
@@ -56,373 +55,23 @@ const SectionToggle = ({ active, onSelect, hasPermission }: { active: string, on
   );
 };
 
-const KPIBox = ({ label, val, delta }: any) => (
-  <View className="flex-1 min-w-[140px] bg-surface-card p-5 rounded-3xl border border-surface-border mb-4">
-    <Text className="text-typography-muted text-[10px] font-bold uppercase tracking-wider mb-2">{label}</Text>
-    <View className="flex-row items-baseline">
-      <Text className="text-typography-main text-2xl font-black">{val}</Text>
-      {delta !== undefined && (
-        <View className={`ml-2 px-1.5 py-0.5 rounded-md ${delta >= 0 ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
-          <Text className={`text-[9px] font-black ${delta >= 0 ? 'text-state-success' : 'text-state-danger'}`}>
-            {delta >= 0 ? '+' : ''}{delta}
-          </Text>
-        </View>
-      )}
-    </View>
-  </View>
-);
-
-const SLARiskAlert = ({ data }: any) => {
+const RadarSection = ({ data, targetWatchEnabled }: { data: OrganizationalAudit | null; targetWatchEnabled: boolean }) => {
   const colors = useThemeColors();
-  if (!data?.sla_risks || data.sla_risks.length === 0) return null;
-  return (
-    <View className="mb-6 bg-state-danger/5 border border-state-danger/20 p-5 rounded-3xl">
-      <View className="flex-row items-center mb-4">
-        <FontAwesome name="exclamation-triangle" size={14} color={colors.danger} className="mr-2" />
-        <Text className="text-state-danger font-bold">SLA Breach Risks</Text>
-      </View>
-      {data.sla_risks.slice(0, 3).map((r: any, i: number) => (
-        <View key={i} className="flex-row justify-between items-center gap-3 mb-2">
-          {/* Severity as tempo — the driver colouring below is untouched.
-              Kept off RadarWidgets on purpose: that module imports `recharts`. */}
-          <SLARiskPulseDot
-            riskPercent={r.risk_percent}
-            color={r.reason === 'deadline' ? colors.danger : r.reason === 'over_budget' ? colors.warning : colors.textMuted}
-            stagger={slaPulseStagger(i)}
-          />
-          <View className="flex-1 flex-row items-center gap-2">
-            <Text className="text-typography-main text-xs font-bold">{r.task_number || 'TASK'}</Text>
-            <Text className={`text-[9px] font-black uppercase ${
-              r.reason === 'deadline' ? 'text-state-danger'
-              : r.reason === 'over_budget' ? 'text-state-warning'
-              : 'text-typography-muted'
-            }`}>
-              {r.reason === 'deadline' ? 'Deadline' : r.reason === 'over_budget' ? 'Over budget' : 'Stalled'}
-            </Text>
-          </View>
-          <Text className="text-state-danger text-xs font-black">{r.risk_percent}% Risk</Text>
-        </View>
-      ))}
-    </View>
-  );
-};
-
-const ConversionFunnelChart = ({ data }: any) => {
-  const colors = useThemeColors();
-  const stages: any[] = data?.conversion_by_stage || [];
-  if (stages.length === 0) return null;
-
-  // Grouping isn't just cosmetic here — a "funnel" only makes sense as a
-  // sequence within one pipeline's own stages, so the connecting arrows must
-  // never cross from one pipeline's last stage into another's first.
-  const allGroups: { name: string; stages: any[] }[] = [];
-  for (const s of stages) {
-    const name = s.pipeline_name || 'Pipeline';
-    let g = allGroups[allGroups.length - 1];
-    if (!g || g.name !== name) { g = { name, stages: [] }; allGroups.push(g); }
-    g.stages.push(s);
-  }
-  // Same rule as PipelineLoadChart — a pipeline with zero active tasks has
-  // nothing to look at, so drop it instead of showing an empty funnel.
-  const groups = allGroups.filter(g => g.stages.some((s: any) => (s.task_count || 0) > 0));
-  if (groups.length === 0) return null;
-
-  return (
-    <Block title="Retention Funnel" className="mb-6">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 8 }}>
-        {groups.map((g, gi) => (
-          <View key={g.name + gi} style={{ width: 240 }} className="bg-surface-background rounded-2xl border border-surface-border/50 p-4">
-            <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3" numberOfLines={1}>{g.name}</Text>
-            {g.stages.map((stage: any, idx: number) => {
-              const rate = (stage.completion_rate || 0) * 100;
-              const isGood = rate >= 85;
-              return (
-                <View key={idx} className="items-center">
-                  <View className="w-full bg-surface-card p-3 rounded-xl border border-surface-border/50">
-                    <View className="flex-row justify-between items-center mb-2">
-                      <View className="flex-1 min-w-0 mr-2">
-                        <Text className="text-typography-main font-black text-xs" numberOfLines={1}>{stage.stage_name}</Text>
-                        <Text className="text-typography-muted text-[8px] font-bold uppercase">{stage.task_count ?? 0} tasks</Text>
-                      </View>
-                      <Text className={`text-sm font-black ${isGood ? 'text-state-success' : 'text-state-warning'}`}>{Math.round(rate)}%</Text>
-                    </View>
-                    <View className="h-1.5 bg-surface-background rounded-full overflow-hidden border border-surface-border">
-                      <View className={`h-full ${isGood ? 'bg-state-success' : 'bg-state-warning'}`} style={{ width: `${Math.min(rate, 100)}%` }} />
-                    </View>
-                  </View>
-                  {idx < g.stages.length - 1 && (
-                    <View className="py-1 opacity-30">
-                      <FontAwesome name="long-arrow-down" size={14} color={colors.textDim} />
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        ))}
-      </ScrollView>
-    </Block>
-  );
-};
-
-const WorkDistributionChart = ({ data }: any) => {
-  const colors = useThemeColors();
-  if (!data?.worker_engagement) return null;
-  const top = data.worker_engagement.sort((a: any, b: any) => b.action_count - a.action_count).slice(0, 5);
-  return (
-    <Block title="Operator Engagement" className="mb-6">
-      {top.map((w: any, idx: number) => {
-        const max = top[0].action_count;
-        const percentage = (w.action_count / (max || 1)) * 100;
-        return (
-          <View key={idx} className="mb-4">
-            <View className="flex-row items-center mb-2 gap-3">
-              <View className="w-6 h-6 rounded-full bg-surface-card border border-surface-border overflow-hidden">
-                {w.avatar_url ? (
-                  <Image source={{ uri: w.avatar_url }} className="w-full h-full" />
-                ) : (
-                  <View className="w-full h-full items-center justify-center bg-brand-primary/5">
-                    <Text className="text-brand-primary font-black text-[8px]">
-                      {(w.full_name || 'A')[0].toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text className="text-typography-muted text-xs font-medium flex-1">{w.full_name || 'Agent'}</Text>
-              <Text className="text-brand-primary text-xs font-bold">{w.action_count} ops</Text>
-            </View>
-            <View className="h-2 bg-surface-background rounded-full overflow-hidden">
-              <View className="h-full bg-brand-primary" style={{ width: `${percentage}%` }} />
-            </View>
-          </View>
-        );
-      })}
-    </Block>
-  );
-};
-
-const QualityLeaderboard = ({ data }: any) => {
-  const colors = useThemeColors();
-  if (!data?.quality_by_worker) return null;
-  const best = data.quality_by_worker.sort((a: any, b: any) => a.revision_rate - b.revision_rate).slice(0, 5);
-  return (
-    <Block title="Quality Scoreboard" className="mb-6">
-      {best.map((w: any, idx: number) => (
-        <View key={idx} className="flex-row justify-between mb-3 items-center">
-          <View className="flex-row items-center gap-3">
-            <View className="w-6 h-6 rounded-full bg-surface-card border border-surface-border overflow-hidden">
-              {w.avatar_url ? (
-                <Image source={{ uri: w.avatar_url }} className="w-full h-full" />
-              ) : (
-                <View className="w-full h-full items-center justify-center bg-brand-primary/5">
-                  <Text className="text-brand-primary font-black text-[8px]">
-                    {(w.full_name || 'A')[0].toUpperCase()}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <Text className="text-typography-muted text-xs">{w.full_name || 'Agent'}</Text>
-          </View>
-          <View className="flex-row items-center">
-            <View className="bg-state-success/10 px-2 py-0.5 rounded-lg mr-2">
-              <Text className="text-state-success text-[10px] font-black">{Math.round(100 - (w.revision_rate || 0))}%</Text>
-            </View>
-            <FontAwesome name="star" size={10} color={colors.warning} />
-          </View>
-        </View>
-      ))}
-    </Block>
-  );
-};
-
-const TrendComparisonCards = ({ data }: any) => {
-  const colors = useThemeColors();
-  if (!data?.current || !data?.comparison) return null;
-  const c = data.current;
-  const p = data.comparison;
-  const metrics = [
-    { label: 'Yield Variance', cur: c.success_rate, prev: p.success_rate, unit: '%' },
-    { label: 'Latency Drift', cur: c.avg_lead_time_minutes, prev: p.avg_lead_time_minutes, unit: 'm', reverse: true }
-  ];
-  return (
-    <View className="flex-row flex-wrap gap-3 mb-6">
-      {metrics.map((m, i) => {
-        const diff = (m.cur || 0) - (m.prev || 0);
-        const isBetter = m.reverse ? diff <= 0 : diff >= 0;
-        return (
-          <View key={i} className="flex-1 min-w-[150px] bg-surface-card p-4 rounded-2xl border border-surface-border">
-            <Text className="text-typography-muted text-[9px] font-bold uppercase mb-2">{m.label}</Text>
-            <View className="flex-row items-center">
-              <Text className="text-typography-main font-black text-lg">{Math.round(m.cur || 0)}{m.unit}</Text>
-              <View className={`ml-2 px-1 rounded ${isBetter ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
-                <Text className={`text-[8px] font-black ${isBetter ? 'text-state-success' : 'text-state-danger'}`}>{diff > 0 ? '+' : ''}{Math.round(diff)}</Text>
-              </View>
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
-// Same validated categorical palette as TimeByCategoryPie (kanban sidebar) —
-// one donut per pipeline, sliced by stage. Colors cycle by stage POSITION,
-// not stage name — pipeline stages are user-configurable per company, so
-// there's no reliable "pending = grey" text mapping to lean on.
-const DONUT_LIGHT = ['#2a78d6', '#1baf7a', '#eda100', '#008300', '#4a3aa7', '#e34948', '#e87ba4', '#eb6834'];
-const DONUT_DARK = ['#3987e5', '#199e70', '#c98500', '#008300', '#9085e9', '#e66767', '#d55181', '#d95926'];
-function isDarkHex(hex?: string) {
-  if (!hex || hex.length < 7) return false;
-  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.5;
-}
-const truncateLabel = (s: string, max: number) => (s && s.length > max ? `${s.slice(0, max - 1)}…` : s || '');
-
-const PipelineLoadChart = ({ data }: any) => {
-  const colors = useThemeColors();
-  const palette = isDarkHex(colors.card) ? DONUT_DARK : DONUT_LIGHT;
-  const stages: any[] = data?.conversion_by_stage || [];
-
-  // Backend already orders by (pipeline_name, position) — group in one pass.
-  // Pipelines with zero active tasks add nothing to look at — drop them
-  // instead of rendering an empty card in the carousel.
-  const allGroups: { name: string; stages: any[] }[] = [];
-  for (const s of stages) {
-    const name = s.pipeline_name || 'Pipeline';
-    let g = allGroups[allGroups.length - 1];
-    if (!g || g.name !== name) { g = { name, stages: [] }; allGroups.push(g); }
-    g.stages.push(s);
-  }
-  const groups = allGroups.filter(g => g.stages.some((s: any) => (s.task_count || 0) > 0));
-
-  const size = 92, stroke = 14, r = (size - stroke) / 2, cx = size / 2, cy = size / 2;
-  const C = 2 * Math.PI * r;
-  const GAP = 2;
-
-  return (
-    <Block title="Pipeline Load Distribution" className="mb-6">
-      {groups.length === 0 ? (
-        <Text className="text-typography-muted text-sm text-center py-4">No stage activity data available.</Text>
-      ) : (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 8 }}>
-          {groups.map((g, gi) => {
-            const total = g.stages.reduce((s: number, x: any) => s + (x.task_count || 0), 0);
-            let acc = 0;
-            const arcs = g.stages.map((s: any, si: number) => {
-              const count = s.task_count || 0;
-              const frac = total > 0 ? count / total : 0;
-              const dash = Math.max(0, frac * C - (count > 0 ? GAP : 0));
-              const el = (
-                <Circle
-                  key={si} cx={cx} cy={cy} r={r} fill="none"
-                  stroke={palette[si % palette.length]} strokeWidth={stroke}
-                  strokeDasharray={`${dash} ${C - dash}`} strokeDashoffset={-acc}
-                />
-              );
-              acc += frac * C;
-              return el;
-            });
-
-            return (
-              <View key={g.name + gi} style={{ width: 220 }} className="bg-surface-background rounded-2xl border border-surface-border/50 p-4">
-                <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest mb-3" numberOfLines={1}>{g.name}</Text>
-                <View style={{ width: size, height: size, alignSelf: 'center' }} className="mb-3">
-                  <Svg width={size} height={size}>
-                    <G rotation={-90} origin={`${cx}, ${cy}`}>{arcs}</G>
-                  </Svg>
-                  <View style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }} className="items-center justify-center">
-                    <Text className="text-typography-main text-base font-black">{total}</Text>
-                    <Text className="text-typography-muted text-[8px] font-bold uppercase tracking-widest">tasks</Text>
-                  </View>
-                </View>
-                {g.stages.map((s: any, si: number) => {
-                  const count = s.task_count || 0;
-                  return (
-                    <View key={si} className="mb-1.5 flex-row items-center gap-2">
-                      <View style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: palette[si % palette.length] }} />
-                      <Text className="flex-1 text-typography-main text-[10px] font-bold" numberOfLines={1}>{truncateLabel(s.stage_name, 12)}</Text>
-                      <Text className="text-typography-muted text-[9px] font-black">{count} · {Math.round((count / total) * 100)}%</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            );
-          })}
-        </ScrollView>
-      )}
-    </Block>
-  );
-};
-
-const RadarSection = ({ data, activeWidgets, onEditWidgets }: any) => {
-  const colors = useThemeColors();
-  const { limits: planLimits } = useBillingPlan();
-  const limits = getAnalyticsLimits(planLimits);
   if (!data) return <View className="py-12 items-center"><ActivityIndicator color={colors.primary} /></View>;
-  const curThr = data.current?.throughput || 0;
-  const prevThr = data.comparison?.throughput || 0;
-  const adv = data.radar_advanced || {};
-  const curr = data.current || {};
-  const renderWidget = (key: string, idx: number) => {
-    switch (key) {
-      case 'throughput': return <KPIBox key={idx} label="Throughput" val={curThr} delta={curThr - prevThr} />;
-      case 'efficiency': return <KPIBox key={idx} label="Efficiency" val={`${Math.round(curr.success_rate || 0)}%`} delta={undefined} />;
-      case 'flow_ratio': return <KPIBox key={idx} label="Flow Ratio" val={adv.flow_ratio || 'N/A'} delta={undefined} />;
-      case 'first_pass_yield': return <KPIBox key={idx} label="First-Pass Yield" val={`${adv.first_pass_yield || 0}%`} delta={undefined} />;
-      case 'automation_offload': return <KPIBox key={idx} label="Cyborg Score" val={`${adv.automation_offload_rate || 0}%`} delta={undefined} />;
-      default: return null;
-    }
-  };
   return (
     <View>
-      <View className="flex-row justify-between items-end mb-4">
-        <Text className="text-typography-main font-bold text-lg">Active Telemetry</Text>
-        <Tooltip label="Customize visible metrics">
-          <TouchableOpacity
-            onPress={onEditWidgets}
-            accessibilityRole="button"
-            accessibilityLabel="Customize visible metrics"
-            className="min-h-[44px] px-3 py-3 justify-center"
-          >
-            <Text className="text-brand-primary text-[10px] font-bold uppercase tracking-wider">Customize</Text>
-          </TouchableOpacity>
-        </Tooltip>
-      </View>
-      <View className="flex-row flex-wrap justify-between mb-6">
-        {activeWidgets.map((w: string, i: number) => renderWidget(w, i))}
-      </View>
-      {/* The project / portfolio lens (#191 Phase 10) — same position as the
-          desktop overview (right under the KPI row, above the pipeline
-          charts), same component, so mobile web and native get the identical
-          feature rather than a reduced copy of it. */}
+      <View className="mb-6"><AtAGlance audit={data} /></View>
+      {targetWatchEnabled && <View className="mb-6"><TargetWatch enabled /></View>}
       <View className="mb-6">
         <ProjectLens />
       </View>
-      <SLARiskAlert data={data} />
-      <PipelineLoadChart data={data} />
-      <View className="flex-row flex-wrap gap-4">
-        <View className="flex-1 min-w-[320px]">
-          {limits.funnel
-            ? <ConversionFunnelChart data={data} />
-            : <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2 mb-6"><FontAwesome name="lock" size={11} color={colors.textMuted} /><Text className="text-typography-muted text-xs">Not available on your plan</Text></View>}
-        </View>
-        {limits.personnel && (
-          <View className="flex-1 min-w-[320px]">
-            <WorkDistributionChart data={data} />
-          </View>
-        )}
-      </View>
-      <View className="flex-row flex-wrap gap-4">
-        <View className="flex-1 min-w-[320px]"><QualityLeaderboard data={data} /></View>
-        <View className="flex-1 min-w-[320px]"><TrendComparisonCards data={data} /></View>
-      </View>
     </View>
   );
 };
 
 
 
-const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchema, currentSubSection, setSubSection, onSelectArchive, hasPermission }: any) => {
+const ArchivesSection = ({ reports, onDownload, onNew, canGenerate, coldArchives, activeSchema, currentSubSection, setSubSection, onSelectArchive, hasPermission }: any) => {
   const colors = useThemeColors();
   return (
   <View>
@@ -442,10 +91,10 @@ const ArchivesSection = ({ reports, onDownload, onNew, coldArchives, activeSchem
     </View>
     {currentSubSection === 'reports' ? (
       <>
-        <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
+        {canGenerate && <TouchableOpacity onPress={onNew} className="bg-surface-card p-6 rounded-3xl border border-dashed border-brand-primary/40 mb-6 items-center flex-row justify-center">
           <FontAwesome name="plus-circle" size={16} color={colors.primary} className="mr-3" />
           <Text className="text-brand-primary font-bold text-sm">Generate Report</Text>
-        </TouchableOpacity>
+        </TouchableOpacity>}
         {reports.map((r: any, i: number) => (
           <TouchableOpacity key={i} onPress={() => r.file_url && onDownload(r.file_url)} className="bg-surface-card p-5 rounded-2xl border border-surface-border mb-4 flex-row items-center">
             <View className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-state-info/10'}`}>
@@ -547,55 +196,6 @@ const ReportConfigModal = ({ visible, onClose, onConfirm, pipelines, teams, user
   );
 };
 
-const WidgetConfigModal = ({ visible, onClose, onSave, currentWidgets }: any) => {
-  const colors = useThemeColors();
-  const [selected, setSelected] = useState<string[]>(currentWidgets || []);
-  useEffect(() => { if (visible) setSelected(currentWidgets || []); }, [visible, currentWidgets]);
-  const library = [
-    { id: 'throughput', name: 'Throughput', desc: 'Total tasks completed' },
-    { id: 'efficiency', name: 'Efficiency', desc: 'General success rate' },
-    { id: 'flow_ratio', name: 'Flow Ratio', desc: 'Backlog shrinkage vs growth' },
-    { id: 'first_pass_yield', name: 'First-Pass Yield', desc: '% no revisions' },
-    { id: 'automation_offload', name: 'Cyborg Score', desc: '% machine handled' }
-  ];
-  const toggle = (id: string) => {
-    if (selected.includes(id)) setSelected(selected.filter(w => w !== id));
-    else if (selected.length < 4) setSelected([...selected, id]);
-  };
-  return (
-    <Popup visible={visible} onClose={onClose} presentation="auto" maxWidth={420}>
-          <View className="p-8 pt-2 pb-4">
-            <Text className="text-typography-main text-2xl font-black mb-1">Radar Matrix</Text>
-            <Text className="text-typography-muted text-xs">Select up to 4 core telemetry widgets</Text>
-          </View>
-          <ScrollView className="px-8">
-            {library.map(w => {
-              const active = selected.includes(w.id);
-              return (
-                <TouchableOpacity key={w.id} onPress={() => toggle(w.id)} className={`p-4 rounded-2xl border mb-3 flex-row items-center justify-between ${active ? 'bg-brand-primary/5 border-brand-primary' : 'bg-surface-background border-surface-border'}`}>
-                   <View className="flex-1">
-                      <Text className={`font-bold ${active ? 'text-brand-primary' : 'text-typography-main'}`}>{w.name}</Text>
-                      <Text className="text-typography-muted text-[10px] mt-1">{w.desc}</Text>
-                   </View>
-                   <View className={`w-5 h-5 rounded-full border items-center justify-center ${active ? 'bg-brand-primary border-brand-primary' : 'border-surface-border'}`}>
-                      {active && <FontAwesome name="check" size={8} color="white" />}
-                   </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          <View className="p-8 pt-4 flex-row gap-3 border-t border-surface-border bg-surface-card">
-            <TouchableOpacity onPress={onClose} className="flex-1 py-4 rounded-2xl bg-surface-background border border-surface-border items-center">
-              <Text className="text-typography-muted font-bold">Dismiss</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => onSave(selected)} className="flex-1 py-4 rounded-2xl bg-brand-primary items-center">
-              <Text className="text-white font-bold">Apply Matrix</Text>
-            </TouchableOpacity>
-          </View>
-    </Popup>
-  );
-};
-
 const DataTree = ({ data, level = 0 }: { data: any; level?: number }) => {
   const colors = useThemeColors();
   if (!data || typeof data !== 'object') return <Text className="text-typography-main font-mono text-[10px]">{String(data)}</Text>;
@@ -689,16 +289,17 @@ export default function IntelligenceScreen() {
   const colors = useThemeColors();
   const { section } = useLocalSearchParams();
   const router = useRouter();
-  const { hasPermission, profile } = useAuth();
+  const { hasPermission, permissionsLoaded, profile } = useAuth();
+  const reportCapability = useCapability('report.generate');
   const { showAlert } = useAlert();
   const { successToast, errorToast } = useToast();
 
-  const [activeSection, setActiveSection] = useState((section as string) || 'radar');
+  const [activeSection, setActiveSection] = useState('radar');
   const [loading, setLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showArchitect, setShowArchitect] = useState(false);
   // Core Data State
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<OrganizationalAudit | null>(null);
   const [reports, setReports] = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
@@ -717,34 +318,36 @@ export default function IntelligenceScreen() {
   // Current Global State
   const [days, setDays] = useState(30);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
-
-  // Widget Customization State
-  const DEFAULT_WIDGETS = ['throughput', 'efficiency', 'flow_ratio', 'first_pass_yield'];
-  const [activeWidgets, setActiveWidgets] = useState<string[]>(DEFAULT_WIDGETS);
-  const [showWidgetModal, setShowWidgetModal] = useState(false);
+  const { getOrganizationalAudit } = useAnalytics();
 
   useEffect(() => {
-    AsyncStorage.getItem('@TrustFlow_radar_widgets').then(val => {
-      if (val) setActiveWidgets(JSON.parse(val));
-    });
     fetchBaseData();
   }, []);
 
   useEffect(() => {
-    if (section && typeof section === 'string') {
-      if (section === 'archives' && !hasPermission('archive.view')) {
-        setActiveSection('radar');
-        return;
-      }
-      setActiveSection(section);
-    }
-  }, [section, hasPermission]);
+    if (section === undefined) return;
 
-  const handleSaveWidgets = async (widgets: string[]) => {
-    setActiveWidgets(widgets);
-    setShowWidgetModal(false);
-    await AsyncStorage.setItem('@TrustFlow_radar_widgets', JSON.stringify(widgets));
-  };
+    if (section === 'analytics') {
+      router.replace('/intelligence/analytics' as any);
+      return;
+    }
+    if (section === 'targets') {
+      router.replace('/intelligence/targets' as any);
+      return;
+    }
+
+    if (section === 'archives' && !permissionsLoaded) return;
+
+    if (section === 'archives' && hasPermission('archive.view')) {
+      setActiveSection('archives');
+      return;
+    }
+
+    if (section !== 'radar') {
+      router.replace('/intelligence' as any);
+    }
+    setActiveSection('radar');
+  }, [section, hasPermission, permissionsLoaded, router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -766,15 +369,10 @@ export default function IntelligenceScreen() {
     if (u) setUsers(u);
   };
 
-  const fetchAudit = async () => {
+  const fetchAudit = async (forceRefresh = false) => {
     try {
       setLoading(true);
-      const { data: res, error } = await supabase.rpc('rpc_get_organizational_audit', {
-        p_pipeline_id: pipelineId,
-        p_days: days
-      });
-      if (error) throw error;
-      setData(res);
+      setData(await getOrganizationalAudit(pipelineId, days, forceRefresh));
     } catch (err) {
       console.error('Audit Error:', err);
     } finally {
@@ -814,6 +412,10 @@ export default function IntelligenceScreen() {
   };
 
   const handleExportPDF = async (params: any) => {
+    if (!reportCapability.allowed) {
+      showAlert('Access restricted', reportCapability.loading ? 'Checking report access.' : 'Report generation requires an active plan with report access.');
+      return;
+    }
     try {
       setLoading(true);
       const { error } = await supabase.rpc('rpc_request_report', {
@@ -868,7 +470,7 @@ export default function IntelligenceScreen() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <ScrollView className="flex-1" stickyHeaderIndices={[1]} refreshControl={<RefreshControl refreshing={false} onRefresh={fetchAudit} />}>
+      <ScrollView className="flex-1" stickyHeaderIndices={[1]} refreshControl={<RefreshControl refreshing={false} onRefresh={() => fetchAudit(true)} />}>
         {/* Header */}
         <View className="px-6 pt-12 pb-6">
           <View className="flex-row items-start justify-between mb-4">
@@ -933,12 +535,16 @@ export default function IntelligenceScreen() {
               </View>
             </View>
           ) : activeSection === 'radar' ? (
-            <RadarSection data={data} activeWidgets={activeWidgets} onEditWidgets={() => setShowWidgetModal(true)} />
+            <RadarSection
+              data={data}
+              targetWatchEnabled={permissionsLoaded && hasPermission('target.view')}
+            />
           ) : activeSection === 'archives' && (
             <ArchivesSection
               reports={reports}
               onDownload={handleDownloadReport}
               onNew={() => setShowArchitect(true)}
+              canGenerate={reportCapability.allowed}
               coldArchives={coldArchives}
               activeSchema={activeSchema}
               currentSubSection={archiveSection}
@@ -965,13 +571,6 @@ export default function IntelligenceScreen() {
         visible={showArchitect}
         onClose={() => setShowArchitect(false)}
         onReportGenerated={fetchReports}
-      />
-
-      <WidgetConfigModal
-        visible={showWidgetModal}
-        onClose={() => setShowWidgetModal(false)}
-        onSave={handleSaveWidgets}
-        currentWidgets={activeWidgets}
       />
 
       <ArchiveDetailModal

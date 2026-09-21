@@ -27,8 +27,13 @@ import {
   isMultiViewMode,
   type MultiViewMode,
 } from '@/lib/multiViewList';
+import { getMultiSelectPressAction, normalizeWebModifierPressEvent } from '@/lib/webModifierKeys';
 
 export type { MultiViewMode } from '@/lib/multiViewList';
+
+// RN's TouchableOpacity typings omit web-only keyboard props, but the shared
+// primitive intentionally forwards them for desktop selection callers.
+const SelectionTouchable = TouchableOpacity as React.ComponentType<any>;
 
 /**
  * Issue #249 — one reusable list primitive with a Windows-Explorer-style
@@ -97,6 +102,40 @@ export type MultiViewStatusBanner = {
   body?: string;
 };
 
+export type MultiViewSelectionKeyEvent = {
+  key: string;
+  shiftKey?: boolean;
+  metaKey?: boolean;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  preventDefault?: () => void;
+};
+
+export type MultiViewSelection<T> = {
+  active: boolean;
+  selectedIds: ReadonlySet<string> | readonly string[];
+  onToggle: (item: T) => void;
+  onPress?: (item: T, event: ReturnType<typeof normalizeWebModifierPressEvent>) => void;
+  onLongPress?: (item: T) => void;
+  onKeyDown?: (item: T, event: MultiViewSelectionKeyEvent) => void;
+  renderIndicator?: (item: T, selected: boolean) => React.ReactNode;
+};
+
+function handleSelectionPress<T>(
+  item: T,
+  event: any,
+  selection: MultiViewSelection<T> | undefined,
+  onItemPress: ((item: T) => void) | undefined,
+) {
+  if (selection && getMultiSelectPressAction(event, selection.active) === 'select') {
+    const press = normalizeWebModifierPressEvent(event);
+    if (selection.onPress) selection.onPress(item, press);
+    else selection.onToggle(item);
+    return;
+  }
+  onItemPress?.(item);
+}
+
 export interface MultiViewListProps<T> {
   items: T[];
   keyExtractor: (item: T) => string;
@@ -129,6 +168,9 @@ export interface MultiViewListProps<T> {
   statusBanner?: MultiViewStatusBanner | null;
   /** Shown when `items` is empty and there's no `statusBanner`. Caller computes title/body (e.g. "no results" vs "nothing yet") since only it knows whether a search/filter is active — same split as ProjectsTable's own empty state. */
   emptyState: MultiViewEmptyState;
+
+  /** Optional controlled selection primitives. Actions and bulk bars stay caller-owned. */
+  selection?: MultiViewSelection<T>;
 
   /** Min card width (px) used to compute grid columns. Defaults: large 260, medium 160. */
   cardMinWidth?: number;
@@ -176,6 +218,7 @@ export default function MultiViewList<T>({
   loading = false,
   statusBanner = null,
   emptyState,
+  selection,
   cardMinWidth = 260,
   mediumCardMinWidth = 160,
   maxLargeColumns = 4,
@@ -226,6 +269,12 @@ export default function MultiViewList<T>({
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
   const showToolbar = !!search || !!groupFilter || modes.length > 1;
+  const selectedSet = selection
+    ? selection.selectedIds instanceof Set
+      ? selection.selectedIds
+      : new Set(selection.selectedIds)
+    : undefined;
+  const isSelected = (item: T) => !!selectedSet?.has(keyExtractor(item));
 
   const searchBox = search && (
     <View
@@ -326,6 +375,8 @@ export default function MultiViewList<T>({
         numColumns={mode === 'large' ? largeColumns : mediumColumns}
         renderCard={renderCard}
         onItemPress={onItemPress}
+        selection={selection}
+        isSelected={isSelected}
         onEndReached={onEndReached}
         listFooter={listFooter}
         onScroll={onScroll}
@@ -338,6 +389,8 @@ export default function MultiViewList<T>({
       keyExtractor={keyExtractor}
       renderRow={renderRow}
       onItemPress={onItemPress}
+      selection={selection}
+      isSelected={isSelected}
       onEndReached={onEndReached}
       listFooter={listFooter}
       onScroll={onScroll}
@@ -349,6 +402,8 @@ export default function MultiViewList<T>({
       keyExtractor={keyExtractor}
       columns={columns}
       onItemPress={onItemPress}
+      selection={selection}
+      isSelected={isSelected}
       onEndReached={onEndReached}
       listFooter={listFooter}
       onScroll={onScroll}
@@ -360,6 +415,8 @@ export default function MultiViewList<T>({
       keyExtractor={keyExtractor}
       columns={columns}
       onItemPress={onItemPress}
+      selection={selection}
+      isSelected={isSelected}
       onEndReached={onEndReached}
       listFooter={listFooter}
       onScroll={onScroll}
@@ -447,6 +504,8 @@ function GridBody<T>({
   numColumns,
   renderCard,
   onItemPress,
+  selection,
+  isSelected,
   onEndReached,
   listFooter,
   onScroll,
@@ -458,6 +517,8 @@ function GridBody<T>({
   numColumns: number;
   renderCard: (item: T, density: 'large' | 'medium') => React.ReactNode;
   onItemPress?: (item: T) => void;
+  selection?: MultiViewSelection<T>;
+  isSelected: (item: T) => boolean;
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -475,14 +536,19 @@ function GridBody<T>({
       columnWrapperStyle={numColumns > 1 ? { gap: 12 } : undefined}
       contentContainerStyle={{ gap: 12, padding: 12 }}
       renderItem={({ item }) => (
-        <TouchableOpacity
+        <SelectionTouchable
           style={{ flex: 1 }}
-          disabled={!onItemPress}
-          onPress={onItemPress ? () => onItemPress(item) : undefined}
-          accessibilityRole={onItemPress ? 'button' : undefined}
+          disabled={!onItemPress && !selection}
+          onPress={(event: any) => handleSelectionPress(item, event, selection, onItemPress)}
+          onLongPress={selection?.onLongPress ? () => selection.onLongPress?.(item) : undefined}
+          onKeyDown={selection?.onKeyDown ? (event: any) => selection.onKeyDown?.(item, event) : undefined}
+          accessibilityRole={selection || onItemPress ? 'button' : undefined}
+          accessibilityState={selection ? { selected: isSelected(item) } : undefined}
+          className={selection ? 'relative' : undefined}
         >
+          {selection && <SelectionIndicator item={item} selected={isSelected(item)} renderIndicator={selection.renderIndicator} />}
           {renderCard(item, density)}
-        </TouchableOpacity>
+        </SelectionTouchable>
       )}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.4}
@@ -501,6 +567,8 @@ function ListBody<T>({
   keyExtractor,
   renderRow,
   onItemPress,
+  selection,
+  isSelected,
   onEndReached,
   listFooter,
   onScroll,
@@ -510,6 +578,8 @@ function ListBody<T>({
   keyExtractor: (item: T) => string;
   renderRow: (item: T) => React.ReactNode;
   onItemPress?: (item: T) => void;
+  selection?: MultiViewSelection<T>;
+  isSelected: (item: T) => boolean;
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -521,15 +591,19 @@ function ListBody<T>({
       data={items}
       keyExtractor={keyExtractor}
       renderItem={({ item, index }) => (
-        <TouchableOpacity
-          disabled={!onItemPress}
-          onPress={onItemPress ? () => onItemPress(item) : undefined}
-          accessibilityRole={onItemPress ? 'button' : undefined}
-          className={`px-4 ${index === items.length - 1 ? '' : 'border-b border-surface-border/50'} ${onItemPress ? 'hover:bg-surface-overlay/40 transition-colors' : ''}`}
+        <SelectionTouchable
+          disabled={!onItemPress && !selection}
+          onPress={(event: any) => handleSelectionPress(item, event, selection, onItemPress)}
+          onLongPress={selection?.onLongPress ? () => selection.onLongPress?.(item) : undefined}
+          onKeyDown={selection?.onKeyDown ? (event: any) => selection.onKeyDown?.(item, event) : undefined}
+          accessibilityRole={selection || onItemPress ? 'button' : undefined}
+          accessibilityState={selection ? { selected: isSelected(item) } : undefined}
+          className={`relative px-4 ${index === items.length - 1 ? '' : 'border-b border-surface-border/50'} ${onItemPress ? 'hover:bg-surface-overlay/40 transition-colors' : ''}`}
           style={{ minHeight: 44, justifyContent: 'center', paddingVertical: 10 }}
         >
+          {selection && <SelectionIndicator item={item} selected={isSelected(item)} renderIndicator={selection.renderIndicator} />}
           {renderRow(item)}
-        </TouchableOpacity>
+        </SelectionTouchable>
       )}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.4}
@@ -559,6 +633,8 @@ function DetailsTable<T>({
   keyExtractor,
   columns,
   onItemPress,
+  selection,
+  isSelected,
   onEndReached,
   listFooter,
   onScroll,
@@ -568,6 +644,8 @@ function DetailsTable<T>({
   keyExtractor: (item: T) => string;
   columns: MultiViewColumn<T>[];
   onItemPress?: (item: T) => void;
+  selection?: MultiViewSelection<T>;
+  isSelected: (item: T) => boolean;
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -587,16 +665,20 @@ function DetailsTable<T>({
         data={items}
         keyExtractor={keyExtractor}
         renderItem={({ item, index }) => (
-          <TouchableOpacity
-            disabled={!onItemPress}
-            onPress={onItemPress ? () => onItemPress(item) : undefined}
-            accessibilityRole={onItemPress ? 'button' : undefined}
-            className={`flex-row items-center px-5 py-3 ${index === items.length - 1 ? '' : 'border-b border-surface-border/50'} ${onItemPress ? 'hover:bg-surface-overlay/40 transition-colors' : ''}`}
+          <SelectionTouchable
+            disabled={!onItemPress && !selection}
+            onPress={(event: any) => handleSelectionPress(item, event, selection, onItemPress)}
+            onLongPress={selection?.onLongPress ? () => selection.onLongPress?.(item) : undefined}
+            onKeyDown={selection?.onKeyDown ? (event: any) => selection.onKeyDown?.(item, event) : undefined}
+            accessibilityRole={selection || onItemPress ? 'button' : undefined}
+            accessibilityState={selection ? { selected: isSelected(item) } : undefined}
+            className={`relative flex-row items-center px-5 py-3 ${index === items.length - 1 ? '' : 'border-b border-surface-border/50'} ${onItemPress ? 'hover:bg-surface-overlay/40 transition-colors' : ''}`}
           >
+            {selection && <SelectionIndicator item={item} selected={isSelected(item)} renderIndicator={selection.renderIndicator} />}
             {columns.map(col => (
               <ColumnCell key={col.key} col={col} item={item} />
             ))}
-          </TouchableOpacity>
+          </SelectionTouchable>
         )}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.4}
@@ -618,6 +700,8 @@ function DetailsStacked<T>({
   keyExtractor,
   columns,
   onItemPress,
+  selection,
+  isSelected,
   onEndReached,
   listFooter,
   onScroll,
@@ -627,6 +711,8 @@ function DetailsStacked<T>({
   keyExtractor: (item: T) => string;
   columns: MultiViewColumn<T>[];
   onItemPress?: (item: T) => void;
+  selection?: MultiViewSelection<T>;
+  isSelected: (item: T) => boolean;
   onEndReached?: () => void;
   listFooter?: React.ReactElement | null;
   onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -639,20 +725,24 @@ function DetailsStacked<T>({
       keyExtractor={keyExtractor}
       contentContainerStyle={{ gap: 10, padding: 12 }}
       renderItem={({ item }) => (
-        <TouchableOpacity
-          disabled={!onItemPress}
-          onPress={onItemPress ? () => onItemPress(item) : undefined}
-          accessibilityRole={onItemPress ? 'button' : undefined}
-          className="bg-surface-card rounded-2xl border border-surface-border p-4"
+        <SelectionTouchable
+          disabled={!onItemPress && !selection}
+          onPress={(event: any) => handleSelectionPress(item, event, selection, onItemPress)}
+          onLongPress={selection?.onLongPress ? () => selection.onLongPress?.(item) : undefined}
+          onKeyDown={selection?.onKeyDown ? (event: any) => selection.onKeyDown?.(item, event) : undefined}
+          accessibilityRole={selection || onItemPress ? 'button' : undefined}
+          accessibilityState={selection ? { selected: isSelected(item) } : undefined}
+          className="relative bg-surface-card rounded-2xl border border-surface-border p-4"
           style={{ gap: 8 }}
         >
+          {selection && <SelectionIndicator item={item} selected={isSelected(item)} renderIndicator={selection.renderIndicator} />}
           {columns.map(col => (
             <View key={col.key} className="flex-row items-center justify-between gap-3">
               <Text className="text-typography-dim text-[9px] font-black uppercase tracking-[0.15em]">{col.label}</Text>
               <View className="flex-shrink items-end">{col.render(item)}</View>
             </View>
           ))}
-        </TouchableOpacity>
+        </SelectionTouchable>
       )}
       onEndReached={onEndReached}
       onEndReachedThreshold={0.4}
@@ -661,5 +751,23 @@ function DetailsStacked<T>({
       onScroll={onScroll}
       scrollEventThrottle={scrollEventThrottle}
     />
+  );
+}
+
+function SelectionIndicator<T>({
+  item,
+  selected,
+  renderIndicator,
+}: {
+  item: T;
+  selected: boolean;
+  renderIndicator?: (item: T, selected: boolean) => React.ReactNode;
+}) {
+  const c = useThemeColors();
+  if (renderIndicator) return <>{renderIndicator(item, selected)}</>;
+  return (
+    <View className="absolute right-2 top-2 z-10 h-6 w-6 items-center justify-center rounded-full bg-surface-card border border-surface-border">
+      {selected && <FontAwesome name="check" size={11} color={c.primary} />}
+    </View>
   );
 }

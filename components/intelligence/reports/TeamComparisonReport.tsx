@@ -2,6 +2,7 @@ import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
 import { CompareGrid, Cover, Empty, Footer, HBar, Insight, KpiRow, Section, SectionDivider, Sub, Table, sf } from './shared'
 import { C, base } from './theme'
+import { compareTeamMetric, computeAverageTeamSuccessRate, computeTeamSuccessRate, findTopTeamPointLeaders, tallyComparisonWins } from '@/lib/reporting/reportCalculations'
 
 const s = StyleSheet.create({ page: { ...base.page } })
 
@@ -19,10 +20,14 @@ export interface TeamComparisonData {
   teams: TeamStats[]
   company: string
   dateRange: string
+  overlappingMemberCount: number
 }
 
 export function TeamComparisonReportPages({ data, jobId, isModule }: { data: TeamComparisonData; jobId: string; isModule?: boolean }) {
   const teams = data.teams || []
+  const overlapNote = data.overlappingMemberCount > 0
+    ? `${data.overlappingMemberCount} member${data.overlappingMemberCount === 1 ? '' : 's'} belong to multiple selected teams. Their activity is included in each team's totals.`
+    : null
 
   if (teams.length === 0) {
     return (
@@ -38,7 +43,8 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
     )
   }
 
-  const ar  = (t: TeamStats) => t.completed + t.failed > 0 ? Math.round((t.completed / (t.completed + t.failed)) * 100) : 0
+  const ar  = (t: TeamStats) => computeTeamSuccessRate(t.completed, t.failed)
+  const formatRate = (rate: number | null) => rate === null ? '—' : `${rate}%`
   const pph = (t: TeamStats) => t.hours > 0 ? t.pts / t.hours : 0
 
   // ── 2-team head-to-head layout ────────────────────────────────────────────
@@ -49,17 +55,18 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
 
     const rows = [
       { label: 'Members',         vA: String(tA.count),       vB: String(tB.count),       winA: null as boolean | null },
-      { label: 'Tasks Completed', vA: String(tA.completed),   vB: String(tB.completed),   winA: tA.completed >= tB.completed },
-      { label: 'Tasks Failed',    vA: String(tA.failed),      vB: String(tB.failed),      winA: tA.failed <= tB.failed },
-      { label: 'Weight Points',   vA: String(tA.pts),         vB: String(tB.pts),         winA: tA.pts >= tB.pts },
-      { label: 'Active Hours',    vA: `${sf(tA.hours, 1)}h`,  vB: `${sf(tB.hours, 1)}h`,  winA: tA.hours >= tB.hours },
-      { label: 'Success Rate',    vA: `${arA}%`,              vB: `${arB}%`,              winA: arA >= arB },
-      { label: 'Points / Hour',   vA: sf(pphA, 2),            vB: sf(pphB, 2),            winA: pphA >= pphB },
+      { label: 'Tasks Completed', vA: String(tA.completed),   vB: String(tB.completed),   winA: compareTeamMetric(tA.completed, tB.completed) },
+      { label: 'Tasks Failed',    vA: String(tA.failed),      vB: String(tB.failed),      winA: compareTeamMetric(tA.failed, tB.failed, 'lower') },
+      { label: 'Weight Points',   vA: String(tA.pts),         vB: String(tB.pts),         winA: compareTeamMetric(tA.pts, tB.pts) },
+      { label: 'Active Hours',    vA: `${sf(tA.hours, 1)}h`,  vB: `${sf(tB.hours, 1)}h`,  winA: compareTeamMetric(tA.hours, tB.hours) },
+      { label: 'Success Rate',    vA: formatRate(arA),        vB: formatRate(arB),        winA: compareTeamMetric(arA, arB) },
+      { label: 'Points / Hour',   vA: sf(pphA, 2),            vB: sf(pphB, 2),            winA: compareTeamMetric(pphA, pphB) },
     ]
-    const winsA  = rows.filter(r => r.winA === true).length
-    const winsB  = rows.filter(r => r.winA === false).length
-    const winner = winsA > winsB ? tA.name : winsB > winsA ? tB.name : null
-    const decided = rows.filter(r => r.winA !== null).length
+    const tally = tallyComparisonWins(rows.map(row => row.winA))
+    const winsA = tally.winsA
+    const winsB = tally.winsB
+    const winner = tally.winner === 'a' ? tA.name : tally.winner === 'b' ? tB.name : null
+    const decided = tally.decided
 
     return (
       <>
@@ -68,10 +75,11 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
           {isModule && <SectionDivider title="Team Comparison" company={data.company} dateRange={data.dateRange} />}
           <Section title="Team Overview" />
           <KpiRow items={[
-            { label: tA.name, value: `${arA}%`, note: `${tA.completed} tasks done · ${tA.count} members`, accent: C.primary },
-            { label: tB.name, value: `${arB}%`, note: `${tB.completed} tasks done · ${tB.count} members`, accent: C.warning },
+            { label: tA.name, value: formatRate(arA), note: `${tA.completed} tasks done · ${tA.count} members${arA === null ? ' · no task outcomes' : ''}`, accent: C.primary },
+            { label: tB.name, value: formatRate(arB), note: `${tB.completed} tasks done · ${tB.count} members${arB === null ? ' · no task outcomes' : ''}`, accent: C.warning },
             { label: 'Winner', value: winner || 'TIE', note: winner ? `${Math.max(winsA, winsB)} of ${decided} categories` : 'Balanced performance', accent: winner ? C.success : C.muted },
           ]} />
+          {overlapNote && <Insight text={overlapNote} color={C.warning} />}
           <Sub title="Head-to-Head Breakdown" />
           <CompareGrid nameA={tA.name.substring(0, 18)} nameB={tB.name.substring(0, 18)} rows={rows} />
           <Sub title="Output Comparison" />
@@ -91,9 +99,9 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
   }
 
   // ── N-team group table layout ─────────────────────────────────────────────
-  const maxPts  = Math.max(...teams.map(t => t.pts), 1)
-  const topTeam = teams.reduce((best, t) => t.pts > best.pts ? t : best, teams[0])
-  const avgAr   = teams.reduce((s, t) => s + ar(t), 0) / teams.length
+  const topSummary = findTopTeamPointLeaders(teams)!
+  const { maxPoints, leaders } = topSummary
+  const avgAr   = computeAverageTeamSuccessRate(teams.map(ar))
 
   return (
     <>
@@ -103,45 +111,51 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
         <Section title="Group Overview" />
         <KpiRow items={[
           { label: 'Teams Compared',    value: String(teams.length),                             accent: C.primary },
-          { label: 'Top Team',          value: topTeam.name.substring(0, 14),                   note: `${topTeam.pts} pts`, accent: C.success },
-          { label: 'Avg Success Rate',  value: `${sf(avgAr, 1)}%`, accent: avgAr >= 80 ? C.success : avgAr >= 60 ? C.warning : C.danger, color: avgAr >= 80 ? C.success : avgAr >= 60 ? C.warning : C.danger },
+          { label: leaders.length === 1 ? 'Top Team' : 'Top Teams', value: leaders.length === 1 ? leaders[0].name.substring(0, 14) : `${leaders.length} tied`, note: `${maxPoints} pts${leaders.length === 1 ? '' : ' each'}`, accent: C.success },
+          { label: 'Avg Success Rate',  value: avgAr === null ? 'N/A' : `${sf(avgAr, 1)}%`, accent: avgAr === null ? C.muted : avgAr >= 80 ? C.success : avgAr >= 60 ? C.warning : C.danger, color: avgAr === null ? C.muted : avgAr >= 80 ? C.success : avgAr >= 60 ? C.warning : C.danger },
         ]} />
+        {overlapNote && <Insight text={overlapNote} color={C.warning} />}
 
         <Sub title="Points Ranking" />
         <HBar data={teams.map(t => ({
           label: t.name.substring(0, 22),
           value: t.pts,
-          color: t.pts === maxPts ? C.success : C.primary,
+          color: t.pts === maxPoints ? C.success : C.primary,
         }))} />
 
         <Sub title="Full Metrics Table" />
         <Table
           headers={['Team', 'Members', 'Done', 'Failed', 'Points', 'Hours', 'Success%', 'Pts/Hr']}
           colFlex={[2.5, 1, 1, 1, 1, 1, 1.2, 1.2]}
-          rows={teams.map(t => ({
-            cells: [
-              t.name.substring(0, 20),
-              String(t.count),
-              String(t.completed),
-              String(t.failed),
-              String(t.pts),
-              `${sf(t.hours, 1)}h`,
-              `${ar(t)}%`,
-              sf(pph(t), 2),
-            ],
-            colors: [
-              t.pts === maxPts ? C.success : null,
-              null, null,
-              t.failed > 0 ? C.danger : null,
-              t.pts === maxPts ? C.success : null,
-              null,
-              ar(t) >= 80 ? C.success : ar(t) >= 60 ? C.warning : C.danger,
-              null,
-            ],
-          }))}
+          rows={teams.map(t => {
+            const successRate = ar(t)
+            return {
+              cells: [
+                t.name.substring(0, 20),
+                String(t.count),
+                String(t.completed),
+                String(t.failed),
+                String(t.pts),
+                `${sf(t.hours, 1)}h`,
+                formatRate(successRate),
+                sf(pph(t), 2),
+              ],
+              colors: [
+                t.pts === maxPoints ? C.success : null,
+                null, null,
+                t.failed > 0 ? C.danger : null,
+                t.pts === maxPoints ? C.success : null,
+                null,
+                successRate === null ? null : successRate >= 80 ? C.success : successRate >= 60 ? C.warning : C.danger,
+                null,
+              ],
+            }
+          })}
         />
 
-        <Insight text={`${topTeam.name} leads with ${topTeam.pts} pts — ${sf((topTeam.pts / maxPts) * 100, 0)}% of the group maximum.`} color={C.success} />
+        <Insight text={leaders.length === 1
+          ? `${leaders[0].name} leads with ${maxPoints} pts.`
+          : `${leaders.length} teams tie for the lead at ${maxPoints} pts.`} color={C.success} />
         <Footer jobId={jobId} />
       </Page>
     </>

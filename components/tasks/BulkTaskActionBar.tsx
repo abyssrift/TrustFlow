@@ -45,7 +45,7 @@ type Props = {
   /** Exits select mode (clears the selection). */
   onClose: () => void;
   /** Refresh the board after an action lands. */
-  onDone: () => void;
+  onDone: (outcome: BulkOutcome) => void;
 };
 
 type Menu = 'priority' | 'assign' | 'moveStage' | 'moveBoard' | 'moveProject' | null;
@@ -85,8 +85,7 @@ export default function BulkTaskActionBar({ taskIds, stages, availablePipelines,
     if (outcome.failed.length === 0) successToast(message);
     else if (outcome.succeededIds.length === 0) errorToast(message);
     else warningToast(message);
-    onDone();
-    onClose();
+    onDone(outcome);
   };
 
   const runAction = async (verb: string, fn: () => Promise<BulkOutcome>) => {
@@ -131,7 +130,7 @@ export default function BulkTaskActionBar({ taskIds, stages, availablePipelines,
     try {
       await bulkAssignTasks(taskIds, assignSelected.users, assignSelected.teams);
       successToast(`Reassigned ${count} ${count === 1 ? 'task' : 'tasks'}.`);
-      onDone();
+      onDone({ succeededIds: taskIds, failed: [] });
       onClose();
     } catch (err: any) {
       errorToast(err?.message || 'Could not reassign the selected tasks.');

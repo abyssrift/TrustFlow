@@ -1,5 +1,6 @@
 import React from 'react'
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
+import { computeSuccessRateTrend, sortPeriodsChronologically } from '@/lib/reporting/reportCalculations'
 import { C, F, base } from './theme'
 import { Cover, Footer, Section, SectionDivider, Sub, KpiRow, Table, StackedVBar, Empty, Insight, sf } from './shared'
 
@@ -22,14 +23,11 @@ export interface ThroughputData {
 export function ThroughputReportPages({ data, jobId, isModule }: { data: ThroughputData; jobId: string; isModule?: boolean }) {
   const { rows, pipelineName, periodType, nPeriods } = data
 
-  const validRows    = rows.filter(r => (r.tasks_succeeded || 0) + (r.tasks_failed || 0) > 0)
+  const orderedRows  = sortPeriodsChronologically(rows)
   const totalSuccess = rows.reduce((s, r) => s + (r.tasks_succeeded || 0), 0)
   const totalFailed  = rows.reduce((s, r) => s + (r.tasks_failed || 0), 0)
-  const overallSr    = totalSuccess + totalFailed > 0 ? Math.round((totalSuccess / (totalSuccess + totalFailed)) * 100) : null
-
-  const trend = validRows.length >= 2
-    ? (validRows[validRows.length - 1].success_rate || 0) - (validRows[0].success_rate || 0)
-    : null
+  const overallSr    = totalSuccess + totalFailed > 0 ? (totalSuccess / (totalSuccess + totalFailed)) * 100 : null
+  const trend        = computeSuccessRateTrend(rows)
 
   return (
     <>
@@ -49,8 +47,8 @@ export function ThroughputReportPages({ data, jobId, isModule }: { data: Through
         <KpiRow items={[
           { label: 'Total Succeeded',  value: String(totalSuccess),                 accent: C.success },
           { label: 'Total Failed',     value: String(totalFailed),                  accent: C.danger, color: totalFailed > 0 ? C.danger : C.muted },
-          { label: 'Overall Rate',     value: overallSr != null ? `${overallSr}%` : '—', accent: overallSr != null ? (overallSr >= 80 ? C.success : overallSr >= 60 ? C.warning : C.danger) : C.muted, color: overallSr != null ? (overallSr >= 80 ? C.success : overallSr >= 60 ? C.warning : C.danger) : C.muted },
-          { label: 'Trend',            value: trend != null ? `${trend >= 0 ? '+' : ''}${sf(trend, 1)}%` : '—', accent: trend != null ? (trend >= 0 ? C.success : C.danger) : C.muted, color: trend != null ? (trend >= 0 ? C.success : C.danger) : C.muted },
+          { label: 'Overall Rate',     value: overallSr != null ? `${sf(overallSr, 1)}%` : '—', accent: overallSr != null ? (overallSr >= 80 ? C.success : overallSr >= 60 ? C.warning : C.danger) : C.muted, color: overallSr != null ? (overallSr >= 80 ? C.success : overallSr >= 60 ? C.warning : C.danger) : C.muted },
+          { label: 'Rate change',      value: trend != null ? `${trend > 0 ? '+' : ''}${sf(trend, 1)} pp` : '—', accent: trend != null ? (trend > 0 ? C.success : trend < 0 ? C.danger : C.muted) : C.muted, color: trend != null ? (trend > 0 ? C.success : trend < 0 ? C.danger : C.muted) : C.muted },
         ]} />
 
         {rows.length === 0 ? (
@@ -69,7 +67,7 @@ export function ThroughputReportPages({ data, jobId, isModule }: { data: Through
               </View>
             </View>
             <StackedVBar
-              data={rows.map(r => ({
+              data={orderedRows.map(r => ({
                 label: r.period_label || '—',
                 success: r.tasks_succeeded || 0,
                 fail: r.tasks_failed || 0,
@@ -81,19 +79,19 @@ export function ThroughputReportPages({ data, jobId, isModule }: { data: Through
             <Table
               headers={['Period', 'Succeeded', 'Failed', 'Success Rate']}
               colFlex={[2.5, 1.5, 1.5, 2]}
-              rows={rows.map(r => {
-                const sr = r.success_rate || 0
+              rows={orderedRows.map(r => {
+                const sr = r.success_rate
                 return {
-                  cells: [r.period_label || '—', String(r.tasks_succeeded || 0), String(r.tasks_failed || 0), `${sf(sr, 1)}%`],
-                  colors: [null, C.success, C.danger, sr >= 80 ? C.success : sr >= 60 ? C.warning : C.danger],
+                  cells: [r.period_label || '—', String(r.tasks_succeeded || 0), String(r.tasks_failed || 0), sr == null ? '—' : `${sf(sr, 1)}%`],
+                  colors: [null, C.success, C.danger, sr == null ? C.muted : sr >= 80 ? C.success : sr >= 60 ? C.warning : C.danger],
                 }
               })}
             />
 
             {trend != null && (
               <Insight
-                text={`Success rate ${trend >= 0 ? 'improved by' : 'declined by'} ${sf(Math.abs(trend), 1)}% comparing the most recent ${periodType} to the earliest in the window.`}
-                color={trend >= 0 ? C.success : C.danger}
+                text={`Success rate ${trend > 0 ? 'increased' : trend < 0 ? 'decreased' : 'did not change'} by ${sf(Math.abs(trend), 1)} percentage points from the earliest to the most recent ${periodType} in the window.`}
+                color={trend > 0 ? C.success : trend < 0 ? C.danger : C.muted}
               />
             )}
           </>

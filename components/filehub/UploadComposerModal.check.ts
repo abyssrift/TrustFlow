@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 const source = readFileSync(join(process.cwd(), 'components/filehub/UploadComposerModal.web.tsx'), 'utf8');
 const nativeSource = readFileSync(join(process.cwd(), 'components/filehub/UploadComposerModal.tsx'), 'utf8');
+const uploadManagerSource = readFileSync(join(process.cwd(), 'contexts/UploadManagerContext.tsx'), 'utf8');
 
 assert.match(source, /visibilitySeed\?: 'direct' \| 'broadcast'/, 'web composer visibility seed prop missing');
 assert.match(source, /destination\?: UploadDestination/, 'web composer destination prop missing');
@@ -58,16 +59,27 @@ assert.match(source, /Choose destination[\s\S]*Back to upload form/, 'desktop pi
 assert.match(source, /Search destination folders/, 'desktop destination picker needs controlled folder search');
 assert.match(source, /desktopDestinationSearch.*setDesktopDestinationSearch/s, 'desktop destination search must be controlled');
 assert.match(source, /folderAncestors\(scopedFolders, folder\.id\)/, 'folder search must retain matching ancestors');
+assert.match(source, /\{!isProjectDestination && <input ref=\{folderInputRef\}/, 'project mode must not offer browser folder uploads that the project commit RPC rejects');
+assert.match(source, /\{!isProjectDestination && <TouchableOpacity[\s\S]*accessibilityLabel="Choose folder"/, 'project mode must require explicit workspace folder selection');
 assert.match(source, /Select top level/, 'desktop picker needs explicit root selection');
 assert.match(source, /Selected destination/, 'desktop picker must show the selected full path');
 assert.match(source, /<ScrollView[\s\S]*<FolderTreePicker[\s\S]*scrollable=\{false\}/, 'desktop picker must own one bounded scroll around a non-scrolling tree');
 assert.equal((source.match(/<Popup\b/g) || []).length, 1, 'desktop destination must reuse the outer Popup');
 assert.match(nativeSource, /destination\?: UploadDestination/, 'native composer destination prop missing');
+assert.doesNotMatch(nativeSource, /useRouter|router\.push/, 'native composer must not redirect global uploads back into FileHub');
+assert.match(nativeSource, /expo-file-system/, 'native composer must use Expo filesystem files, not browser-only File wrappers');
+assert.doesNotMatch(nativeSource, /new File\(\[blob\]/, 'native composer must not construct a browser File from a React Native Blob');
+assert.match(uploadManagerSource, /job\.destination\?\.kind === 'project'[\s\S]*relativeDirectory/, 'project uploads must reject dropped folder paths');
+assert.match(uploadManagerSource, /Project folder uploads are not supported/, 'project folder upload rejection must be actionable');
 assert.match(nativeSource, /rpc\('rpc_project_files'/, 'native composer must load the project workspace');
-assert.match(nativeSource, /visible && !isProject[\s\S]*router\.push\('\/filehub'/, 'global native redirect must be limited to non-project summons');
-assert.match(nativeSource, /startUpload\(/, 'native project composer must use UploadManagerContext');
+assert.match(nativeSource, /startUpload\(/, 'native composer must use UploadManagerContext for every target');
+assert.match(nativeSource, /kind: 'filehub'/, 'native composer must support global FileHub destinations');
+assert.match(nativeSource, /visibility: uploadVisibility/, 'native composer must preserve the selected visibility');
+assert.match(nativeSource, /activeGroup\?\.id/, 'native composer must preserve channel targets');
+assert.match(nativeSource, /SearchableMultiSelect/, 'native direct uploads must retain recipient selection');
+assert.match(nativeSource, /DocumentPicker\.getDocumentAsync/, 'native composer must own native file intake');
 assert.match(nativeSource, /authorizedFolderIds\.has\(destination\.folderId\)/, 'native project destination must validate the requested folder');
-assert.match(nativeSource, /workspaceFolders\.some\(folder => folder\.id === folderId\)/, 'native upload must reject invalid folder ids');
+assert.match(nativeSource, /scopedFolders\.some\(folder => folder\.id === draft\.folderId\)/, 'native upload must reject invalid folder ids');
 assert.match(nativeSource, /<Popup\b/, 'native composer must use Popup');
 
 const dispatchSource = readFileSync(join(process.cwd(), 'contexts/ModalDispatchContext.tsx'), 'utf8');

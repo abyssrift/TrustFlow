@@ -2,23 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Popup from '@/components/common/Popup';
+import GuideAnchor from '@/components/guides/GuideAnchor';
+import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-
-const STAGE_PRESETS = [
-  { name: 'PENDING', color: '#64748b', is_initial: true },
-  { name: 'IN PROGRESS', color: '#3b82f6' },
-  { name: 'REVIEW', color: '#fbbf24', requires_submission: true },
-  { name: 'COMPLETED', color: '#22c55e', is_terminal: true, terminal_type: 'success' },
-];
-
-const TRANSITION_PRESETS = [
-  { from_position: 1, to_position: 2, label: 'Start Work' },
-  { from_position: 2, to_position: 3, label: 'Submit for Review' },
-  { from_position: 3, to_position: 4, label: 'Approve' },
-  { from_position: 3, to_position: 2, label: 'Request Revision' },
-];
 
 // Core components
 import StageBuilder from '@/components/pipeline-editor/StageBuilder.web';
@@ -30,6 +19,10 @@ import PipelineSettingsForm from '@/components/pipeline-editor/PipelineSettingsF
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Section = 'stages' | 'transitions' | 'automations' | 'handshakes' | 'settings' | 'subpipelines';
+
+function PipelineGuideHelp() {
+  return <GuideHelpButton guideId="workflow-pipelines" />;
+}
 
 function PipelinesWebInner() {
   const colors = useThemeColors();
@@ -190,8 +183,10 @@ function PipelinesWebInner() {
                 <FontAwesome name="plus" size={14} className="text-brand-primary" />
               </TouchableOpacity>
             )}
+            {showPipelineList && <PipelineGuideHelp />}
           </View>
 
+          <GuideAnchor id="workflow-pipelines:list" className="flex-1">
           <ScrollView className="flex-1 p-4">
             {loading && pipelines.length === 0 ? (
               <ActivityIndicator className="mt-10" color={colors.primary} />
@@ -252,6 +247,7 @@ function PipelinesWebInner() {
               ))
             )}
           </ScrollView>
+          </GuideAnchor>
         </View>
         )}
 
@@ -264,9 +260,11 @@ function PipelinesWebInner() {
                 <FontAwesome name="arrow-left" size={14} className="text-typography-main" />
               </TouchableOpacity>
               <Text className="text-typography-main font-black text-base flex-1" numberOfLines={1}>{selectedPipeline?.name || 'Pipeline'}</Text>
+              {!showPipelineList && <PipelineGuideHelp />}
             </View>
           )}
           {selectedPipeline && (
+          <GuideAnchor id="workflow-pipelines:configuration" className="flex-1">
             <View className="px-6 md:px-10 pt-10 pb-6 w-full">
               <View className="max-w-6xl mx-auto w-full flex-row flex-wrap items-center justify-between gap-6">
                 <View className="flex-1" style={{ minWidth: 0 }}>
@@ -299,11 +297,12 @@ function PipelinesWebInner() {
                 </View>
               </View>
             </View>
-          )}
 
           <View className="flex-1 overflow-visible" style={{ minHeight: 0 }}>
             {renderSection()}
           </View>
+          </GuideAnchor>
+          )}
         </View>
         )}
       </View>
@@ -390,12 +389,29 @@ function PipelinesWebInner() {
                     if (!newName.trim() || creating) return;
                     setCreating(true);
                     
-                    const stages = isQuickCreate
-                      ? STAGE_PRESETS.map((s, i) => ({ ...s, position: i + 1, is_initial: s.is_initial || false, is_terminal: s.is_terminal || false, requires_submission: s.requires_submission || false }))
-                      : [{ name: 'START', color: '#64748b', position: 1, is_initial: true, is_terminal: false, requires_submission: false }];
-                    const transitions = isQuickCreate ? TRANSITION_PRESETS : [];
-
-                    const id = await createPipeline(newName, newDesc, stages, transitions);
+                    let id: string | null = null;
+                    if (isQuickCreate) {
+                      const { data: created, error: createError } = await supabase.rpc('rpc_create_catalog_pipeline', {
+                        p_catalog_key: 'task_workflow.standard',
+                        p_catalog_version: null,
+                        p_name: newName,
+                        p_description: newDesc,
+                        p_is_default: false,
+                      });
+                      if (createError) {
+                        setCreating(false);
+                        return;
+                      }
+                      id = created as string;
+                      await refreshPipelines();
+                    } else {
+                      id = await createPipeline(
+                        newName,
+                        newDesc,
+                        [{ name: 'START', color: '#64748b', position: 1, is_initial: true, is_terminal: false, requires_submission: false }],
+                        [],
+                      );
+                    }
                     if (id) {
                       setIsCreateModalOpen(false);
                       setNewName('');

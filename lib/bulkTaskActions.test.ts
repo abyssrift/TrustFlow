@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // bulkTaskActions.ts imports the real supabase client (react-native /
 // AsyncStorage under the hood), which vitest's plain Node environment can't
@@ -6,7 +8,36 @@ import { describe, expect, it, vi } from 'vitest';
 // stub the client rather than pull that chain in, same as uploadHelpers.test.ts.
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc: vi.fn(), from: vi.fn() } }));
 
-const { runSequential, summarizeBulkOutcome } = await import('./bulkTaskActions');
+const { reconcileBulkSelection, runSequential, summarizeBulkOutcome } = await import('./bulkTaskActions');
+
+describe('reconcileBulkSelection', () => {
+  it('prunes only successful ids after a partial result', () => {
+    expect(reconcileBulkSelection(['a', 'b', 'c'], {
+      succeededIds: ['a'],
+      failed: [{ id: 'b', message: 'denied' }],
+    })).toEqual(['b', 'c']);
+  });
+
+  it('retains every attempted id after a total failure', () => {
+    expect(reconcileBulkSelection(['a', 'b'], {
+      succeededIds: [],
+      failed: [
+        { id: 'a', message: 'denied' },
+        { id: 'b', message: 'stale' },
+      ],
+    })).toEqual(['a', 'b']);
+  });
+});
+
+describe('BulkTaskActionBar assignment reconciliation', () => {
+  it('reports every task as successful before closing after assignment resolves', () => {
+    const source = readFileSync(fileURLToPath(String(new URL('../components/tasks/BulkTaskActionBar.tsx', import.meta.url))), 'utf8');
+    const assignmentPath = source.slice(source.indexOf('const handleAssignSave'), source.indexOf('const assignItems'));
+    expect(assignmentPath).toContain('onDone({ succeededIds: taskIds, failed: [] });');
+    expect(assignmentPath.indexOf('onDone({ succeededIds: taskIds, failed: [] });'))
+      .toBeLessThan(assignmentPath.indexOf('onClose();'));
+  });
+});
 
 describe('runSequential', () => {
   it('resolves succeeded ids in call order', async () => {

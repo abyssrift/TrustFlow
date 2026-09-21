@@ -1,0 +1,12 @@
+**Package A handoff**
+
+Changed the owned migration and SQL check. Progress is keyed by `(user_id, company_id, guide_id)`, constrained to the user’s company, and readable only by that user in that company. The RPCs derive caller and company from server context. Syncing a new guide leaves other progress intact; a supported newer guide version resets its row, while stale writes and downgrades are rejected. Familiar is acknowledged and terminal, but remains distinct from done.
+
+**TDD and verification**
+
+- RED: the check first failed because `company_id` was missing; later runs caught familiar guides reopening and unsupported v2 sync.
+- GREEN: applying the migration and running the transactional check passed, including grants, invalid input, timestamp ordering, version/reset behavior, cross-user and cross-company isolation, and tenant-mismatch rejection. The migration also applied again cleanly.
+- `git diff --check` passed.
+- Commands used: `Get-Content -Raw <file> | docker exec -i supabase_db_TrustFlow psql -U postgres -d postgres -v ON_ERROR_STOP=1`.
+
+Both files remain untracked and unstaged. The existing `useGuideProgress` parser does not yet accept `familiar`; that frontend integration is outside this package’s ownership. No handoff file path was provided, so I’m returning this handoff here.

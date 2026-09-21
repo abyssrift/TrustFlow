@@ -80,7 +80,7 @@ type ActivityData = {
 export default function UserAssignmentGrid() {
   const { users, roles, teams, permissions, userRoles, teamMembers, teamRoles, updateUserAssignments, removeUserFromCompany, loading } = useRoleManager();
   const { user, hasPermission } = useAuth();
-  const { showConfirm } = useAlert();
+  const { showAlert, showConfirm } = useAlert();
   const colors = useThemeColors();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
@@ -97,6 +97,12 @@ export default function UserAssignmentGrid() {
   const [activityData, setActivityData] = useState<ActivityData | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [query, setQuery] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [bulkRoleIds, setBulkRoleIds] = useState<string[]>([]);
+  const [bulkTeamIds, setBulkTeamIds] = useState<string[]>([]);
+  const [bulkVisible, setBulkVisible] = useState(false);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   const infoByUser = useMemo(() => {
     const roleById = new Map(roles.map(r => [r.id, r]));
@@ -249,6 +255,45 @@ export default function UserAssignmentGrid() {
     if (success) setSelectedUser(null);
   };
 
+  const toggleUserSelection = (selected: User) => {
+    setSelectedUserIds(prev => {
+      const next = new Set(prev);
+      if (next.has(selected.id)) next.delete(selected.id);
+      else next.add(selected.id);
+      return next;
+    });
+  };
+
+  const clearUserSelection = () => {
+    setSelectionMode(false);
+    setSelectedUserIds(new Set());
+  };
+
+  const runBulkUserUpdate = () => {
+    if (!selectedUserIds.size || (!bulkRoleIds.length && !bulkTeamIds.length)) return;
+    const ids = [...selectedUserIds];
+    showConfirm('Apply changes to members?', `This will add the selected roles and teams to ${ids.length} member${ids.length === 1 ? '' : 's'}. Existing assignments are retained.`, async () => {
+      setBulkRunning(true);
+      const outcomes = await Promise.allSettled(ids.map(async (userId) => {
+        const currentRoles = userRoles.filter(ur => ur.user_id === userId).map(ur => ur.role_id);
+        const currentTeams = teamMembers.filter(tm => tm.user_id === userId).map(tm => tm.team_id);
+        const ok = await updateUserAssignments(userId, [...new Set([...currentRoles, ...bulkRoleIds])], [...new Set([...currentTeams, ...bulkTeamIds])]);
+        if (!ok) throw new Error('Assignment update failed');
+        return userId;
+      }));
+      const failedIds = ids.filter((_, index) => outcomes[index].status !== 'fulfilled');
+      const succeededIds = ids.filter((_, index) => outcomes[index].status === 'fulfilled');
+      setSelectedUserIds(new Set(failedIds));
+      setBulkRunning(false);
+      if (failedIds.length === 0) {
+        setBulkVisible(false);
+        clearUserSelection();
+      } else {
+        showAlert('Some members were not updated', `${succeededIds.length} succeeded; ${failedIds.length} failed or did not report an outcome. Failed members remain selected so you can retry.`);
+      }
+    }, undefined, 'Apply changes', 'Cancel');
+  };
+
   const isRemovingSelf = !!selectedUser && selectedUser.id === user?.id;
 
   const handleRemoveUser = async () => {
@@ -297,7 +342,22 @@ export default function UserAssignmentGrid() {
 
   return (
     <View className="flex-1">
-      <GridSectionHeader eyebrow="Company Directory" title="Members" />
+      <GridSectionHeader
+        eyebrow="Company Directory"
+        title="Members"
+        right={canAssignRoles ? (
+          <View className="flex-row items-center gap-2">
+            <TouchableOpacity onPress={selectionMode ? clearUserSelection : () => setSelectionMode(true)} className="border border-surface-border px-3 py-3 rounded-xl">
+              <Text className="text-typography-main font-black text-[10px] uppercase tracking-widest">{selectionMode ? 'Cancel' : 'Select'}</Text>
+            </TouchableOpacity>
+            {selectionMode && selectedUserIds.size > 0 && (
+              <TouchableOpacity onPress={() => setBulkVisible(true)} className="bg-brand-primary px-3 py-3 rounded-xl active:scale-[0.98]">
+                <Text className="text-white font-black text-[10px] uppercase tracking-widest">Bulk ({selectedUserIds.size})</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : undefined}
+      />
       <MultiViewList
         {...headerScroll}
         items={visibleUsers}
@@ -459,6 +519,25 @@ export default function UserAssignmentGrid() {
           },
         ]}
         onItemPress={(u) => handleOpenUser(u)}
+          selection={{
+            active: selectionMode,
+            selectedIds: selectedUserIds,
+            onToggle: toggleUserSelection,
+            onPress: (selected) => {
+              if (!selectionMode) setSelectionMode(true);
+              toggleUserSelection(selected);
+            },
+            onLongPress: (selected) => {
+              if (!selectionMode) setSelectionMode(true);
+              toggleUserSelection(selected);
+            },
+            onKeyDown: (selected, event) => {
+            if ((event.key === ' ' || event.key === 'Enter') && event.preventDefault) {
+              event.preventDefault();
+              toggleUserSelection(selected);
+            }
+          },
+        }}
         storageKey="user-registry"
         modes={['large', 'list', 'details']}
         defaultMode="large"
@@ -1155,6 +1234,34 @@ export default function UserAssignmentGrid() {
               </View>
         </Popup>
       )}
+
+      <Popup visible={bulkVisible} onClose={() => !bulkRunning && setBulkVisible(false)} presentation="auto" maxWidth={760} maxHeight="90%" title="Bulk member operations" dimBackdrop>
+        <ScrollView className="px-5 py-4" contentContainerStyle={{ paddingBottom: 12 }}>
+          <Text className="text-typography-muted text-xs mb-4">Add existing roles and team memberships to the selected members. Existing assignments are retained; nothing is removed.</Text>
+          <SearchableMultiSelect
+            title="Roles to add"
+            items={roles.map(role => ({ id: role.id, label: role.name, description: role.description, color: role.color }))}
+            selectedIds={bulkRoleIds}
+            onToggle={(id) => setBulkRoleIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+            searchPlaceholder="Search roles..."
+            emptyText="No roles match your search."
+          />
+          <View className="mt-5">
+            <SearchableMultiSelect
+              title="Teams to add"
+              items={teams.map(team => ({ id: team.id, label: team.name, description: team.description, color: team.color }))}
+              selectedIds={bulkTeamIds}
+              onToggle={(id) => setBulkTeamIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+              searchPlaceholder="Search teams..."
+              emptyText="No teams match your search."
+            />
+          </View>
+        </ScrollView>
+        <View className="flex-row gap-2 px-5 py-4 border-t" style={{ borderColor: colors.border }}>
+          <TouchableOpacity onPress={() => setBulkVisible(false)} disabled={bulkRunning} className="flex-1 border py-3 rounded-lg items-center" style={{ borderColor: colors.border }}><Text className="text-typography-muted font-black text-[10px] uppercase tracking-widest">Cancel</Text></TouchableOpacity>
+          <TouchableOpacity onPress={runBulkUserUpdate} disabled={bulkRunning || (!bulkRoleIds.length && !bulkTeamIds.length)} className="flex-1 py-3 rounded-lg items-center" style={{ backgroundColor: colors.primary, opacity: bulkRunning || (!bulkRoleIds.length && !bulkTeamIds.length) ? 0.5 : 1 }}><Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: colors.background }}>{bulkRunning ? 'Applying…' : 'Apply changes'}</Text></TouchableOpacity>
+        </View>
+      </Popup>
     </View>
   );
 }

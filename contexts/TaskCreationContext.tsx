@@ -68,7 +68,20 @@ export const useTaskCreation = () => {
   return ctx;
 };
 
-const STORAGE_KEY = 'newTrustFlow_task_draft';
+const DRAFT_STORAGE_PREFIX = 'newTrustFlow_task_draft';
+
+/**
+ * Drafts contain company-owned IDs (pipelines, projects, assignees), so a
+ * single browser-wide key can leak stale references across users or
+ * companies. Return no key until both identity boundaries are known.
+ */
+export function taskDraftStorageKey(
+  userId: string | null | undefined,
+  companyId: string | null | undefined,
+): string | null {
+  if (!userId || !companyId) return null;
+  return `${DRAFT_STORAGE_PREFIX}:${userId}:${companyId}`;
+}
 
 const normalizeDraft = (draft: Partial<TaskDraft> | null | undefined): TaskDraft => {
   const merged = { ...INITIAL_DRAFT, ...(draft || {}) };
@@ -93,20 +106,32 @@ const normalizeDraft = (draft: Partial<TaskDraft> | null | undefined): TaskDraft
 };
 
 export const TaskCreationProvider = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { successToast, errorToast, infoToast } = useToast();
   const { startUpload, waitForUpload } = useUploadManager();
   const [draft, setDraftState] = useState<TaskDraft>(INITIAL_DRAFT);
   const [recentTasks, setRecentTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [briefFiles, setBriefFiles] = useState<StagedBriefFile[]>([]);
+  const draftKey = taskDraftStorageKey(user?.id, profile?.company_id);
+  const hydratedDraftKeyRef = React.useRef<string | null>(null);
   useStagedFileLifecycle(briefFiles);
 
-  // Load draft on mount
+  // Load only the current user's current-company draft. Cancellation prevents
+  // a slower read from the previous identity context from overwriting newer
+  // state after a company switch.
   useEffect(() => {
+    hydratedDraftKeyRef.current = null;
+    setDraftState(INITIAL_DRAFT);
+    setBriefFiles([]);
+    if (!draftKey) return;
+
+    let cancelled = false;
     const loadDraft = async () => {
       try {
-        const saved = await AsyncStorage.getItem(STORAGE_KEY);
+        const saved = await AsyncStorage.getItem(draftKey);
+        if (cancelled) return;
+        hydratedDraftKeyRef.current = draftKey;
         if (saved) {
           setDraftState(normalizeDraft(JSON.parse(saved)));
         }
@@ -115,21 +140,21 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
       }
     };
     loadDraft();
-  }, []);
+    return () => { cancelled = true; };
+  }, [draftKey]);
 
   // Save draft on change
   useEffect(() => {
+    if (!draftKey || hydratedDraftKeyRef.current !== draftKey || draft === INITIAL_DRAFT) return;
     const saveDraft = async () => {
       try {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+        await AsyncStorage.setItem(draftKey, JSON.stringify(draft));
       } catch (err) {
         console.error('Failed to save draft:', err);
       }
     };
-    if (draft !== INITIAL_DRAFT) {
-      saveDraft();
-    }
-  }, [draft]);
+    saveDraft();
+  }, [draft, draftKey]);
 
   const setDraft = useCallback((updates: Partial<TaskDraft>) => {
     setDraftState(prev => normalizeDraft({ ...prev, ...updates }));
@@ -171,8 +196,8 @@ export const TaskCreationProvider = ({ children }: { children: React.ReactNode }
   const resetDraft = useCallback(async () => {
     setDraftState(INITIAL_DRAFT);
     setBriefFiles([]);
-    await AsyncStorage.removeItem(STORAGE_KEY);
-  }, []);
+    if (draftKey) await AsyncStorage.removeItem(draftKey);
+  }, [draftKey]);
 
   const loadRecentTasks = useCallback(async () => {
     if (!user) return;

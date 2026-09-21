@@ -335,7 +335,12 @@ export function UploadManagerProvider({ children }: { children: React.ReactNode 
 
       const uploadOne = async (file: File, idx: number, isRetry = false): Promise<void> => {
         if (ctrl.aborted) return;
-        const relDirPath = relDir((file as any).webkitRelativePath);
+        const relativeDirectory = relDir((file as any).webkitRelativePath);
+        if (job.destination?.kind === 'project' && relativeDirectory) {
+          errors.push(`${file.name}: Project folder uploads are not supported. Choose files individually.`);
+          return;
+        }
+        const relDirPath = relativeDirectory;
         const existingLeaf = relDirPath
           ? resolveExistingFolderLeaf(job.folderId, relDirPath, job.scopedFolders)
           : job.folderId;

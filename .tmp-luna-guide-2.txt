@@ -1,0 +1,5 @@
+Implemented within the four owned files. Next/Done is now a 44×44 arrow/check control, with a selected accessibility state on completion. Back, Skip, and Close remain accessible with compact controls and shared Tooltips. The card and Popup fallback use less padding and no shadow; desktop anchor placement and navigation callbacks are unchanged.
+
+**TDD:** `npx.cmd vitest run components/guides/GuideCoachPanel.test.tsx` failed on the old shadow/padding chrome, then passed after implementation (1 test). `node scripts/babelcheck.mjs` passed for all four files.
+
+I did not run the app at desktop and mobile widths, so manual cross-width behavior remains to verify. The files were already untracked in this worktree when I started; I left them untracked.

@@ -17,6 +17,7 @@ import IslandTimeApprovalsBridge from '@/components/island/IslandTimeApprovalsBr
 import IslandTimerBridge from '@/components/island/IslandTimerBridge.web';
 import TimerIsland from '@/components/TimerIsland';
 import WelcomeTour from '@/components/onboarding/WelcomeTour';
+import GuideHost from '@/components/guides/GuideHost';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AlertProvider } from '@/contexts/AlertContext';
 import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
@@ -34,6 +35,8 @@ import { UndoActionProvider } from '@/contexts/UndoActionContext';
 import { useGlobalPingListener } from '@/hooks/useGlobalPingListener';
 import { PingHighlightProvider } from '@/contexts/PingHighlightContext';
 import { ModalDispatchProvider } from '@/contexts/ModalDispatchContext';
+import { ContextualGuideProvider } from '@/contexts/ContextualGuideContext';
+import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 
@@ -131,6 +134,7 @@ function RootLayoutNav() {
   }, [session, profile, initialized, segments]);
 
   const showSidebar = session && segments[0] !== '(auth)' && segments[0] !== 'onboarding' && segments[0] !== 'share';
+  const showGuides = !!session && !!profile?.company_id && segments[0] !== '(auth)' && segments[0] !== 'onboarding' && segments[0] !== 'share';
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -145,8 +149,12 @@ function RootLayoutNav() {
               visible viewport instead. Matches body's sizing in global.css. */}
           <View className="flex-1 bg-surface-background" style={{ flex: 1, minHeight: '100dvh', height: '100%', width: '100%' } as any}>
             {/* Always-on ping listener — one WebSocket channel for the current user */}
+            <ContextualGuideProvider>
             {session && <GlobalPingGuard />}
-            {session && <WelcomeTour />}
+            {showGuides && <>
+              <GuideHost launcherBottom={width < 768 ? TAB_BAR_HEIGHT.web + 16 : undefined} />
+              <WelcomeTour />
+            </>}
             {/* Desktop web shows the timer in the topbar island (published via
                 IslandTimerBridge), so only draw the floating pill on mobile web
                 (< 768). The bridge mirrors the running timer into the island. */}
@@ -168,6 +176,7 @@ function RootLayoutNav() {
                 )}
               </TaskFilePasteProvider>
             </StageEvidenceDraftProvider>
+            </ContextualGuideProvider>
           </View>
           </ModalDispatchProvider>
           </PingHighlightProvider>

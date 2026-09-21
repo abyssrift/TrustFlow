@@ -41,7 +41,7 @@ export function ProjectActionsButton({ onPress, label = 'Project actions' }: { o
   return (
     <Tooltip label={label}>
       <TouchableOpacity
-        onPress={onPress}
+        onPress={(event) => { event.stopPropagation(); onPress(); }}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={label}

@@ -1,0 +1,12 @@
+**Handoff**
+
+- Updated [GuideChecklist.tsx](C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideChecklist.tsx) with compact play/repeat icon controls, shared Tooltips, theme colors, and 44×44 minimum targets. Preserved the Start/Resume/Replay accessible labels and launch callback. Kept status text and made rows lighter with smaller padding and separators.
+- Updated [GuideHost.test.tsx](C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideHost.test.tsx) with focused assertions for icons, tooltip labels, target sizes, readable status, and Resume launch behavior.
+
+**Verification**
+
+- Red: `npx.cmd vitest run components/guides/GuideHost.test.tsx` failed on the old text control’s missing icon.
+- Green: the same command passed, 8/8 tests.
+- `node scripts/babelcheck.mjs components/guides/GuideChecklist.tsx components/guides/GuideHost.test.tsx` passed for both files.
+
+Manual walkthrough: at ~1400px and 390px, open the checklist and confirm Start, Resume, and Replay show the expected icon and tooltip, launch the right guide, remain easy to tap, and retain readable status labels. I did not drive the UI manually. No known behavior risks; the row layout was checked with tests and Babel, not in a browser.

@@ -7,7 +7,7 @@
 //
 // Platform variants (.web.tsx) of each modal are resolved by Metro, so this
 // single file serves web + native.
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 
 import { useModalDispatch } from '@/contexts/ModalDispatchContext';
@@ -19,12 +19,26 @@ import ReportGenerator from '@/components/intelligence/_ReportGenerator_adaptive
 import RoleEditorContainer from '@/components/admin/RoleEditorContainer';
 import UploadComposerModal from '@/components/filehub/UploadComposerModal';
 import CreatePortfolioModal from '@/components/portfolios/CreatePortfolioModal';
+import { useCapabilities } from '@/hooks/useCapability';
+import type { CapabilityName } from '@/lib/capabilities';
+import type { ModalType } from '@/contexts/ModalDispatchContext';
 
 const noop = () => {};
+
+const MODAL_CAPABILITIES: Record<ModalType, CapabilityName> = {
+  'create-task': 'task.create',
+  'create-project': 'project.create',
+  'create-portfolio': 'portfolio.create',
+  'generate-report': 'report.generate',
+  'new-role': 'role.create',
+  upload: 'upload.create',
+};
 
 export default function ModalHost() {
   const { active, dismiss } = useModalDispatch();
   const router = useRouter();
+  const capabilities = useCapabilities(Object.values(MODAL_CAPABILITIES));
+  const decision = active ? capabilities[MODAL_CAPABILITIES[active.type]] : undefined;
 
   // #324: separate concern — turns `/tasks?new=1&type=task` style deep links
   // into a summon() call, then strips the params. Lives here (not in each
@@ -32,7 +46,14 @@ export default function ModalHost() {
   // native both. Runs unconditionally, before the early return below.
   useModalQueryParam();
 
+  useEffect(() => {
+    if (active && decision && !decision.loading && decision.allowed !== true) {
+      dismiss();
+    }
+  }, [active, decision, dismiss]);
+
   if (!active) return null;
+  if (!decision || decision.loading || decision.allowed !== true) return null;
 
   switch (active.type) {
     // CreateTaskModal throws without TaskCreationProvider as an ancestor — it
@@ -91,8 +112,7 @@ export default function ModalHost() {
     // #340: the FileHub upload composer, lifted out of _filehub_desktop.tsx's
     // screen-local UploadModal into components/filehub/UploadComposerModal.
     // Both platform variants are mounted under UploadManagerProvider. Global
-    // native summons retain their /filehub redirect; project summons use the
-    // native composer and the manager with its scoped workspace snapshot.
+    // and project summons use the same background upload manager contract.
     // UploadManagerProvider is already an ancestor on both platforms.
     // Project and global destinations are handled by their platform composer.
     case 'upload':

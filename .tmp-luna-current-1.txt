@@ -1,0 +1,7 @@
+**Package A handoff**
+
+Changed only the four owned files. The hook preserves `done` and `familiar` as terminal checklist states during replay, and tests sync all 13 catalog guides. Context now exposes catalog-driven phases, `checklistComplete`, and IDs for newly available capability guides; the existing open action remains available for rediscovery.
+
+Focused tests passed: **25/25**. Babel checks passed for all four files. Full `tsc` still exits with errors elsewhere in the shared worktree; its filtered output showed no diagnostics in Package A.
+
+All four files remain untracked in the shared worktree. The host UI still needs to consume the new context fields.

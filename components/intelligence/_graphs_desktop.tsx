@@ -3,6 +3,7 @@ import { DateRangeControls, useDateRange, useGranularity } from '@/components/in
 import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
 import { PointsBucket, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { bucketLabel } from '@/lib/chartBuckets';
 import { supabase } from '@/lib/supabase';
@@ -23,6 +24,28 @@ import {
 } from 'recharts';
 
 export default function IntelligenceGraphs() {
+  const colors = useThemeColors();
+  const { hasPermission, permissionsLoaded } = useAuth();
+
+  if (!permissionsLoaded) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!hasPermission('analytics.view')) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center p-6">
+        <Text className="text-typography-main text-xl font-black">Access Restricted</Text>
+        <Text className="text-typography-muted text-center mt-2">
+          You need the <Text className="font-black">analytics.view</Text> permission to access Performance.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <CollapsibleHeaderProvider>
       <IntelligenceGraphsInner />

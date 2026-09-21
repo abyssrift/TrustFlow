@@ -4,25 +4,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Pipeline, PipelineDeleteImpact, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { usePipelineLimit } from '@/hooks/usePipelineLimit';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import DeadlockAlert from './DeadlockAlert';
 import PipelineSettingsForm from './PipelineSettingsForm';
-
-const STAGE_PRESET_TEMPLATES = [
-  { name: 'PENDING', is_initial: true },
-  { name: 'IN PROGRESS' },
-  { name: 'REVIEW', requires_submission: true },
-  { name: 'COMPLETED', is_terminal: true, terminal_type: 'success' },
-];
-
-const TRANSITION_PRESETS = [
-  { from_position: 1, to_position: 2, label: 'Start Work' },
-  { from_position: 2, to_position: 3, label: 'Submit for Review' },
-  { from_position: 3, to_position: 4, label: 'Approve' },
-  { from_position: 3, to_position: 2, label: 'Request Revision' },
-];
 
 export default function PipelineList() {
   const colors = useThemeColors();
@@ -50,18 +37,29 @@ export default function PipelineList() {
 
   const handleCreate = async (data: any) => {
     if (!canEdit) return;
-    const stagePresets = [
-      { ...STAGE_PRESET_TEMPLATES[0], color: colors.textDim },
-      { ...STAGE_PRESET_TEMPLATES[1], color: colors.primary },
-      { ...STAGE_PRESET_TEMPLATES[2], color: colors.warning },
-      { ...STAGE_PRESET_TEMPLATES[3], color: colors.success },
-    ];
-    const stgs = isQuickCreate
-      ? stagePresets.map((s, i) => ({ ...s, position: i + 1, is_initial: s.is_initial || false, is_terminal: s.is_terminal || false, requires_submission: s.requires_submission || false }))
-      : [{ name: 'START', color: colors.textDim, position: 1, is_initial: true, is_terminal: false, requires_submission: false }];
-    const trans = isQuickCreate ? TRANSITION_PRESETS : [];
-
-    const id = await createPipeline(data.name, data.description, stgs, trans, data.visibility_permissions, data.task_visibility_mode, data.subject_kind);
+    let id: string | null = null;
+    if (isQuickCreate) {
+      const { data: created, error: createError } = await supabase.rpc('rpc_create_catalog_pipeline', {
+        p_catalog_key: 'task_workflow.standard',
+        p_catalog_version: null,
+        p_name: data.name,
+        p_description: data.description,
+        p_is_default: false,
+      });
+      if (createError) return;
+      id = created as string;
+      await refreshPipelines();
+    } else {
+      id = await createPipeline(
+        data.name,
+        data.description,
+        [{ name: 'START', color: colors.textDim, position: 1, is_initial: true, is_terminal: false, requires_submission: false }],
+        [],
+        data.visibility_permissions,
+        data.task_visibility_mode,
+        data.subject_kind,
+      );
+    }
     if (id) {
       setShowCreate(false);
     }

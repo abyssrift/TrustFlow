@@ -36,10 +36,8 @@ export const RadarSectionWeb = ({ data, activeWidgets, onEditWidgets }: any) => 
   const renderWidget = (key: string, idx: number) => {
     switch (key) {
       case 'throughput': return <KPIBoxWeb key={idx} label="Throughput" val={curThr} delta={curThr - prevThr} />;
-      case 'efficiency': return <KPIBoxWeb key={idx} label="Efficiency" val={`${Math.round(curr.success_rate || 0)}%`} delta={undefined} />;
-      case 'flow_ratio': return <KPIBoxWeb key={idx} label="Flow Ratio" val={adv.flow_ratio || 'N/A'} delta={undefined} />;
-      case 'first_pass_yield': return <KPIBoxWeb key={idx} label="First-Pass Integrity" val={`${adv.first_pass_yield || 0}%`} delta={undefined} />;
-      case 'automation_offload': return <KPIBoxWeb key={idx} label="Automation Score" val={`${adv.automation_offload_rate || 0}%`} delta={undefined} />;
+      case 'efficiency': return <KPIBoxWeb key={idx} label="Success Rate" val={curr.success_rate == null ? '—' : `${Math.round(curr.success_rate)}%`} delta={undefined} />;
+      case 'first_pass_yield': return <KPIBoxWeb key={idx} label="First-Pass Integrity" val={adv.first_pass_yield == null ? '—' : `${adv.first_pass_yield}%`} delta={undefined} />;
       default: return null;
     }
   };

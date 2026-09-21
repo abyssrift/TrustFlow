@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { AnalyticsLimits, getAnalyticsLimits, requiredPlan } from '@/lib/planLimits';
+import { AnalyticsLimits, getAnalyticsLimits } from '@/lib/planLimits';
 import { PALETTE_DESTINATIONS, type PaletteDestination } from '@/components/sidebar/constants';
 import { FontAwesome } from '@expo/vector-icons';
 import { Link, Slot, usePathname } from 'expo-router';
@@ -47,7 +47,7 @@ function planBadgeLabel(planCode: string): string {
 export default function IntelligenceLayout() {
   const pathname    = usePathname();
   const { hasPermission } = useAuth();
-  const { planCode, limits: planLimits, catalog } = useBillingPlan();
+  const { ready: billingReady, planCode, limits: planLimits } = useBillingPlan();
   const colors            = useThemeColors();
   const { width }         = useWindowDimensions();
   const limits            = getAnalyticsLimits(planLimits);
@@ -55,7 +55,7 @@ export default function IntelligenceLayout() {
   const permFiltered = NAV.filter(i => {
     if (i.anyPermissions) return i.anyPermissions.some(p => hasPermission(p));
     return !i.permission || hasPermission(i.permission);
-  });
+  }).filter(i => !i.planFeature || (billingReady && limits[i.planFeature]));
 
   // Sidebar narrows on smaller desktops so content area stays usable
   const sidebarWidth = width >= 1536 ? 320 : width >= 1280 ? 256 : 200;
@@ -66,7 +66,7 @@ export default function IntelligenceLayout() {
       {/* Intelligence sub-sidebar */}
       <View style={{ width: sidebarWidth }} className="border-r border-surface-border bg-surface-card/30">
         <View className={`${isCompact ? 'p-4' : 'p-6'} border-b border-surface-border`}>
-          {!isCompact && (
+          {!isCompact && billingReady && (
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-[10px] text-brand-primary font-black uppercase tracking-[0.2em]">
                 Full Analytics
@@ -87,58 +87,30 @@ export default function IntelligenceLayout() {
           <View className={isCompact ? 'p-2' : 'p-4'}>
             {permFiltered.map(item => {
               const isActive  = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-              const isLocked  = !!item.planFeature && !limits[item.planFeature];
 
               const inner = (
                 <View
                   className={`${isCompact ? 'p-3' : 'p-4'} rounded-2xl mb-2 border transition-all flex-row items-center ${
-                    isActive && !isLocked
+                    isActive
                       ? 'bg-brand-primary border-brand-primary premium-shadow'
-                      : isLocked
-                      ? 'bg-surface-background border-surface-border/50 opacity-60'
                       : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
                   }`}
                 >
                   <View className={`${isCompact ? 'w-5' : 'w-8'} items-center ${isCompact ? '' : 'mr-3'}`}>
-                    <FontAwesome
-                      name={isLocked ? 'lock' : item.icon}
-                      size={15}
-                      color={
-                        isLocked
-                          ? colors.textMuted
-                          : isActive
-                          ? 'white'
-                          : colors.textDim
-                      }
-                    />
+                    <FontAwesome name={item.icon} size={15} color={isActive ? 'white' : colors.textDim} />
                   </View>
                   {!isCompact && (
                     <Text
-                      className={`text-sm font-bold flex-1 ${
-                        isLocked
-                          ? 'text-typography-muted'
-                          : isActive
-                          ? 'text-brand-on-primary'
-                          : 'text-typography-main'
-                      }`}
+                      className={`text-sm font-bold flex-1 ${isActive ? 'text-brand-on-primary' : 'text-typography-main'}`}
                     >
                       {item.label}
                     </Text>
                   )}
-                  {!isCompact && isLocked && (
-                    <View className="px-1.5 py-0.5 bg-surface-card border border-surface-border rounded-md">
-                      <Text className="text-[8px] font-black text-typography-muted uppercase tracking-widest">{requiredPlan(item.planFeature!, catalog)}+</Text>
-                    </View>
-                  )}
-                  {isActive && !isCompact && !isLocked && (
+                  {isActive && !isCompact && (
                     <FontAwesome name="chevron-right" size={10} color="white" style={{ opacity: 0.5 }} />
                   )}
                 </View>
               );
-
-              if (isLocked) {
-                return <View key={item.href}>{inner}</View>;
-              }
 
               return (
                 <Link key={item.href} href={item.href as any} asChild>

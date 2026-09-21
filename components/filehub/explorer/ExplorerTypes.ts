@@ -35,4 +35,7 @@ export type ExplorerDetailPaneProps<T extends ExplorerItem = ExplorerItem> = {
   onOpen?: (item: T) => void;
   onDownload?: (item: T) => void;
   onShare?: (item: T) => void;
+  children?: React.ReactNode;
+  renderHeader?: (item: T) => React.ReactNode;
+  renderActions?: (item: T) => React.ReactNode;
 };

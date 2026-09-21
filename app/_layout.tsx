@@ -5,7 +5,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import { cssInterop } from 'react-native-css-interop';
 import 'react-native-reanimated';
 import '../global.css';
@@ -41,6 +41,7 @@ import GlobalUploadBanner from '@/components/GlobalUploadBanner';
 import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import TimerIsland from '@/components/TimerIsland';
 import WelcomeTour from '@/components/onboarding/WelcomeTour';
+import GuideHost from '@/components/guides/GuideHost';
 import { TimerProvider, useTimer } from '@/contexts/TimerContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { UndoActionProvider } from '@/contexts/UndoActionContext';
@@ -51,6 +52,8 @@ import { SubmissionProvider } from '../contexts/SubmissionContext';
 import { IslandProvider } from '@/contexts/IslandContext';
 import { FileHubProvider } from '@/contexts/FileHubContext';
 import { UploadManagerProvider } from '@/contexts/UploadManagerContext';
+import { ContextualGuideProvider } from '@/contexts/ContextualGuideContext';
+import { TAB_BAR_HEIGHT } from '@/lib/layout';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -249,8 +252,11 @@ import LoadingOverlay from '@/components/LoadingOverlay';
 
 function ThemedRoot() {
   const { themeVariables, isLoading } = useTheme();
-  const { session, initialized } = useAuth();
+  const { session, profile, initialized } = useAuth();
+  const segments = useSegments();
+  const { width } = useWindowDimensions();
   const { smartTimer } = useTimer();
+  const showGuides = !!session && !!profile?.company_id && segments[0] !== '(auth)' && segments[0] !== 'onboarding' && segments[0] !== 'share';
 
   return (
     <View style={themeVariables} className="flex-1">
@@ -258,6 +264,7 @@ function ThemedRoot() {
         className="flex-1 bg-surface-background"
         onTouchStart={Platform.OS !== 'web' ? () => smartTimer.recordActivity() : undefined}
       >
+        <ContextualGuideProvider>
         {/* Register for push notifications on native once user is signed in */}
         {session && Platform.OS !== 'web' && <PushRegistrationGuard />}
         {/* Auto-subscribe to web push on every login if not already active */}
@@ -287,7 +294,11 @@ function ThemedRoot() {
           <GlobalUploadBanner />
         </View>
         {session && <WebPushPrompt />}
-        {session && <WelcomeTour />}
+        {showGuides && <>
+          <GuideHost launcherBottom={width < 768 ? TAB_BAR_HEIGHT.native + 16 : undefined} />
+          <WelcomeTour />
+        </>}
+        </ContextualGuideProvider>
       </View>
     </View>
   );

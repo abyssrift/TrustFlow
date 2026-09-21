@@ -2,6 +2,7 @@ import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
 import { Cover, Empty, Footer, HBar, Insight, KpiRow, Section, SectionDivider, Sub, Table, fmtDate, sf } from './shared'
 import { C, base } from './theme'
+import { computeAverageObservedMetric, findTopTeamPointLeaders } from '@/lib/reporting/reportCalculations'
 
 const s = StyleSheet.create({ page: { ...base.page } })
 
@@ -10,19 +11,18 @@ export interface PersonnelData {
   dateStart: string
   dateEnd: string
   company: string
-  hasSalaries: boolean
 }
 
 export function PersonnelReportPages({ data, jobId, isModule }: { data: PersonnelData; jobId: string; isModule?: boolean }) {
-  const { rows, dateStart, dateEnd, hasSalaries } = data
+  const { rows, dateStart, dateEnd } = data
   const dr = `${fmtDate(dateStart)} — ${fmtDate(dateEnd)}`
 
   if (rows.length === 0) {
     return (
       <>
-        {!isModule && <Cover title="People Cost Comparison" subtitle="Cost analysis, points/hour & efficiency across people" company={data.company} dateRange={dr} />}
+        {!isModule && <Cover title="People Performance Comparison" subtitle="Workload, on-time completion & efficiency across people" company={data.company} dateRange={dr} />}
         <Page size="A4" style={s.page}>
-          {isModule && <SectionDivider title="People Cost Comparison" company={data.company} dateRange={dr} />}
+          {isModule && <SectionDivider title="People Performance Comparison" company={data.company} dateRange={dr} />}
           <Section title="Personnel Metrics" />
           <Empty msg="No data for the selected people in this period." />
           <Footer jobId={jobId} />
@@ -31,26 +31,29 @@ export function PersonnelReportPages({ data, jobId, isModule }: { data: Personne
     )
   }
 
-  const maxPts  = Math.max(...rows.map(r => r.weight_points || 0), 1)
-  const topPerf = rows.reduce((best, r) => (r.weight_points || 0) > (best.weight_points || 0) ? r : best, rows[0])
-  const avgOtr  = rows.reduce((s, r) => s + (r.on_time_rate || 0), 0) / rows.length
-  const avgEff  = rows.reduce((s, r) => s + (r.timer_efficiency || 0), 0) / rows.length
-
-  const costRows = hasSalaries ? rows.filter(r => r.total_cost_usd != null) : []
+  const ranking = findTopTeamPointLeaders(rows.map(r => ({ ...r, pts: r.weight_points || 0 })))!
+  const maxPts = ranking.maxPoints
+  const topPerformers = ranking.leaders
+  const topPerf = topPerformers[0]
+  const avgOtr  = computeAverageObservedMetric(rows.map(r => r.on_time_rate))
+  const avgEff  = computeAverageObservedMetric(rows.map(r => r.timer_efficiency))
+  const formatPercent = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? `${sf(value, 1)}%` : '—'
+  // Cost output stays disabled until a trusted rate source and retention policy exist.
+  const costRows: any[] = []
 
   return (
     <>
-      {!isModule && <Cover title="People Cost Comparison" subtitle="Cost analysis, points/hour & efficiency across people" company={data.company} dateRange={dr} />}
+      {!isModule && <Cover title="People Performance Comparison" subtitle="Workload, on-time completion & efficiency across people" company={data.company} dateRange={dr} />}
 
       <Page size="A4" style={s.page}>
-        {isModule && <SectionDivider title="People Cost Comparison" company={data.company} dateRange={dr} />}
+        {isModule && <SectionDivider title="People Performance Comparison" company={data.company} dateRange={dr} />}
         <Section title="Personnel Overview" />
 
         <KpiRow items={[
           { label: 'People Compared', value: String(rows.length),          accent: C.primary },
-          { label: 'Top Performer',    value: String(topPerf.full_name || '—').substring(0, 14), note: `${topPerf.weight_points || 0} pts`, accent: C.success },
-          { label: 'Avg On-Time Rate', value: `${sf(avgOtr, 1)}%`,         accent: avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger, color: avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger },
-          { label: 'Avg Efficiency',   value: `${sf(avgEff, 1)}%`,         accent: avgEff <= 110 ? C.success : C.warning },
+          { label: topPerformers.length === 1 ? 'Top Performer' : 'Top Performers', value: topPerformers.length === 1 ? String(topPerf.full_name || '—').substring(0, 14) : `${topPerformers.length} tied`, note: `${maxPts} pts${topPerformers.length === 1 ? '' : ' each'}`, accent: C.success },
+          { label: 'Avg On-Time Rate', value: avgOtr === null ? 'N/A' : `${sf(avgOtr, 1)}%`, accent: avgOtr === null ? C.muted : avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger, color: avgOtr === null ? C.muted : avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger },
+          { label: 'Avg Efficiency',   value: avgEff === null ? 'N/A' : `${sf(avgEff, 1)}%`, accent: avgEff === null ? C.muted : avgEff <= 110 ? C.success : C.warning },
         ]} />
 
         <Sub title="Points Ranking" />
@@ -71,15 +74,15 @@ export function PersonnelReportPages({ data, jobId, isModule }: { data: Personne
               String(r.completed_tasks || 0),
               String(r.failed_tasks || 0),
               `${sf(r.active_hours, 1)}h`,
-              `${sf(r.on_time_rate, 1)}%`,
-              `${sf(r.timer_efficiency, 1)}%`,
+              formatPercent(r.on_time_rate),
+              formatPercent(r.timer_efficiency),
               sf(r.points_per_hour, 2),
             ],
             colors: [
               (r.weight_points || 0) === maxPts ? C.success : null,
               null, null, (r.failed_tasks || 0) > 0 ? C.danger : null, null,
-              (r.on_time_rate || 0) >= 80 ? C.success : (r.on_time_rate || 0) >= 60 ? C.warning : C.danger,
-              (r.timer_efficiency || 0) <= 110 ? C.success : C.warning,
+              typeof r.on_time_rate !== 'number' || !Number.isFinite(r.on_time_rate) ? null : r.on_time_rate >= 80 ? C.success : r.on_time_rate >= 60 ? C.warning : C.danger,
+              typeof r.timer_efficiency !== 'number' || !Number.isFinite(r.timer_efficiency) ? null : r.timer_efficiency <= 110 ? C.success : C.warning,
               null,
             ],
           }))}
@@ -104,7 +107,9 @@ export function PersonnelReportPages({ data, jobId, isModule }: { data: Personne
         )}
 
         <Insight
-          text={`${topPerf.full_name || 'Top person'} leads the group with ${topPerf.weight_points || 0} points — ${sf(((topPerf.weight_points || 0) / maxPts) * 100, 0)}% of the team maximum.`}
+          text={topPerformers.length === 1
+            ? `${topPerf.full_name || 'Top person'} leads the group with ${maxPts} points.`
+            : `${topPerformers.length} people tie for the lead at ${maxPts} points.`}
           color={C.success}
         />
 

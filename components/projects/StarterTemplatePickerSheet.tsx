@@ -2,10 +2,15 @@ import Popup from '@/components/common/Popup';
 import TemplateEditor from '@/components/templates/TemplateEditor';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
-import { starterTemplatesBySector, StarterTemplate } from '@/lib/starterTemplates';
+import {
+  publishedCatalogStarterRows,
+  starterTemplatesBySector,
+  starterTemplatesFromCatalogPayload,
+  StarterTemplate,
+} from '@/lib/starterTemplates';
 import { markdownToPlainText } from '@/lib/taskDescriptionMarkdown';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 
 // Path A (unified responsive component, ui-style-guide.md §4.1): a two-step
@@ -46,6 +51,8 @@ export default function StarterTemplatePickerSheet({
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
   const [selected, setSelected] = useState<StarterTemplate | null>(null);
+  const [templates, setTemplates] = useState<StarterTemplate[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Issue #177 — "Customize First" materializes the same starter row as "Use
@@ -61,7 +68,39 @@ export default function StarterTemplatePickerSheet({
   // double-fires onCreated.
   const editorResultRef = React.useRef<{ id: string; name: string; body: any[] } | 'deleted' | null>(null);
 
-  const bySector = useMemo(() => starterTemplatesBySector(), []);
+  useEffect(() => {
+    if (!visible) return;
+    let active = true;
+    setCatalogLoading(true);
+    Promise.all([
+      supabase
+        .from('platform_catalog_entries')
+        .select('catalog_key, version, payload')
+        .eq('kind', 'project_template'),
+      supabase
+        .from('platform_catalog_heads')
+        .select('catalog_key, published_version')
+        .like('catalog_key', 'project_template.%'),
+    ]).then(([entriesResult, headsResult]) => {
+        if (!active) return;
+        if (entriesResult.error || headsResult.error) {
+          setError((entriesResult.error ?? headsResult.error)?.message ?? 'Unable to load recommended starters.');
+          setTemplates([]);
+        } else {
+          const rows = publishedCatalogStarterRows(
+            (entriesResult.data ?? []) as any,
+            (headsResult.data ?? []) as any,
+          );
+          setTemplates(rows.flatMap((row: any) =>
+            starterTemplatesFromCatalogPayload(row.payload, row.catalog_key, row.version),
+          ));
+        }
+        setCatalogLoading(false);
+      });
+    return () => { active = false; };
+  }, [visible]);
+
+  const bySector = useMemo(() => starterTemplatesBySector(templates), [templates]);
 
   const reset = () => { setSelected(null); setError(null); setSaving(false); setEditingId(null); editorResultRef.current = null; };
   const handleClose = () => { reset(); onClose(); };
@@ -70,11 +109,9 @@ export default function StarterTemplatePickerSheet({
     if (!selected) return null;
     setSaving(true);
     setError(null);
-    const { data, error: err } = await supabase.rpc('rpc_create_starter_template', {
-      p_name: selected.name,
-      p_description: selected.description,
-      p_color: selected.color,
-      p_body: selected.tasks,
+    const { data, error: err } = await supabase.rpc('rpc_create_catalog_starter_template', {
+      p_catalog_key: selected.catalogKey,
+      p_catalog_version: selected.catalogVersion,
     });
     setSaving(false);
     if (err) {
@@ -126,6 +163,10 @@ export default function StarterTemplatePickerSheet({
       <Text className="text-typography-muted text-sm mb-4">
         Researched starting points across common project types. Pick one to add it as an editable template for your company — nothing is created until you confirm.
       </Text>
+      {catalogLoading && <Text className="text-typography-muted text-sm">Loading recommended starters…</Text>}
+      {!catalogLoading && !error && bySector.length === 0 && (
+        <Text className="text-typography-muted text-sm">No recommended starters are published yet.</Text>
+      )}
       {bySector.map(([sector, templates]) => (
         <View key={sector} className="mb-5">
           <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">{sector}</Text>

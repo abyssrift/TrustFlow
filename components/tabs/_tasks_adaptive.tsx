@@ -13,6 +13,8 @@ import KanbanPersonalizer from '@/components/kanban/KanbanPersonalizer';
 import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
+import GuideAnchor from '@/components/guides/GuideAnchor';
+import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, fetchLinkedTasks, type LinkedTask, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import LinkedTasksStrip from '@/components/tabs/LinkedTasksStrip';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
@@ -37,6 +39,7 @@ import { TAB_BAR_HEIGHT } from '@/lib/layout';
 import { fileToStaged } from '@/lib/pasteImage';
 import { supabase } from '@/lib/supabase';
 import { addPinnedTaskId, emptyColumnPage, mergeTasksById, stagePageQuery, TASK_PAGE_SIZE, type BoardFilters, type ColumnPage } from '@/lib/taskBoardPage';
+import { reconcileBulkSelection, type BulkOutcome } from '@/lib/bulkTaskActions';
 import { formatCompact, formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1351,6 +1354,8 @@ function TasksScreen() {
 
    return (
      <View ref={taskDropRef} className="flex-1 bg-surface-background">
+      <GuideAnchor id="tasks:board" className="pointer-events-none absolute inset-0" />
+      <View className="absolute right-4 top-4 z-50"><GuideHelpButton guideId="tasks" /></View>
       {/* Phase 3 / 3.5: drop-to-create affordance (web only — taskDropOver /
           taskDropActive never trip on native). Dim on drag-enter-window,
           full-strength while the cursor is over this screen. */}
@@ -1753,13 +1758,13 @@ function TasksScreen() {
         <LinkedTasksStrip tasks={linkedTasks} />
       </View>
 
-      <HorizontalScroll
+      <GuideAnchor id="tasks:move" className="flex-1"><HorizontalScroll
         className="flex-1 px-5"
         contentContainerStyle={{ paddingBottom: 20 }}
       >
         {stages.map(renderStageColumn)}
         <View className="w-10" />
-      </HorizontalScroll>
+      </HorizontalScroll></GuideAnchor>
 
       {showPersonalizer && (
         <KanbanPersonalizer onClose={() => setShowPersonalizer(false)} />
@@ -1802,7 +1807,12 @@ function TasksScreen() {
           stages={stages}
           availablePipelines={availablePipelines}
           onClose={multiSelect.exit}
-          onDone={fetchData}
+          onDone={(outcome: BulkOutcome) => {
+            fetchData();
+            const remaining = reconcileBulkSelection(multiSelect.selectedIds, outcome);
+            multiSelect.replaceSelection(remaining);
+            if (remaining.length === 0) multiSelect.exit();
+          }}
         />
       )}
     </View>

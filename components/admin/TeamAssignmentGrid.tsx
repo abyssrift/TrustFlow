@@ -1,15 +1,21 @@
 import React, { useMemo, useState } from 'react';
-import { Image, View, Text, TouchableOpacity } from 'react-native';
+import { Image, ScrollView, View, Text, TouchableOpacity } from 'react-native';
 import TeamCreateSheet from '@/components/admin/TeamCreateSheet';
 import TeamRolesSheet from '@/components/admin/TeamRolesSheet';
+import Popup from '@/components/common/Popup';
+import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import Tooltip from '@/components/common/Tooltip';
+import { useAlert } from '@/contexts/AlertContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRoleManager, Team, Role, User } from '@/contexts/RoleManagerContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { cssInterop } from 'react-native-css-interop';
 import MultiViewList from '@/components/common/MultiViewList';
 import GridSectionHeader from '@/components/admin/GridSectionHeader';
 import { useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
+import GuideAnchor from '@/components/guides/GuideAnchor';
+import GuideHelpButton from '@/components/guides/GuideHelpButton';
 
 cssInterop(FontAwesome, {
   className: {
@@ -91,6 +97,9 @@ function RoleChip({ role }: { role: Role }) {
 export default function TeamAssignmentGrid() {
   const colors = useThemeColors();
   const { users, teams, roles, teamRoles, teamMembers, updateTeamAssignments, setTeamClaiming, createTeam, loading } = useRoleManager();
+  const { showAlert, showConfirm } = useAlert();
+  const { hasPermission } = useAuth();
+  const canAssignRoles = hasPermission('role.manage');
   // #309: drives the roles-screen collapsible header. Inert when this grid
   // renders outside a <CollapsibleHeaderProvider> (hook is null-safe).
   const headerScroll = useCollapsibleHeaderScroll();
@@ -122,6 +131,12 @@ export default function TeamAssignmentGrid() {
   const [isCreating, setIsCreating] = useState(false);
   const [draftRoleIds, setDraftRoleIds] = useState<string[]>([]);
   const [query, setQuery] = useState('');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set());
+  const [bulkRoles, setBulkRoles] = useState<string[]>([]);
+  const [bulkClaiming, setBulkClaiming] = useState<'unchanged' | 'enable' | 'disable'>('unchanged');
+  const [bulkVisible, setBulkVisible] = useState(false);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   const visibleTeams = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -153,6 +168,46 @@ export default function TeamAssignmentGrid() {
     await setTeamClaiming(selectedTeam.id, enabled);
   };
 
+  const toggleTeamSelection = (team: Team) => {
+    setSelectedTeamIds(prev => {
+      const next = new Set(prev);
+      if (next.has(team.id)) next.delete(team.id);
+      else next.add(team.id);
+      return next;
+    });
+  };
+
+  const clearTeamSelection = () => {
+    setSelectionMode(false);
+    setSelectedTeamIds(new Set());
+  };
+
+  const runBulkTeamUpdate = () => {
+    if (!selectedTeamIds.size || (!bulkRoles.length && bulkClaiming === 'unchanged')) return;
+    const ids = [...selectedTeamIds];
+    showConfirm('Apply changes to teams?', `This will update ${ids.length} team${ids.length === 1 ? '' : 's'} using existing assignment and claiming settings.`, async () => {
+      setBulkRunning(true);
+      const outcomes = await Promise.allSettled(ids.map(async (teamId) => {
+        const team = teams.find(t => t.id === teamId);
+        if (!team) throw new Error('Team no longer exists');
+        const currentRoles = teamRoles.filter(tr => tr.team_id === teamId).map(tr => tr.role_id);
+        if (bulkRoles.length > 0 && !await updateTeamAssignments(teamId, [...new Set([...currentRoles, ...bulkRoles])])) throw new Error('Role assignment failed');
+        if (bulkClaiming !== 'unchanged' && !await setTeamClaiming(teamId, bulkClaiming === 'enable')) throw new Error('Claiming update failed');
+        return teamId;
+      }));
+      const failedIds = ids.filter((_, index) => outcomes[index].status !== 'fulfilled');
+      const succeededIds = ids.filter((_, index) => outcomes[index].status === 'fulfilled');
+      setSelectedTeamIds(new Set(failedIds));
+      setBulkRunning(false);
+      if (failedIds.length === 0) {
+        setBulkVisible(false);
+        clearTeamSelection();
+      } else {
+        showAlert('Some teams were not updated', `${succeededIds.length} succeeded; ${failedIds.length} failed or did not report an outcome. Failed teams remain selected so you can retry.`);
+      }
+    }, undefined, 'Apply changes', 'Cancel');
+  };
+
   const handleCreateTeam = async () => {
     if (!name.trim()) return;
     const id = await createTeam(name, description, color);
@@ -170,15 +225,29 @@ export default function TeamAssignmentGrid() {
           eyebrow="Operational Clusters"
           title="Active Teams"
           right={
-            <TouchableOpacity
-              onPress={() => setIsCreating(true)}
-              className="bg-brand-primary px-4 py-3 rounded-xl active:scale-[0.98]"
-            >
-              <Text className="text-white font-black text-[10px] uppercase tracking-widest">+ New Team</Text>
-            </TouchableOpacity>
+            <View className="flex-row items-center gap-2">
+              <GuideHelpButton guideId="team-people" />
+              <GuideAnchor id="team-people:primary-action">
+                <View className="flex-row items-center gap-2">
+                  {canAssignRoles && <TouchableOpacity onPress={selectionMode ? clearTeamSelection : () => setSelectionMode(true)} className="border border-surface-border px-3 py-3 rounded-xl">
+                    <Text className="text-typography-main font-black text-[10px] uppercase tracking-widest">{selectionMode ? 'Cancel' : 'Select'}</Text>
+                  </TouchableOpacity>}
+                  {canAssignRoles && selectionMode && selectedTeamIds.size > 0 ? (
+                    <TouchableOpacity onPress={() => setBulkVisible(true)} className="bg-brand-primary px-3 py-3 rounded-xl active:scale-[0.98]">
+                      <Text className="text-white font-black text-[10px] uppercase tracking-widest">Bulk ({selectedTeamIds.size})</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity onPress={() => setIsCreating(true)} className="bg-brand-primary px-4 py-3 rounded-xl active:scale-[0.98]">
+                      <Text className="text-white font-black text-[10px] uppercase tracking-widest">+ New Team</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </GuideAnchor>
+            </View>
           }
         />
 
+        <GuideAnchor id="team-people:list" className="flex-1">
         <MultiViewList
           {...headerScroll}
           items={visibleTeams}
@@ -320,6 +389,25 @@ export default function TeamAssignmentGrid() {
             },
           ]}
           onItemPress={(t) => handleOpenTeam(t)}
+          selection={{
+            active: selectionMode,
+            selectedIds: selectedTeamIds,
+            onToggle: toggleTeamSelection,
+            onPress: (team) => {
+              if (!selectionMode) setSelectionMode(true);
+              toggleTeamSelection(team);
+            },
+            onLongPress: (team) => {
+              if (!selectionMode) setSelectionMode(true);
+              toggleTeamSelection(team);
+            },
+            onKeyDown: (team, event) => {
+              if ((event.key === ' ' || event.key === 'Enter') && event.preventDefault) {
+                event.preventDefault();
+                toggleTeamSelection(team);
+              }
+            },
+          }}
           storageKey="team-registry"
           modes={['large', 'list', 'details']}
           defaultMode="large"
@@ -334,6 +422,7 @@ export default function TeamAssignmentGrid() {
           }}
           style={{ flex: 1 }}
         />
+        </GuideAnchor>
 
       <TeamCreateSheet
         visible={isCreating}
@@ -359,6 +448,34 @@ export default function TeamAssignmentGrid() {
         loading={loading}
         onToggleClaiming={handleToggleClaiming}
       />
+
+      <Popup visible={bulkVisible} onClose={() => !bulkRunning && setBulkVisible(false)} presentation="auto" maxWidth={760} maxHeight="90%" title="Bulk team operations" dimBackdrop>
+        <ScrollView className="px-5 py-4" contentContainerStyle={{ paddingBottom: 12 }}>
+          <Text className="text-typography-muted text-xs mb-4">Apply existing roles and optionally set task claiming for the selected teams. Existing assignments are retained.</Text>
+          <SearchableMultiSelect
+            title="Roles to add"
+            items={roles.map(role => ({ id: role.id, label: role.name, description: role.description, color: role.color }))}
+            selectedIds={bulkRoles}
+            onToggle={(id) => setBulkRoles(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+            searchPlaceholder="Search roles..."
+            emptyText="No roles match your search."
+          />
+          <View className="mt-5">
+            <Text className="text-typography-label text-[10px] font-black uppercase tracking-widest mb-2">Task claiming</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {(['unchanged', 'enable', 'disable'] as const).map(option => (
+                <TouchableOpacity key={option} onPress={() => setBulkClaiming(option)} className="px-3 py-2 rounded-lg border" style={{ borderColor: bulkClaiming === option ? colors.primary : colors.border, backgroundColor: bulkClaiming === option ? `${colors.primary}15` : colors.card }}>
+                  <Text className="text-[10px] font-black uppercase tracking-widest" style={{ color: bulkClaiming === option ? colors.primary : colors.textMuted }}>{option}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </ScrollView>
+        <View className="flex-row gap-2 px-5 py-4 border-t" style={{ borderColor: colors.border }}>
+          <TouchableOpacity onPress={() => setBulkVisible(false)} disabled={bulkRunning} className="flex-1 border py-3 rounded-lg items-center" style={{ borderColor: colors.border }}><Text className="text-typography-muted font-black text-[10px] uppercase tracking-widest">Cancel</Text></TouchableOpacity>
+          <TouchableOpacity onPress={runBulkTeamUpdate} disabled={bulkRunning || (!bulkRoles.length && bulkClaiming === 'unchanged')} className="flex-1 py-3 rounded-lg items-center" style={{ backgroundColor: colors.primary, opacity: bulkRunning || (!bulkRoles.length && bulkClaiming === 'unchanged') ? 0.5 : 1 }}><Text className="font-black text-[10px] uppercase tracking-widest" style={{ color: colors.background }}>{bulkRunning ? 'Applying…' : 'Apply changes'}</Text></TouchableOpacity>
+        </View>
+      </Popup>
     </View>
   );
 }

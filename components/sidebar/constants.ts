@@ -116,6 +116,11 @@ export const SHORTCUTS: Shortcut[] = [
   { id: 'pipelines-admin', permissionKey: 'pipeline.edit', icon: 'code-fork', label: 'Pipelines', href: '/admin/pipelines', keywords: ['workflow', 'stages', 'automation', 'admin'] },
 ];
 
+/** Stable lookup for consumers that must share navigation visibility rules. */
+export function getShortcut(id: string): Shortcut | undefined {
+  return SHORTCUTS.find((shortcut) => shortcut.id === id);
+}
+
 // Platform-admin-only destinations stay outside SHORTCUTS so their visibility
 // cannot be mistaken for an ordinary permission-gated navigation entry.
 export type SystemDestination = { id: string; label: string; href: string; icon: IconName };

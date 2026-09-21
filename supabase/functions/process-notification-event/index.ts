@@ -50,11 +50,20 @@ serve(async (req: Request) => {
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
     // 1. Find active rules matching this event type
-    const { data: rules, error: rulesErr } = await db
+    const eventCompanyId = event.company_id ?? event.payload?.company_id
+    let rulesQuery = db
       .from('notification_rules')
       .select('*')
       .eq('event_type', event.event_type)
       .eq('is_active', true)
+    // Company-owned rules are isolated. company_id-null rows are legacy
+    // platform rules retained for compatibility during the catalog rollout.
+    if (eventCompanyId) {
+      rulesQuery = rulesQuery.or(`company_id.eq.${eventCompanyId},company_id.is.null`)
+    } else {
+      rulesQuery = rulesQuery.is('company_id', null)
+    }
+    const { data: rules, error: rulesErr } = await rulesQuery
 
     if (rulesErr) throw rulesErr
 
@@ -250,11 +259,14 @@ async function resolveStrategy(
       const roleName = config.role as string | undefined
       if (!roleName) return []
 
-      const { data } = await db
+      let roleQuery = db
         .from('user_roles')
         .select('user_id, roles!inner(name)')
         .eq('roles.name', roleName)
         .is('revoked_at', null)
+      const companyId = (payload.company_id ?? undefined) as string | undefined
+      if (companyId) roleQuery = roleQuery.eq('company_id', companyId)
+      const { data } = await roleQuery
       return (data ?? []).map((r: { user_id: string }) => r.user_id)
     }
 

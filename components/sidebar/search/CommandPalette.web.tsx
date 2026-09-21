@@ -28,6 +28,8 @@ import { useToast } from '@/contexts/ToastContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useCapabilities } from '@/hooks/useCapability';
+import type { CapabilityName } from '@/lib/capabilities';
 import { resultRoute, useGlobalSearch, type ResultType, type SearchResult } from '@/hooks/useGlobalSearch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
 import { useRecentDestinations } from '@/hooks/useRecentDestinations';
@@ -73,7 +75,7 @@ type CreateAction = {
   id: string;
   label: string;
   icon: React.ComponentProps<typeof FontAwesome>['name'];
-  permission: string;
+  capability: CapabilityName;
   run: () => void;
 };
 
@@ -302,6 +304,14 @@ export default function CommandPalette({
   const { hasPermission, profile, signOut, user } = useAuth();
   const { theme, setTheme } = useTheme();
   const { summon } = useModalDispatch();
+  const capabilities = useCapabilities([
+    'task.create',
+    'project.create',
+    'portfolio.create',
+    'report.generate',
+    'role.create',
+    'upload.create',
+  ]);
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const inputRef = useRef<TextInput>(null);
@@ -347,18 +357,18 @@ export default function CommandPalette({
       .map((x) => x.c);
   }, [hasPermission, input]);
 
-  // #347 — the inline quick-create target, permission-gated. Null unless a
-  // create prefix is active with non-empty trailing text and the caller may
-  // create that entity.
+  // #347 — the inline quick-create target, capability-gated. Null unless a
+  // create prefix is active with non-empty trailing text and the capability
+  // decision is explicitly allowed (loading and unknown decisions fail closed).
   const createInline = useMemo<{ entity: 'task' | 'project'; title: string } | null>(() => {
     if (input.mode === 'create-task' && input.text) {
-      return hasPermission('task.create') ? { entity: 'task', title: input.text } : null;
+      return capabilities['task.create']?.allowed === true ? { entity: 'task', title: input.text } : null;
     }
     if (input.mode === 'create-project' && input.text) {
-      return hasPermission('project.create') ? { entity: 'project', title: input.text } : null;
+      return capabilities['project.create']?.allowed === true ? { entity: 'project', title: input.text } : null;
     }
     return null;
-  }, [input, hasPermission]);
+  }, [input, capabilities]);
 
   // Highlighter pen, not a whisper: ~0x66 ≈ 40% accent behind the text, bold,
   // rounded so it reads as a marker stroke. 10% (the old 0x1A) was invisible.
@@ -374,20 +384,31 @@ export default function CommandPalette({
   // Selected/hover row fill — a light accent wash (#342: accent, not flat grey).
   const selBg = colors.primary + '14';
 
-  // Create/compose actions — the ModalHost-wired types only. Permission keys
-  // verified against real gates: task.create + report.view (QuickCreateButton),
-  // project.create (_projects_desktop "New Project"), role.manage (RoleBuilder).
+  // Create/compose actions — each target names its shared capability explicitly.
+  // Run callbacks recheck the same decision so stale/unknown/loading state fails closed.
   const createActions = useMemo<CreateAction[]>(() => {
     const all: CreateAction[] = [
-      { id: 'create-task', label: 'New Task', icon: 'check-square-o', permission: 'task.create', run: () => summon('create-task') },
-      { id: 'create-project', label: 'New Project', icon: 'folder-o', permission: 'project.create', run: () => summon('create-project') },
-      { id: 'create-portfolio', label: 'New Portfolio', icon: 'cubes', permission: 'project.create', run: () => summon('create-portfolio') },
-      { id: 'generate-report', label: 'Generate Report', icon: 'bar-chart', permission: 'report.view', run: () => summon('generate-report') },
-      { id: 'new-role', label: 'New Role', icon: 'user-plus', permission: 'role.manage', run: () => summon('new-role') },
-      { id: 'upload', label: 'Upload File', icon: 'cloud-upload', permission: 'filehub:view', run: () => summon('upload') },
+      { id: 'create-task', label: 'New Task', icon: 'check-square-o', capability: 'task.create', run: () => {
+        if (capabilities['task.create']?.allowed === true) summon('create-task');
+      } },
+      { id: 'create-project', label: 'New Project', icon: 'folder-o', capability: 'project.create', run: () => {
+        if (capabilities['project.create']?.allowed === true) summon('create-project');
+      } },
+      { id: 'create-portfolio', label: 'New Portfolio', icon: 'cubes', capability: 'portfolio.create', run: () => {
+        if (capabilities['portfolio.create']?.allowed === true) summon('create-portfolio');
+      } },
+      { id: 'generate-report', label: 'Generate Report', icon: 'bar-chart', capability: 'report.generate', run: () => {
+        if (capabilities['report.generate']?.allowed === true) summon('generate-report');
+      } },
+      { id: 'new-role', label: 'New Role', icon: 'user-plus', capability: 'role.create', run: () => {
+        if (capabilities['role.create']?.allowed === true) summon('new-role');
+      } },
+      { id: 'upload', label: 'Upload File', icon: 'cloud-upload', capability: 'upload.create', run: () => {
+        if (capabilities['upload.create']?.allowed === true) summon('upload');
+      } },
     ];
-    return all.filter((a) => hasPermission(a.permission));
-  }, [hasPermission, summon]);
+    return all.filter((a) => capabilities[a.capability]?.allowed === true);
+  }, [capabilities, summon]);
   // GO TO: top-level SHORTCUTS + keyword-indexed sub-destinations, one registry
   // (constants.ts). Empty query → top-level only; otherwise label + synonym
   // matches across both, deduped by href.
@@ -446,7 +467,8 @@ export default function CommandPalette({
   // (createInline / flatItems[0]) supersedes it so the two never both fire.
   const noHits = results.length === 0 && destMatches.length === 0;
   const showCreateHint =
-    !!q && input.mode === 'normal' && !searchError && !(loading && results.length === 0) && noHits;
+    !!q && input.mode === 'normal' && capabilities['task.create']?.allowed === true
+    && !searchError && !(loading && results.length === 0) && noHits;
 
   const gridStart = 0;
   const tileCount = createActions.length;
@@ -518,6 +540,8 @@ export default function CommandPalette({
   // server-side (pipeline resolves to the project's or the company default).
   const runInlineCreate = useCallback(
     async (entity: 'task' | 'project', rawTitle: string) => {
+      const capability = entity === 'task' ? 'task.create' : 'project.create';
+      if (capabilities[capability]?.allowed !== true) return;
       const title = rawTitle.trim();
       if (!title) return;
       try {
@@ -543,7 +567,7 @@ export default function CommandPalette({
         errorToast(e instanceof Error ? e.message : `Could not create ${entity}`);
       }
     },
-    [showToast, errorToast, onClose, router]
+    [showToast, errorToast, onClose, router, capabilities]
   );
 
   const activate = useCallback(
@@ -711,8 +735,10 @@ export default function CommandPalette({
           e.preventDefault();
           // #347: seed the new task's title from query.trim() once create-task
           // accepts a title-seed prop. Blank modal for now — don't block on it.
-          summon('create-task');
-          onClose();
+          if (capabilities['task.create']?.allowed === true) {
+            summon('create-task');
+            onClose();
+          }
         } else if (query.trim()) {
           e.preventDefault();
           seeAll();
@@ -1008,8 +1034,10 @@ export default function CommandPalette({
               // thing the key handler does for this state.
               <Pressable
                 onPress={() => {
-                  summon('create-task');
-                  onClose();
+                  if (capabilities['task.create']?.allowed === true) {
+                    summon('create-task');
+                    onClose();
+                  }
                 }}
                 className="flex-row items-center gap-3 rounded-xl px-3 py-4 mx-1"
               >

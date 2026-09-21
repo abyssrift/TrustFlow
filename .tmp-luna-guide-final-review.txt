@@ -1,0 +1,17 @@
+## Findings
+
+No release-blocking findings. The reviewed implementation matches the approved scope in the inspected paths:
+
+- The registry contains 13 screen-grounded guides across four phases; eligibility requires authentication, a ready profile, and loaded access, then follows shortcut visibility and the `role.manage` gate for team assignments. [`contextualGuides.ts`](/C:/Users/j/Documents/Github/TrustFlow/lib/contextualGuides.ts:72) [`constants.ts`](/C:/Users/j/Documents/Github/TrustFlow/components/sidebar/constants.ts:327)
+- Newly eligible capability guides are tracked against prior eligibility. The initial eligible set and universal guides do not produce “new” indicators; checklist rows use the same `newGuideIds` supplied to the host. [`ContextualGuideContext.tsx`](/C:/Users/j/Documents/Github/TrustFlow/contexts/ContextualGuideContext.tsx:95) [`GuideChecklist.tsx`](/C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideChecklist.tsx:159) [`GuideHost.tsx`](/C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideHost.tsx:11)
+- Familiar/Skip is terminal for checklist completion. The checklist hides when every currently eligible guide is Done or Familiar, and the question launcher remains available to reopen it. [`ContextualGuideContext.tsx`](/C:/Users/j/Documents/Github/TrustFlow/contexts/ContextualGuideContext.tsx:70) [`GuideHost.tsx`](/C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideHost.tsx:14)
+- Progress is keyed by user and company in the database, and sync preserves earlier records when a guide is absent from the current eligible set. The SQL helper and final-step check agree on all 13 v1 guide IDs at step 2, including deadlines and team assignments. [`20260920110000_user_guide_progress.sql`](/C:/Users/j/Documents/Github/TrustFlow/supabase/migrations/20260920110000_user_guide_progress.sql:95) [`check_user_guide_progress.sql`](/C:/Users/j/Documents/Github/TrustFlow/supabase/checks/check_user_guide_progress.sql:54) [`check_user_guide_progress.sql`](/C:/Users/j/Documents/Github/TrustFlow/supabase/checks/check_user_guide_progress.sql:302)
+- The checklist panel is scrollable, movable by drag or keyboard, viewport-clamped, and translucent; the coach panel has no backdrop or auto-open path. The inspected guide components contain no animation requiring reduced-motion handling. [`GuideChecklist.tsx`](/C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideChecklist.tsx:62) [`guidePanelPosition.ts`](/C:/Users/j/Documents/Github/TrustFlow/lib/guidePanelPosition.ts:31) [`GuideCoachMark.web.tsx`](/C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideCoachMark.web.tsx:6)
+
+## Verification
+
+Ran the five focused guide test files: **5 files passed, 51 tests passed**. Reviewed the SQL migration and check for helper/check parity; I did not execute the SQL check.
+
+## Residual risks
+
+I did not manually drive the panel at desktop and mobile widths, or run the database check against a seeded local database. These behaviors are covered by code inspection and focused tests only.

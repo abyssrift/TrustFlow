@@ -5,6 +5,7 @@ BEGIN;
 DO $$
 DECLARE
   v_def text;
+  v_view_def text;
 BEGIN
   FOREACH v_def IN ARRAY ARRAY[
     'project_id', 'workspace_folder_id', 'workspace_path', 'origin',
@@ -61,6 +62,11 @@ BEGIN
     'Browse facets must apply project, category, type, and search filters';
   ASSERT position('filehub_file_version_id' IN pg_get_viewdef('public.files_index'::regclass, true)) > 0,
     'files_index must derive alias identity from existing FileHub version pointers';
+  v_view_def := pg_get_viewdef('public.files_index'::regclass, true);
+  ASSERT position('cf.bucket' IN v_view_def) > 0
+     AND position('cv.bucket' IN v_view_def) > 0
+     AND position('COALESCE' IN upper(v_view_def)) > 0,
+    'task/submission Browse aliases must project the canonical FileHub bucket/path before legacy fallbacks';
 
   ASSERT NOT EXISTS (
     SELECT 1
@@ -116,6 +122,7 @@ DECLARE
   v_version uuid;
   v_workspace_file uuid;
   v_workspace_version uuid;
+  v_former_member_file uuid;
 BEGIN
   SELECT company_id, id INTO v_company, v_owner
   FROM public.users WHERE is_owner AND company_id IS NOT NULL AND deleted_at IS NULL LIMIT 1;
@@ -148,8 +155,14 @@ BEGIN
     VALUES(v_workspace_file,v_company,1,'chk-filehub-browse/workspace.bin','filehub-files','workspace.bin',1,'application/octet-stream',v_owner)
     RETURNING id INTO v_workspace_version;
   UPDATE public.filehub_files SET current_version_id=v_workspace_version WHERE id=v_workspace_file;
+  INSERT INTO public.filehub_files(company_id,uploaded_by,storage_path,original_name,mime_type,size_bytes,visibility,folder_id,project_id)
+    VALUES(v_company,v_denied,'chk-filehub-browse/former-member.bin','former-member.bin','application/octet-stream',1,'project',v_workspace,v_project)
+    RETURNING id INTO v_former_member_file;
+  INSERT INTO public.filehub_file_versions(file_id,company_id,version_no,storage_path,bucket,original_name,size_bytes,mime_type,created_by)
+    VALUES(v_former_member_file,v_company,1,'chk-filehub-browse/former-member.bin','filehub-files','former-member.bin',1,'application/octet-stream',v_denied);
   INSERT INTO filehub_project_browse_check_ctx(company_id,project_id,owner_subject,denied_subject)
     VALUES(v_company,v_project,v_owner,v_denied);
+  PERFORM set_config('check.former_member_file', v_former_member_file::text, true);
 END $$;
 
 SET LOCAL ROLE authenticated;
@@ -195,6 +208,12 @@ BEGIN
   END IF;
   IF public.fn_project_accessible(v_project) THEN
     RAISE EXCEPTION 'CHECK FAILED: fixture actor unexpectedly passes fn_project_accessible';
+  END IF;
+  IF public.filehub_file_accessible(current_setting('check.former_member_file')::uuid) THEN
+    RAISE EXCEPTION 'CHECK FAILED: former project member retained FileHub access through uploader ownership';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.filehub_files WHERE id=current_setting('check.former_member_file')::uuid) THEN
+    RAISE EXCEPTION 'CHECK FAILED: table RLS retained FileHub access through uploader ownership';
   END IF;
   v_result := public.rpc_filehub_browse(
     p_project_id := v_project,

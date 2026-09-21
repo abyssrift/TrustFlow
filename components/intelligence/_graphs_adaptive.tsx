@@ -1,4 +1,5 @@
 import { PointsBucket, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { BackButton } from '@/components/common/BackButton';
 import { DateRangeControls, useDateRange, useGranularity } from '@/components/intelligence/DateRangeFilter';
@@ -9,6 +10,8 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { SLARiskPulseDot, slaPulseStagger } from '@/components/intelligence/SLARiskPulse';
 import { bucketLabel } from '@/lib/chartBuckets';
 import { formatDuration as fmtSec } from '@/lib/duration';
+import { getThroughputPresentation } from '@/lib/throughputPresentation';
+import { compareAuditMetric } from '@/lib/analyticsMetrics';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 // ─── SLA Risk Section ─────────────────────────────────────────────────────────
@@ -120,22 +123,26 @@ function TrendsSection({ data }: { data: any }) {
       <Text className="text-typography-main font-black text-base mb-3">Performance Trends</Text>
       <View className="flex-row flex-wrap gap-3">
         {metrics.map((m, idx) => {
-          const change = (m.val || 0) - (m.prev || 0);
-          const isPositive = m.hBetter ? change >= 0 : change <= 0;
+          const comparison = compareAuditMetric(m.val, m.prev, m.hBetter);
+          const isPositive = comparison.favorable === true;
           return (
             <View key={idx} className="flex-1 min-w-[44%] bg-surface-card border border-surface-border rounded-2xl p-4">
               <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2">{m.label}</Text>
-              <Text className="text-typography-main text-xl font-black">{Math.round(m.val || 0)}{m.suffix}</Text>
-              <View className={`mt-2 self-start px-2 py-0.5 rounded-full flex-row items-center gap-1 ${isPositive ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
-                <FontAwesome
-                  name={change >= 0 ? 'caret-up' : 'caret-down'}
-                  size={10}
-                  color={isPositive ? colors.success : colors.danger}
-                />
-                <Text className={`text-[9px] font-black ${isPositive ? 'text-state-success' : 'text-state-danger'}`}>
-                  {Math.abs(Math.round(change))}{m.suffix}
-                </Text>
-              </View>
+              <Text className={`${comparison.value === null ? 'text-typography-muted' : 'text-typography-main'} text-xl font-black`}>
+                {comparison.value === null ? 'N/A' : `${Math.round(comparison.value)}${m.suffix}`}
+              </Text>
+              {comparison.delta !== null && (
+                <View className={`mt-2 self-start px-2 py-0.5 rounded-full flex-row items-center gap-1 ${isPositive ? 'bg-state-success/10' : 'bg-state-danger/10'}`}>
+                  <FontAwesome
+                    name={comparison.delta >= 0 ? 'caret-up' : 'caret-down'}
+                    size={10}
+                    color={isPositive ? colors.success : colors.danger}
+                  />
+                  <Text className={`text-[9px] font-black ${isPositive ? 'text-state-success' : 'text-state-danger'}`}>
+                    {Math.abs(Math.round(comparison.delta))}{m.suffix}
+                  </Text>
+                </View>
+              )}
             </View>
           );
         })}
@@ -241,6 +248,32 @@ function QualitySection({ data }: { data: any }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function IntelligenceGraphsNative() {
+  const colors = useThemeColors();
+  const { hasPermission, permissionsLoaded } = useAuth();
+
+  if (!permissionsLoaded) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!hasPermission('analytics.view')) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center p-6">
+        <Text className="text-typography-main text-xl font-black">Access Restricted</Text>
+        <Text className="text-typography-muted text-center mt-2">
+          You need the <Text className="font-black">analytics.view</Text> permission to access Performance.
+        </Text>
+      </View>
+    );
+  }
+
+  return <IntelligenceGraphsAuthorized />;
+}
+
+function IntelligenceGraphsAuthorized() {
   const colors = useThemeColors();
   const { getPipelineStageDwell, getPipelineThroughputRange, getPipelinePointsRange } = useAnalytics();
 
@@ -366,8 +399,7 @@ export default function IntelligenceGraphsNative() {
               <Text className="text-typography-muted text-sm">No throughput data for this period.</Text>
             ) : (
               [...throughput].reverse().map((t, i, arr) => {
-                const total = t.tasks_succeeded + t.tasks_failed;
-                const successPct = total > 0 ? (t.tasks_succeeded / total) * 100 : 0;
+                const { successPct, failurePct } = getThroughputPresentation(t.tasks_succeeded, t.tasks_failed);
                 return (
                   <View key={i} className={`py-3 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
                     <View className="flex-row flex-wrap justify-between items-end mb-1.5 gap-x-2">
@@ -382,7 +414,7 @@ export default function IntelligenceGraphsNative() {
                     </View>
                     <View className="h-1.5 bg-surface-overlay rounded-full overflow-hidden flex-row">
                       <View style={{ width: `${successPct}%` }} className="h-full bg-state-success rounded-l-full" />
-                      <View style={{ width: `${100 - successPct}%` }} className="h-full bg-state-danger rounded-r-full opacity-60" />
+                      <View style={{ width: `${failurePct}%` }} className="h-full bg-state-danger rounded-r-full opacity-60" />
                     </View>
                   </View>
                 );

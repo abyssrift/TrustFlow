@@ -6,13 +6,16 @@ import { DateRangePillPicker } from '@/components/intelligence/DateRangeFilter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTicker } from '@/hooks/useTicker';
+import { useCapability } from '@/hooks/useCapability';
 import { supabase } from '@/lib/supabase';
 import { formatStopwatch } from '@/lib/time';
+import { redactSensitiveReportParameters } from '@/lib/reporting/reportParameters';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Pressable,
+  Platform,
   TextInput as RNTextInput,
   ScrollView,
   Text,
@@ -21,6 +24,7 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { generateAndUploadReport } from './reports/generate';
+import { normalizeReportTimeframe, type ReportTimeframe } from '@/lib/reporting/reportTimeframe';
 
 const BRAND_DIM = 'rgba(99,102,241,0.15)';
 
@@ -94,7 +98,7 @@ const REPORT_TYPES: { value: ReportType; label: string; desc: string; icon: stri
   { value: 'user_performance_summary',  label: 'Performance Summary',     desc: 'Aggregated stats over a date range',             icon: 'user',          group: 'analytics' },
   { value: 'pipeline_stage_dwell',      label: 'Stage Dwell Analysis',          desc: 'Avg/median/P75 per stage & bottlenecks',         icon: 'clock-o',       group: 'analytics' },
   { value: 'pipeline_throughput',       label: 'Pipeline Throughput',           desc: 'Success/failure rates by period',                icon: 'area-chart',    group: 'analytics' },
-  { value: 'personnel_comparison',      label: 'People Cost Comparison',       desc: 'Cost, points/hour and efficiency comparison',    icon: 'balance-scale', group: 'analytics' },
+  { value: 'personnel_comparison',      label: 'People Performance Comparison', desc: 'Points/hour and efficiency comparison',          icon: 'balance-scale', group: 'analytics' },
   { value: 'targets_status',            label: 'Objectives & SLA Report',       desc: 'All active, hit, and expired targets',           icon: 'bullseye',      group: 'analytics' },
   { value: 'personal_pulse',            label: 'Personal Activity Snapshot',    desc: 'Daily/monthly points & session time',            icon: 'heartbeat',     group: 'analytics' },
   { value: 'projects',                  label: 'Projects Status',               desc: 'Completion, throughput, projected ETA',          icon: 'folder-open-o', group: 'analytics' },
@@ -110,6 +114,7 @@ interface ReportGeneratorProps {
 export default function ReportGenerator({ visible, onClose, onReportGenerated, isPage = false }: ReportGeneratorProps) {
   const colors = useThemeColors();
   const { hasPermission, user, profile } = useAuth();
+  const reportCapability = useCapability('report.generate');
   const router = useRouter();
 
   const [selectedTypes, setSelectedTypes] = useState<ReportType[]>(['general']);
@@ -175,31 +180,46 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
 
   const needsDateRange = selectedTypes.some(t => getTemporalMode(t, typeParams[t] || {}) === 'range');
 
-  const buildTemporalParams = () => {
+  const buildTemporalParams = (customRange?: ReportTimeframe) => {
     let days = 30;
     let dateStartParam: string | null = null;
     let dateEndParam: string | null   = null;
+    let dateEndExclusiveParam: string | null = null;
+    let dateStartLocalParam: string | null = null;
+    let dateEndLocalParam: string | null = null;
+    let timezone: string | null = null;
     if (timeFrame === 'custom') {
-      dateStartParam = dateStart ? new Date(dateStart).toISOString() : null;
-      dateEndParam   = dateEnd   ? new Date(dateEnd).toISOString()   : null;
+      if (customRange) {
+        days = customRange.daysInclusive;
+        dateStartParam = customRange.startInclusiveUtc;
+        dateEndParam = customRange.endInclusiveUtc;
+        dateEndExclusiveParam = customRange.endExclusiveUtc;
+        dateStartLocalParam = dateStart;
+        dateEndLocalParam = dateEnd;
+        timezone = customRange.timezone;
+      }
     } else {
       days = parseInt(timeFrame);
       const now = new Date();
       dateEndParam   = now.toISOString();
       dateStartParam = new Date(now.getTime() - days * 86400000).toISOString();
     }
-    return { days, dateStartParam, dateEndParam };
+    return { days, dateStartParam, dateEndParam, dateEndExclusiveParam, dateStartLocalParam, dateEndLocalParam, timezone };
   };
 
-  const buildTypeParameters = (type: ReportType) => {
+  const buildTypeParameters = (type: ReportType, temporalParams?: ReturnType<typeof buildTemporalParams>) => {
     const tp = typeParams[type] || {};
-    const { days, dateStartParam, dateEndParam } = buildTemporalParams();
+    const { days, dateStartParam, dateEndParam, dateEndExclusiveParam, dateStartLocalParam, dateEndLocalParam, timezone } = temporalParams || buildTemporalParams();
     const params: Record<string, any> = {};
     const tMode = getTemporalMode(type, tp);
     if (tMode === 'range') {
       params.days = days;
       params.date_start = dateStartParam;
       params.date_end   = dateEndParam;
+      if (dateEndExclusiveParam) params.date_end_exclusive = dateEndExclusiveParam;
+      if (dateStartLocalParam) params.date_start_local = dateStartLocalParam;
+      if (dateEndLocalParam) params.date_end_local = dateEndLocalParam;
+      if (timezone) params.timezone = timezone;
     } else if (tMode === 'series') {
       params.period_type = tp.period_type || 'month';
       params.n_periods   = parseInt(tp.n_periods || '12') || 12;
@@ -228,7 +248,6 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
         break;
       case 'personnel_comparison':
         params.user_ids = tp.user_ids  || [];
-        params.salaries = tp.salaries  || {};
         break;
       case 'projects':
         params.project_ids = tp.project_ids || [];
@@ -237,10 +256,10 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
     return params;
   };
 
-  const expandJobs = () => {
+  const expandJobs = (temporalParams?: ReturnType<typeof buildTemporalParams>) => {
     const jobs: { reportType: string; parameters: Record<string, any> }[] = [];
     for (const type of selectedTypes) {
-      const params = buildTypeParameters(type);
+      const params = buildTypeParameters(type, temporalParams);
       if ((type === 'user_performance_series' || type === 'user_performance_summary') && !params.user_id) {
         workers.forEach(w => jobs.push({ reportType: type, parameters: { ...params, user_id: w.id } }));
       } else if ((type === 'pipeline_stage_dwell' || type === 'pipeline_throughput') && !params.pipeline_id) {
@@ -261,24 +280,46 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
   const handleGenerateReport = async () => {
     setGenError(null);
     setGenProgress(null);
+    if (!reportCapability.allowed) {
+      setGenError(reportCapability.loading ? 'Checking report access…' : 'Report generation requires an active plan with report access.');
+      return;
+    }
+    if (Platform.OS !== 'web') {
+      setGenError('Report generation is currently available on web only.');
+      return;
+    }
+    let customRange: ReportTimeframe | undefined;
+    if (needsDateRange && timeFrame === 'custom') {
+      if (!dateStart || !dateEnd) {
+        setGenError('Please provide both start and end dates');
+        return;
+      }
+      const normalized = normalizeReportTimeframe(
+        dateStart,
+        dateEnd,
+        Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+      );
+      if (!normalized.ok) {
+        setGenError(normalized.error.message);
+        return;
+      }
+      customRange = normalized.value;
+    }
+
     setGenStartedAt(new Date().toISOString());
     try {
       setLoading(true);
 
-      if (needsDateRange && timeFrame === 'custom' && (!dateStart || !dateEnd)) {
-        setGenError('Please provide both start and end dates');
-        return;
-      }
-
 
       if (!user?.id || !profile?.company_id) throw new Error('User session is not ready');
 
-      const expanded = expandJobs();
+      const temporalParams = buildTemporalParams(customRange);
+      const expanded = expandJobs(temporalParams);
       const wasExpanded = expanded.length !== selectedTypes.length;
 
       let jobs: { reportType: string; parameters: Record<string, any> }[];
       if (!wasExpanded && selectedTypes.length > 1) {
-        jobs = [{ reportType: 'multi_report', parameters: { modules: selectedTypes.map(t => ({ type: t, parameters: buildTypeParameters(t) })) } }];
+        jobs = [{ reportType: 'multi_report', parameters: { modules: selectedTypes.map(t => ({ type: t, parameters: buildTypeParameters(t, temporalParams) })) } }];
       } else {
         jobs = expanded;
       }
@@ -289,9 +330,10 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
         setGenProgress({ current: i + 1, total: jobs.length });
         const { reportType, parameters } = jobs[i];
         const taggedParams = { ...parameters, _generated_from: isPage ? 'mobile' : 'mobile_modal' };
+        const persistedParams = redactSensitiveReportParameters(taggedParams) as Record<string, any>;
         const { data: jobId, error } = await supabase.rpc('rpc_request_report', {
           p_report_type: reportType,
-          p_parameters:  taggedParams,
+          p_parameters: persistedParams,
         });
         if (error) throw error;
         if (!jobId) throw new Error('Failed to create report job');
@@ -477,6 +519,11 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
           <GenerationProgress current={genProgress.current} total={genProgress.total} elapsed={elapsed} />
         ) : (
           <>
+            {Platform.OS !== 'web' && (
+              <Text className="basis-full text-typography-muted text-xs">
+                Report generation is currently available on web only.
+              </Text>
+            )}
             {!isPage && (
               <Pressable onPress={onClose} disabled={loading} className="flex-1 min-w-[120px] py-4 rounded-2xl border border-surface-border bg-surface-background items-center">
                 <Text className="text-typography-muted font-bold">Discard</Text>
@@ -484,7 +531,7 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
             )}
             <Pressable
               onPress={handleGenerateReport}
-              disabled={loading || pipelines.length === 0}
+              disabled={loading || pipelines.length === 0 || !reportCapability.allowed || Platform.OS !== 'web'}
               className={`${isPage ? 'flex-1' : 'flex-[1.5]'} min-w-[160px] py-4 rounded-2xl items-center ${pipelines.length === 0 ? 'bg-surface-border' : 'bg-brand-primary active:scale-95 shadow-lg shadow-brand-primary/20'}`}
             >
               <View className="flex-row items-center">
@@ -666,7 +713,6 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
 
   if (type === 'personnel_comparison') {
     const selectedIds: string[] = params.user_ids || [];
-    const salaries: Record<string, number> = params.salaries || {};
     return (
       <View className="mb-4">
         <View className="flex-row items-center mb-3">
@@ -685,7 +731,7 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
         </HorizontalScroll>
         {selectedIds.length > 0 && (
           <View className="mt-4 gap-2">
-            <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-1">Daily Rate (USD) — Optional</Text>
+            <Text className="text-[10px] font-black uppercase tracking-[0.2em] text-typography-muted mb-1">Cost analysis is unavailable until a trusted rate source is configured.</Text>
             {selectedIds.map(uid => {
               const w = workers.find(x => x.id === uid);
               if (!w) return null;
@@ -693,10 +739,10 @@ function TypeParamPanel({ type, params, setParam, toggleMultiUser, pipelines, te
                 <View key={uid} className="flex-row items-center gap-3">
                   <Text className="text-typography-muted text-xs font-bold flex-1" numberOfLines={1}>{w.full_name}</Text>
                   <RNTextInput
-                    value={salaries[uid]?.toString() ?? ''}
-                    onChangeText={v => setParam('salaries', { ...salaries, [uid]: parseFloat(v) || 0 })}
+                    value=""
+                    editable={false}
                     keyboardType="numeric"
-                    placeholder="0.00"
+                    placeholder="Unavailable"
                     className="border border-surface-border bg-surface-card rounded-xl px-3 py-2 text-typography-main text-xs w-24 text-right"
                     placeholderTextColor={colors.textMuted}
                   />

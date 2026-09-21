@@ -18,28 +18,136 @@ export interface GeneralData {
   dateRange: string
 }
 
+export function generalReportDelta(current: number | null | undefined, prior: number | null | undefined): string | undefined {
+  if (current == null || prior == null) return undefined
+  if (prior === 0) return current === 0 ? '0 in both periods' : 'NEW'
+  const pct = Math.round(((current - prior) / prior) * 100)
+  return `${pct > 0 ? '+' : ''}${pct}% vs prior`
+}
+
+type GeneralMetricValues = {
+  throughput?: number | null
+  avg_lead_time_minutes?: number | null
+  success_rate?: number | null
+  revision_rate?: number | null
+}
+
+type GeneralKpi = { label: string; value: string; note?: string; accent?: string; color?: string; neutralColor: string }
+
+export function buildGeneralKpis(current: GeneralMetricValues, prior: GeneralMetricValues): GeneralKpi[] {
+  const metric = (
+    label: string,
+    currentValue: number | null | undefined,
+    priorValue: number | null | undefined,
+    format: (value: number) => string,
+    accent: (value: number) => string,
+    fixedNote?: string,
+  ): GeneralKpi => {
+    const observed = typeof currentValue === 'number' && Number.isFinite(currentValue)
+    const neutralColor = C.muted
+    return {
+      label,
+      value: observed ? format(currentValue) : 'N/A',
+      note: fixedNote ?? (observed && typeof priorValue === 'number' && Number.isFinite(priorValue)
+        ? generalReportDelta(currentValue, priorValue)
+        : undefined),
+      accent: observed ? accent(currentValue) : neutralColor,
+      color: observed ? accent(currentValue) : neutralColor,
+      neutralColor,
+    }
+  }
+
+  return [
+    metric('Throughput', current.throughput ?? 0, prior.throughput ?? 0, value => String(value), () => C.primary),
+    metric('Lead Time', current.avg_lead_time_minutes, prior.avg_lead_time_minutes, value => `${sf(value, 1)}m`, () => C.warning),
+    metric('Success Rate', current.success_rate, prior.success_rate, value => `${sf(value, 1)}%`, value => value >= 80 ? C.success : C.danger),
+    metric('Revision Rate', current.revision_rate, prior.revision_rate, value => `${sf(value, 1)}%`, value => value < 20 ? C.success : value < 40 ? C.warning : C.danger, 'Rework ratio'),
+  ]
+}
+
+export function buildRadarKpis(radar: { flow_ratio?: number | null; first_pass_yield?: number | null }): GeneralKpi[] {
+  const metric = (label: string, value: number | null | undefined, format: (n: number) => string, colorFor: (n: number) => string): GeneralKpi => {
+    const observed = typeof value === 'number' && Number.isFinite(value)
+    const neutralColor = C.muted
+    const color = observed ? colorFor(value) : neutralColor
+    return { label, value: observed ? format(value) : 'N/A', accent: color, color, neutralColor }
+  }
+  return [
+    metric('Flow Ratio', radar.flow_ratio, value => `${sf(value, 1)}%`, () => C.primary),
+    metric('First-Pass Yield', radar.first_pass_yield, value => `${sf(value, 1)}%`, value => value >= 60 ? C.success : C.warning),
+  ]
+}
+
+type WorkerTimeMetric = {
+  total_hours?: number | null
+  task_count?: number | null
+  full_name?: string | null
+  [key: string]: unknown
+}
+
+export function withTasksPerHour<T extends { total_hours?: number | null; task_count?: number | null }>(
+  workers: readonly T[],
+): (T & { tasks_per_hour: number })[] {
+  return workers.map(worker => {
+    const hours = worker.total_hours
+    const tasks = worker.task_count
+    const tasksPerHour = typeof hours === 'number' && Number.isFinite(hours) && hours > 0
+      && typeof tasks === 'number' && Number.isFinite(tasks)
+      ? tasks / hours
+      : 0
+    return { ...worker, tasks_per_hour: Number.isFinite(tasksPerHour) ? tasksPerHour : 0 }
+  })
+}
+
+export function rankWorkersByTasksPerHour<T extends { total_hours?: number | null; task_count?: number | null }>(
+  workers: readonly T[],
+): (T & { tasks_per_hour: number })[] {
+  const observed = workers.filter(worker => typeof worker.total_hours === 'number'
+    && Number.isFinite(worker.total_hours)
+    && worker.total_hours > 0
+    && typeof worker.task_count === 'number'
+    && Number.isFinite(worker.task_count)
+    && Number.isFinite(worker.task_count / worker.total_hours)
+    && worker.task_count / worker.total_hours >= 0)
+  return withTasksPerHour(observed)
+    .map((worker, index) => ({ worker, index }))
+    .sort((a, b) => b.worker.tasks_per_hour - a.worker.tasks_per_hour || a.index - b.index)
+    .map(({ worker }) => worker)
+}
+
+function topPerformerInsight(workers: readonly WorkerTimeMetric[]): { text: string; color: string } | null {
+  const ranked = rankWorkersByTasksPerHour(workers)
+  if (ranked.length === 0 || ranked[0].tasks_per_hour <= 0) return null
+  const rate = ranked[0].tasks_per_hour
+  const leaders = ranked.filter(worker => worker.tasks_per_hour === rate)
+  const names = leaders.map(worker => worker.full_name || 'Unknown').join(', ')
+  return {
+    text: leaders.length > 1
+      ? `Top performers (tied): ${names} at ${sf(rate, 1)} tasks/hour.`
+      : `Top performer: ${names} at ${sf(rate, 1)} tasks/hour.`,
+    color: C.success,
+  }
+}
+
 export function computeGeneralInsights(data: GeneralData): { text: string; color: string }[] {
   const a = data.audit || {}
   const cur = a.current || {}
   const slaRisks = a.sla_risks || []
   const radar = a.radar_advanced || {}
-  const wtm = (a.worker_time_metrics || []).map((w: any) => ({
-    ...w, tasks_per_hour: w.total_hours > 0 ? w.task_count / w.total_hours : 0,
-  }))
+  const wtm: WorkerTimeMetric[] = a.worker_time_metrics || []
   const ins: { text: string; color: string }[] = []
-  if ((cur.success_rate || 0) >= 80)
+  if (typeof cur.success_rate === 'number' && Number.isFinite(cur.success_rate) && cur.success_rate >= 80)
     ins.push({ text: `Strong success rate of ${sf(cur.success_rate, 1)}% — quality control is working.`, color: C.success })
-  if ((cur.success_rate || 0) > 0 && (cur.success_rate || 0) < 50)
+  if (typeof cur.success_rate === 'number' && Number.isFinite(cur.success_rate) && cur.success_rate > 0 && cur.success_rate < 50)
     ins.push({ text: `Success rate of ${sf(cur.success_rate, 1)}% is below 50%. Investigate root causes of task failure.`, color: C.warning })
-  if ((cur.revision_rate || 0) > 30)
+  if (typeof cur.revision_rate === 'number' && Number.isFinite(cur.revision_rate) && cur.revision_rate > 30)
     ins.push({ text: `Revision rate of ${sf(cur.revision_rate, 1)}% indicates significant rework. Consider quality gates earlier in the pipeline.`, color: C.warning })
   if (slaRisks.length > 0)
     ins.push({ text: `${slaRisks.length} task${slaRisks.length > 1 ? 's are' : ' is'} at SLA risk (>=99% risk score). Immediate attention required.`, color: C.danger })
-  if ((radar.first_pass_yield || 0) > 0)
+  if (typeof radar.first_pass_yield === 'number' && Number.isFinite(radar.first_pass_yield) && radar.first_pass_yield > 0)
     ins.push({ text: `First-pass yield: ${sf(radar.first_pass_yield, 1)}% without revision. Flow ratio: ${sf(radar.flow_ratio, 1)}%.`, color: C.primary })
-  const top = wtm.length > 0 ? wtm[0] : null
-  if (top && top.tasks_per_hour > 0)
-    ins.push({ text: `Top performer: ${top.full_name} at ${sf(top.tasks_per_hour, 1)} tasks/hour.`, color: C.success })
+  const top = topPerformerInsight(wtm)
+  if (top) ins.push(top)
   if (ins.length === 0)
     ins.push({ text: 'Insufficient data for automated insights. Expand the date range for more meaningful analysis.', color: C.primary })
   return ins
@@ -58,16 +166,8 @@ export function GeneralReportPages({ data, jobId, isModule }: { data: GeneralDat
   const costM      = a.cost_metrics           || {}
   const radar      = a.radar_advanced         || {}
 
-  const delta = (c: number, p: number) => {
-    if (!p) return 'NEW'
-    const pct = Math.round(((c - p) / p) * 100)
-    return `${pct > 0 ? '+' : ''}${pct}% vs prior`
-  }
-
-  const wtmWithRate = wtm.map((w: any) => ({
-    ...w,
-    tasks_per_hour: w.total_hours > 0 ? (w.task_count / w.total_hours) : 0,
-  }))
+  const wtmWithRate = withTasksPerHour(wtm)
+  const rankedWtm = rankWorkersByTasksPerHour(wtm)
 
   // Avg Time / Task: total active hours → minutes, divided by task count
   const totalHours = costM.total_hours ?? wtm.reduce((s: number, w: any) => s + (w.total_hours || 0), 0)
@@ -75,19 +175,18 @@ export function GeneralReportPages({ data, jobId, isModule }: { data: GeneralDat
   const avgMinPerTask = taskCount > 0 ? (totalHours * 60) / taskCount : null
 
   const insights: { text: string; color: string }[] = []
-  if ((cur.success_rate || 0) >= 80)
+  if (typeof cur.success_rate === 'number' && Number.isFinite(cur.success_rate) && cur.success_rate >= 80)
     insights.push({ text: `Strong success rate of ${sf(cur.success_rate, 1)}% — quality control is working.`, color: C.success })
-  if ((cur.success_rate || 0) > 0 && (cur.success_rate || 0) < 50)
+  if (typeof cur.success_rate === 'number' && Number.isFinite(cur.success_rate) && cur.success_rate > 0 && cur.success_rate < 50)
     insights.push({ text: `Success rate of ${sf(cur.success_rate, 1)}% is below 50%. Investigate root causes of task failure.`, color: C.warning })
-  if ((cur.revision_rate || 0) > 30)
+  if (typeof cur.revision_rate === 'number' && Number.isFinite(cur.revision_rate) && cur.revision_rate > 30)
     insights.push({ text: `Revision rate of ${sf(cur.revision_rate, 1)}% indicates significant rework. Consider quality gates earlier in the pipeline.`, color: C.warning })
   if (slaRisks.length > 0)
     insights.push({ text: `${slaRisks.length} task${slaRisks.length > 1 ? 's are' : ' is'} at SLA risk (>=99% risk score). Immediate attention required.`, color: C.danger })
-  if ((radar.first_pass_yield || 0) > 0)
+  if (typeof radar.first_pass_yield === 'number' && Number.isFinite(radar.first_pass_yield) && radar.first_pass_yield > 0)
     insights.push({ text: `First-pass yield: ${sf(radar.first_pass_yield, 1)}% of tasks completed without revision. Flow ratio: ${sf(radar.flow_ratio, 1)}%.`, color: C.primary })
-  const top = wtmWithRate.length > 0 ? wtmWithRate[0] : null
-  if (top && top.tasks_per_hour > 0)
-    insights.push({ text: `Top performer: ${top.full_name} at ${sf(top.tasks_per_hour, 1)} tasks/hour.`, color: C.success })
+  const top = topPerformerInsight(wtm)
+  if (top) insights.push(top)
   if (insights.length === 0)
     insights.push({ text: 'Insufficient data for automated insights. Expand the date range for more meaningful analysis.', color: C.primary })
 
@@ -101,11 +200,8 @@ export function GeneralReportPages({ data, jobId, isModule }: { data: GeneralDat
         {/* ── KPIs ── */}
         <Section title="Key Performance Indicators" />
         <KpiRow items={[
-          { label: 'Throughput',    value: String(cur.throughput || 0),                 note: delta(cur.throughput || 0, cmp.throughput || 0),                     accent: C.primary },
-          { label: 'Lead Time',     value: `${sf(cur.avg_lead_time_minutes || 0, 1)}m`, note: delta(cur.avg_lead_time_minutes || 0, cmp.avg_lead_time_minutes || 0), accent: C.warning },
-          { label: 'Success Rate',  value: `${sf(cur.success_rate || 0, 1)}%`,          note: delta(cur.success_rate || 0, cmp.success_rate || 0),                  accent: cur.success_rate >= 80 ? C.success : C.danger, color: cur.success_rate >= 80 ? C.success : C.danger },
-          { label: 'Revision Rate', value: `${sf(cur.revision_rate || 0, 1)}%`,         note: 'Rework ratio',                                                       accent: cur.revision_rate < 20 ? C.success : cur.revision_rate < 40 ? C.warning : C.danger, color: cur.revision_rate < 20 ? C.success : cur.revision_rate < 40 ? C.warning : C.danger },
-        ]} />
+          ...buildGeneralKpis(cur, cmp),
+        ].map(({ neutralColor: _neutralColor, ...item }) => item)} />
 
         {(taskCount > 0 || wtm.length > 0) && (
           <View style={s.twoCol}>
@@ -186,19 +282,18 @@ export function GeneralReportPages({ data, jobId, isModule }: { data: GeneralDat
         <View break>
           <Section title="Time & Efficiency" />
 
-          <KpiRow items={[
-            { label: 'Flow Ratio',       value: `${sf(radar.flow_ratio || 0, 1)}%`,       accent: C.primary },
-            { label: 'First-Pass Yield', value: `${sf(radar.first_pass_yield || 0, 1)}%`, accent: (radar.first_pass_yield || 0) >= 60 ? C.success : C.warning, color: (radar.first_pass_yield || 0) >= 60 ? C.success : C.warning },
-          ]} />
+          <KpiRow items={buildRadarKpis(radar).map(({ neutralColor: _neutralColor, ...item }) => item)} />
 
           {wtmWithRate.length > 0 && (
             <>
               <Sub title="Productivity Rankings (Tasks / Hour)" />
-              <HBar data={wtmWithRate.slice(0, 8).map((w: any) => ({
-                label: String(w.full_name || '—').substring(0, 22),
-                value: w.tasks_per_hour || 0,
-                display: w.tasks_per_hour > 0 ? `${sf(w.tasks_per_hour, 1)} t/h` : '—',
-              }))} />
+              {rankedWtm.length > 0 ? (
+                <HBar data={rankedWtm.slice(0, 8).map((w: any) => ({
+                  label: String(w.full_name || '—').substring(0, 22),
+                  value: w.tasks_per_hour || 0,
+                  display: w.tasks_per_hour > 0 ? `${sf(w.tasks_per_hour, 1)} t/h` : '—',
+                }))} />
+              ) : <Empty msg="No valid worker-hours data available for productivity rankings." />}
 
               <Sub title="People Detail" />
               <Table

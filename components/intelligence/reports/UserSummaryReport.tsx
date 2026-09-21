@@ -2,6 +2,7 @@ import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import React from 'react'
 import { Cover, Empty, Footer, Insight, KpiRow, Section, SectionDivider, Sub, fmtDate, sf } from './shared'
 import { C, base } from './theme'
+import { computeTeamSuccessRate } from '@/lib/reporting/reportCalculations'
 
 const s = StyleSheet.create({ page: { ...base.page } })
 
@@ -33,11 +34,10 @@ export function UserSummaryReportPages({ data, jobId, isModule }: { data: UserSu
 
   const activeH = (summary.active_seconds || 0) / 3600
   const estH    = (summary.estimated_seconds || 0) / 3600
-  const eff     = summary.timer_efficiency || 0
-  const otr     = summary.on_time_rate || 0
-  const sr      = summary.completed_tasks + summary.failed_tasks > 0
-    ? Math.round((summary.completed_tasks / (summary.completed_tasks + summary.failed_tasks)) * 100)
-    : null
+  const eff     = typeof summary.timer_efficiency === 'number' && Number.isFinite(summary.timer_efficiency) ? summary.timer_efficiency : null
+  const otr     = typeof summary.on_time_rate === 'number' && Number.isFinite(summary.on_time_rate) ? summary.on_time_rate : null
+  const sr      = computeTeamSuccessRate(summary.completed_tasks, summary.failed_tasks)
+  const formatPercent = (value: number | null) => value === null ? '—' : `${sf(value, 1)}%`
 
   return (
     <>
@@ -65,17 +65,17 @@ export function UserSummaryReportPages({ data, jobId, isModule }: { data: UserSu
         <KpiRow items={[
           {
             label: 'Timer Efficiency',
-            value: `${sf(eff, 1)}%`,
-            note: eff > 100 ? 'Over budget — tasks taking longer than estimated' : eff > 80 ? 'Good pacing' : 'Under budget — ahead of estimates',
-            accent: eff > 100 ? C.warning : C.success,
-            color: eff > 100 ? C.warning : C.success,
+            value: formatPercent(eff),
+            note: eff === null ? 'No estimate data available' : eff > 100 ? 'Over budget — tasks taking longer than estimated' : eff > 80 ? 'Good pacing' : 'Under budget — ahead of estimates',
+            accent: eff === null ? C.muted : eff > 100 ? C.warning : C.success,
+            color: eff === null ? C.muted : eff > 100 ? C.warning : C.success,
           },
           {
             label: 'On-Time Rate',
-            value: `${sf(otr, 1)}%`,
-            note: otr >= 80 ? 'Excellent deadline adherence' : otr >= 60 ? 'Acceptable, room to improve' : 'Below target — review workload distribution',
-            accent: otr >= 80 ? C.success : otr >= 60 ? C.warning : C.danger,
-            color: otr >= 80 ? C.success : otr >= 60 ? C.warning : C.danger,
+            value: formatPercent(otr),
+            note: otr === null ? 'No task outcomes available' : otr >= 80 ? 'Excellent deadline adherence' : otr >= 60 ? 'Acceptable, room to improve' : 'Below target — review workload distribution',
+            accent: otr === null ? C.muted : otr >= 80 ? C.success : otr >= 60 ? C.warning : C.danger,
+            color: otr === null ? C.muted : otr >= 80 ? C.success : otr >= 60 ? C.warning : C.danger,
           },
           {
             label: 'Revisions',
@@ -92,13 +92,13 @@ export function UserSummaryReportPages({ data, jobId, isModule }: { data: UserSu
             color={C.warning}
           />
         )}
-        {eff > 120 && (
+        {eff !== null && eff > 120 && (
           <Insight
             text={`Timer efficiency of ${sf(eff, 1)}% indicates tasks consistently exceed their estimated duration. Consider recalibrating task estimates.`}
             color={C.warning}
           />
         )}
-        {sr != null && sr >= 80 && otr >= 80 && (
+        {sr != null && sr >= 80 && otr !== null && otr >= 80 && (
           <Insight
             text={`${workerName} is performing at a high level — ${sr}% success rate and ${sf(otr, 1)}% on-time delivery across this period.`}
             color={C.success}

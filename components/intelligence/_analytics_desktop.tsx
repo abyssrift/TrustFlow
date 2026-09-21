@@ -3,13 +3,14 @@ import { DateRangeControls, useGranularity } from '@/components/intelligence/Dat
 import PortfolioFlowTab from '@/components/intelligence/PortfolioFlowTab';
 import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
 import { PersonnelRow, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
+import { getOverviewMetricLabel, type OrganizationalAudit } from '@/lib/analyticsMetrics';
 import { bucketLabel } from '@/lib/chartBuckets';
 import { localIsoDay } from '@/lib/time';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { AnalyticsLimits, getAnalyticsLimits, PlanCatalogEntry, requiredPlan } from '@/lib/planLimits';
+import { AnalyticsLimits, getAnalyticsLimits } from '@/lib/planLimits';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,9 +31,6 @@ import {
   ComposedChart,
   Legend,
   Line,
-  PolarAngleAxis,
-  PolarGrid,
-  Radar, RadarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis, YAxis
@@ -48,19 +46,14 @@ function fmtUSD(v: number | null): string {
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function PlanGate({ feature, limits, children }: {
+function PlanGate({ feature, ready, limits, children }: {
   feature: keyof AnalyticsLimits;
+  ready: boolean;
   limits: AnalyticsLimits;
   children: React.ReactNode;
 }) {
-  const colors = useThemeColors();
-  if (limits[feature]) return <>{children}</>;
-  return (
-    <View className="rounded-2xl border border-surface-border/50 px-4 py-3 flex-row items-center gap-2">
-      <FontAwesome name="lock" size={11} color={colors.textMuted} />
-      <Text className="text-typography-muted text-xs">Not available on your plan</Text>
-    </View>
-  );
+  if (ready && limits[feature]) return <>{children}</>;
+  return null;
 }
 
 // ─── Throughput Chart ─────────────────────────────────────────────────────────
@@ -126,7 +119,7 @@ function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
             yAxisId="rate"
             type="monotone"
             dataKey="success_rate"
-            name="Success Rate %"
+            name={`${getOverviewMetricLabel('efficiency')} %`}
             stroke={colors.primary}
             strokeWidth={2}
             dot={{ r: 2.5, fill: colors.primary, strokeWidth: 0 }}
@@ -139,9 +132,9 @@ function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
 
 // ─── Pipeline Analytics Tab ───────────────────────────────────────────────────
 
-function PipelineTab({ planCode, limits }: { planCode: string; limits: AnalyticsLimits }) {
+function PipelineTab({ planCode, planReady, limits }: { planCode: string; planReady: boolean; limits: AnalyticsLimits }) {
   const colors = useThemeColors();
-  const { getPipelineStageDwell, getPipelineThroughputRange } = useAnalytics();
+  const { getOrganizationalAudit, getPipelineStageDwell, getPipelineThroughputRange } = useAnalytics();
   const { theme: activeTheme } = useTheme();
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null);
@@ -158,7 +151,7 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
 
   const [dwell, setDwell]         = useState<StageDwell[]>([]);
   const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
-  const [auditData, setAuditData]   = useState<any>(null);
+  const [auditData, setAuditData]   = useState<OrganizationalAudit | null>(null);
   const [loading, setLoading]     = useState(false);
   const [loaded, setLoaded]       = useState(false);
 
@@ -185,11 +178,14 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
       const [d, t, a] = await Promise.all([
         getPipelineStageDwell(selectedPipeline, from, to),
         getPipelineThroughputRange(selectedPipeline, from, to, buckets),
-        supabase.rpc('rpc_get_organizational_audit', { p_pipeline_id: selectedPipeline, p_days: nDays }),
+        getOrganizationalAudit(selectedPipeline, nDays).catch(error => {
+          console.error('[Analytics] Failed to load organizational audit:', error);
+          return null;
+        }),
       ]);
       setDwell(d);
       setThroughput(t);
-      setAuditData(a.data);
+      setAuditData(a);
       setLoaded(true);
     } finally {
       setLoading(false);
@@ -257,7 +253,7 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
           <StageDwellChartWeb data={dwell} />
 
           {/* Throughput — Pro+ */}
-          <PlanGate feature="throughput" limits={limits}>
+          <PlanGate feature="throughput" ready={planReady} limits={limits}>
             <View className="bg-surface-card border border-surface-border rounded-2xl p-4">
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-typography-main font-black text-sm">Throughput Trend</Text>
@@ -270,7 +266,7 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
           </PlanGate>
 
           {/* Conversion Funnel — Business+ */}
-          <PlanGate feature="funnel" limits={limits}>
+          <PlanGate feature="funnel" ready={planReady} limits={limits}>
             <ConversionFunnelChartWeb data={auditData} />
           </PlanGate>
         </View>
@@ -284,7 +280,7 @@ function PipelineTab({ planCode, limits }: { planCode: string; limits: Analytics
 
 type SortDir = 'asc' | 'desc';
 
-function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits: AnalyticsLimits; catalog: PlanCatalogEntry[] }) {
+function PersonnelTab({ limits }: { limits: AnalyticsLimits }) {
   const colors = useThemeColors();
   const { comparePersonnel } = useAnalytics();
   const { theme: activeTheme } = useTheme();
@@ -514,51 +510,28 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
       );
     }
 
-    const previewData = [
-      { subject: 'Effort', A: 80, fullMark: 100 },
-      { subject: 'Quality', A: 90, fullMark: 100 },
-      { subject: 'Speed', A: 70, fullMark: 100 },
-      { subject: 'Consistency', A: 85, fullMark: 100 },
-      { subject: 'Impact', A: 65, fullMark: 100 },
-    ];
-
     return (
       <View className="flex-1 bg-surface-card rounded-[32px] border border-surface-border shadow-sm p-6 overflow-hidden">
         <View className="flex-row items-center justify-between mb-4">
           <View>
-            <Text className="text-typography-main font-black text-lg">Group Pulse</Text>
-            <Text className="text-typography-muted text-[10px] uppercase font-bold tracking-widest">{selected.length} Personnel Linked</Text>
+            <Text className="text-typography-main font-black text-lg">Selected Cohort</Text>
+            <Text className="text-typography-muted text-[10px] uppercase font-bold tracking-widest">{selected.length} Personnel Selected</Text>
           </View>
           <View className="w-8 h-8 rounded-full bg-brand-primary/10 items-center justify-center">
-            <FontAwesome name="bolt" size={14} color={colors.primary} />
+            <FontAwesome name="users" size={14} color={colors.primary} />
           </View>
         </View>
 
-        <View style={{ height: 240, width: '100%' }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart cx="50%" cy="50%" outerRadius="80%" data={previewData}>
-              <PolarGrid stroke={colors.border} />
-              <PolarAngleAxis dataKey="subject" tick={{ fill: colors.textDim, fontSize: 10 }} />
-              <Radar
-                name="Group Mean"
-                dataKey="A"
-                stroke={colors.primary}
-                fill={colors.primary}
-                fillOpacity={0.3}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+        <View className="flex-1 items-center justify-center py-8">
+          <Text className="text-typography-muted text-xs text-center">
+            Run the comparison to see measured results for this cohort.
+          </Text>
         </View>
 
         <View className="mt-4 pt-4 border-t border-surface-border flex-row justify-between">
           <View className="items-center flex-1">
             <Text className="text-typography-main font-black text-base">{selected.length}</Text>
-            <Text className="text-typography-muted text-[9px] uppercase font-bold">Roster Size</Text>
-          </View>
-          <View className="w-[1px] h-8 bg-surface-border mx-4" />
-          <View className="items-center flex-1">
-            <Text className="text-state-success font-black text-base">Active</Text>
-            <Text className="text-typography-muted text-[9px] uppercase font-bold">Status</Text>
+            <Text className="text-typography-muted text-[9px] uppercase font-bold">Selected</Text>
           </View>
         </View>
       </View>
@@ -725,7 +698,7 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
         <View>
           <View className="flex-row items-center justify-between mb-4 px-2">
             <Text className="text-typography-main font-black text-xl italic uppercase tracking-tighter">Strategic Benchmarking Results</Text>
-            {limits.personnelExport ? (
+            {limits.personnelExport && (
               <TouchableOpacity
                 onPress={exportCSV}
                 className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl"
@@ -733,11 +706,6 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
                 <FontAwesome name="download" size={14} color={colors.primary} />
                 <Text className="text-typography-main text-xs font-black uppercase">Export CSV</Text>
               </TouchableOpacity>
-            ) : (
-              <View className="flex-row items-center gap-2 bg-surface-card border border-surface-border px-4 py-2 rounded-xl opacity-40">
-                <FontAwesome name="lock" size={12} color={colors.muted} />
-                <Text className="text-typography-muted text-xs font-black uppercase">Export CSV — {requiredPlan('personnelExport', catalog)}+</Text>
-              </View>
             )}
           </View>
 
@@ -850,11 +818,17 @@ function PersonnelTab({ planCode, limits, catalog }: { planCode: string; limits:
 export default function AdminAnalyticsWeb() {
   const colors = useThemeColors();
   const { hasPermission, permissionsLoaded } = useAuth();
-  const { planCode, limits: planLimits, catalog, loading: planLoading } = useBillingPlan();
+  const { planCode, limits: planLimits, loading: planLoading, error: planError, ready: planReady } = useBillingPlan();
   const limits = getAnalyticsLimits(planLimits);
   const [activeTab, setActiveTab] = useState<AdminTab>('pipeline');
 
-  if (!permissionsLoaded || planLoading) {
+  useEffect(() => {
+    if (planReady && !limits.personnel && activeTab === 'personnel') {
+      setActiveTab('pipeline');
+    }
+  }, [activeTab, limits.personnel, planReady]);
+
+  if (!permissionsLoaded) {
     return (
       <View className="flex-1 bg-surface-background items-center justify-center">
         <ActivityIndicator size="large" color={colors.primary} />
@@ -874,7 +848,23 @@ export default function AdminAnalyticsWeb() {
     );
   }
 
-  const canPersonnel = hasPermission('analytics.compare') && limits.personnel;
+  if (planLoading) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (planError || !planReady) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center px-6">
+        <Text className="text-typography-muted text-sm text-center">Plan information unavailable.</Text>
+      </View>
+    );
+  }
+
+  const canCompare = hasPermission('analytics.compare');
 
   const maxDayLabel = limits.maxDays ? `${limits.maxDays}-day` : 'Unlimited';
 
@@ -918,23 +908,25 @@ export default function AdminAnalyticsWeb() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => canPersonnel && setActiveTab('personnel')}
-              className={`px-4 py-2 -mb-px border-b-2 transition-all ${
-                activeTab === 'personnel'
-                  ? 'border-brand-primary'
-                  : !canPersonnel
-                  ? 'opacity-40 cursor-not-allowed border-transparent'
-                  : 'border-transparent hover:border-surface-border'
-              }`}
-            >
-              <View className="flex-row items-center gap-1.5">
-                <Text className={`font-black text-xs ${activeTab === 'personnel' ? 'text-brand-primary' : 'text-typography-muted'}`}>
-                  Personnel Comparison
-                </Text>
-                {!canPersonnel && <FontAwesome name="lock" size={9} color="rgb(100,116,139)" />}
-              </View>
-            </TouchableOpacity>
+            {planReady && limits.personnel && (
+              <TouchableOpacity
+                onPress={() => canCompare && setActiveTab('personnel')}
+                className={`px-4 py-2 -mb-px border-b-2 transition-all ${
+                  activeTab === 'personnel'
+                    ? 'border-brand-primary'
+                    : !canCompare
+                    ? 'opacity-40 cursor-not-allowed border-transparent'
+                    : 'border-transparent hover:border-surface-border'
+                }`}
+              >
+                <View className="flex-row items-center gap-1.5">
+                  <Text className={`font-black text-xs ${activeTab === 'personnel' ? 'text-brand-primary' : 'text-typography-muted'}`}>
+                    Personnel Comparison
+                  </Text>
+                  {!canCompare && <FontAwesome name="lock" size={9} color="rgb(100,116,139)" />}
+                </View>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               onPress={() => setActiveTab('portfolio')}
@@ -950,16 +942,14 @@ export default function AdminAnalyticsWeb() {
             </TouchableOpacity>
           </View>
 
-          {activeTab === 'pipeline' && <PipelineTab planCode={planCode} limits={limits} />}
-          {activeTab === 'personnel' && canPersonnel && <PersonnelTab planCode={planCode} limits={limits} catalog={catalog} />}
-          {activeTab === 'personnel' && !canPersonnel && (
+          {activeTab === 'pipeline' && <PipelineTab planCode={planCode} planReady={planReady} limits={limits} />}
+          {activeTab === 'personnel' && planReady && limits.personnel && canCompare && <PersonnelTab limits={limits} />}
+          {activeTab === 'personnel' && planReady && limits.personnel && !canCompare && (
             <View className="bg-surface-card border border-surface-border rounded-2xl p-10 items-center gap-3">
               <FontAwesome name="lock" size={32} color={colors.primary} />
-              <Text className="text-typography-main font-black text-lg">
-                Requires {requiredPlan('personnel', catalog)} Plan
-              </Text>
+              <Text className="text-typography-main font-black text-lg">Permission Required</Text>
               <Text className="text-typography-muted text-sm text-center">
-                Personnel benchmarking is available on the {requiredPlan('personnel', catalog)} plan and above.
+                You need analytics.compare to access personnel benchmarking.
               </Text>
             </View>
           )}

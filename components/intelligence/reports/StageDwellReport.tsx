@@ -1,6 +1,7 @@
 import React from 'react'
 import { Document, Page, StyleSheet } from '@react-pdf/renderer'
 import { C, base } from './theme'
+import { computeWeightedAverage } from '@/lib/reporting/reportCalculations'
 import { Cover, Footer, Section, SectionDivider, Sub, KpiRow, Table, HBar, Empty, Insight, sf, fmtDate, fmtSec } from './shared'
 
 const s = StyleSheet.create({ page: { ...base.page } })
@@ -19,7 +20,7 @@ export function StageDwellReportPages({ data, jobId, isModule }: { data: StageDw
   const bottlenecks   = rows.filter(r => r.is_bottleneck)
   const highReversals = rows.filter(r => (r.reversal_count || 0) > 3)
   const totalSamples  = rows.reduce((s, r) => s + (r.sample_count || 0), 0)
-  const avgDwell      = rows.length > 0 ? rows.reduce((s, r) => s + (r.avg_seconds || 0), 0) / rows.length : 0
+  const avgDwell      = computeWeightedAverage(rows.map(r => ({ value: r.avg_seconds, weight: r.sample_count })))
 
   return (
     <>
@@ -40,7 +41,7 @@ export function StageDwellReportPages({ data, jobId, isModule }: { data: StageDw
           { label: 'Stages Analyzed',    value: String(rows.length),            accent: C.primary },
           { label: 'Total Transitions',  value: String(totalSamples),           accent: C.primary },
           { label: 'Bottleneck Stages',  value: String(bottlenecks.length),     accent: bottlenecks.length > 0 ? C.danger : C.success, color: bottlenecks.length > 0 ? C.danger : C.success },
-          { label: 'Avg Dwell (All)',    value: fmtSec(avgDwell),               accent: C.warning },
+          { label: 'Avg Dwell (All)',    value: avgDwell === null ? 'N/A' : fmtSec(avgDwell), accent: avgDwell === null ? C.muted : C.warning },
         ]} />
 
         {rows.length === 0 ? (
@@ -50,9 +51,9 @@ export function StageDwellReportPages({ data, jobId, isModule }: { data: StageDw
             <Sub title="Dwell Time by Stage (Average)" />
             <HBar data={rows.map(r => ({
               label: String(r.stage_name || '—').substring(0, 22),
-              value: r.avg_seconds || 0,
-              display: fmtSec(r.avg_seconds || 0),
-              color: r.is_bottleneck ? C.danger : C.primary,
+              value: r.sample_count > 0 ? r.avg_seconds || 0 : 0,
+              display: r.sample_count > 0 ? fmtSec(r.avg_seconds || 0) : '—',
+              color: r.sample_count > 0 ? r.is_bottleneck ? C.danger : C.primary : C.muted,
             }))} />
 
             <Sub title="Detailed Stage Metrics" />
@@ -62,9 +63,9 @@ export function StageDwellReportPages({ data, jobId, isModule }: { data: StageDw
               rows={rows.map(r => ({
                 cells: [
                   String(r.stage_name || '—').substring(0, 24),
-                  fmtSec(r.avg_seconds || 0),
-                  fmtSec(r.median_seconds || 0),
-                  fmtSec(r.p75_seconds || 0),
+                  r.sample_count > 0 ? fmtSec(r.avg_seconds || 0) : '—',
+                  r.sample_count > 0 ? fmtSec(r.median_seconds || 0) : '—',
+                  r.sample_count > 0 ? fmtSec(r.p75_seconds || 0) : '—',
                   String(r.sample_count || 0),
                   String(r.reversal_count || 0),
                   r.is_bottleneck ? 'BOTTLENECK' : 'Normal',

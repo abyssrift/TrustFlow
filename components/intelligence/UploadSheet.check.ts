@@ -1,30 +1,13 @@
 // Run with: npx tsx components/intelligence/UploadSheet.check.ts
-// Focused source checks for the adaptive UploadSheet composer contract.
+// Focused source checks for the removal of the legacy adaptive uploader.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const source = readFileSync('components/intelligence/_filehub_adaptive.tsx', 'utf8');
-const composer = source.slice(source.indexOf('function UploadSheet('), source.indexOf('function GroupCreateSheet('));
-
-assert.match(composer, /mobilePage === 'composer' && pickedFiles\.length > 0/);
-assert.match(composer, /className="px-6 pt-3 pb-5 border-t border-surface-border bg-surface-card"/);
-assert.match(composer, /accessibilityState=\{\{ disabled: uploading/);
-assert.match(composer, /mobilePage === 'recipients'/);
-assert.match(composer, /mobilePage === 'destination'/);
-assert.match(composer, /clearRecipientSearch\(\); setMobilePage\('composer'\)/);
-assert.match(composer, /visibilitySeed\?: 'direct' \| 'broadcast'/);
-assert.match(composer, /visibilitySeed === 'broadcast' && canBroadcast/);
-assert.match(composer, /recipientSearchRequest\.current \+= 1/);
-assert.match(composer, /accessibilityState=\{\{ selected: visibility === 'broadcast' \}\}/);
-assert.match(composer, /accessibilityLabel="Done choosing recipients"/);
-assert.match(composer, /accessibilityLabel="Choose files"/);
-assert.match(composer, /accessibilityLabel="Optional upload details"/);
-assert.match(composer, /accessibilityLabel=\{`Remove recipient/);
-assert.match(composer, /const \[memberResults, setMemberResults\] = useState<UploadMemberSummary\[\]>\(\[\]\)/);
-assert.match(composer, /\.order\('full_name', \{ ascending: true \}\)/);
-assert.match(composer, /const seen = new Set<string>\(\)/);
-assert.match(composer, /setMemberSearchLoading\(false\)/);
-assert.match(composer, /No details/);
-assert.match(composer, /Clear all staged files/);
+assert.doesNotMatch(source, /function UploadSheet\(/, 'legacy adaptive uploader must be removed');
+assert.doesNotMatch(source, /rpc_filehub_upload_commit/, 'adaptive FileHub must not commit uploads directly');
+assert.doesNotMatch(source, /storage\.from\(['"]filehub-files['"]\)\.upload/, 'adaptive FileHub must not upload bytes directly');
+assert.match(source, /summon\('upload', \{/s, 'adaptive FileHub must summon the decoupled uploader');
+assert.doesNotMatch(source, /setShowUpload|showUpload/, 'adaptive FileHub must not own a second upload modal');
 
 console.log('UploadSheet.check: all assertions passed');

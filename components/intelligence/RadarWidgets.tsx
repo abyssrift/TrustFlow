@@ -12,9 +12,11 @@ import {
     XAxis, YAxis,
 } from 'recharts';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { compareAuditMetric } from '@/lib/analyticsMetrics';
 import { SLARiskPulseDot, slaPulseStagger } from '@/components/intelligence/SLARiskPulse';
 import { bucketLabel } from '@/lib/chartBuckets';
 import { formatDuration as fmtDwell } from '@/lib/duration';
+import type { OrganizationalAudit } from '@/lib/analyticsMetrics';
 
 // SLA risk driver -> label + colour tone. `reason` from rpc_get_organizational_audit
 // (deadline | over_budget | stalled). Colour is keyed to the DRIVER, not raw severity,
@@ -205,7 +207,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
   );
 };
 
-export const ConversionFunnelChartWeb = ({ data, className }: { data: any, className?: string }) => {
+export const ConversionFunnelChartWeb = ({ data, className }: { data: OrganizationalAudit | null, className?: string }) => {
   const colors = useThemeColors();
   if (!data?.conversion_by_stage) return null;
   return (
@@ -414,19 +416,23 @@ export const TrendComparisonCardsWeb = ({ data, className }: { data: any, classN
       <Text className="text-typography-main font-black text-2xl tracking-tight mb-5">Performance Trends</Text>
       <View className="flex-row flex-wrap gap-4">
         {metrics.map((m, idx) => {
-          const change = (m.val || 0) - (m.prev || 0);
-          const isPositive = m.hBetter ? change >= 0 : change <= 0;
+          const comparison = compareAuditMetric(m.val, m.prev, m.hBetter);
+          const isPositive = comparison.favorable === true;
           return (
             <View key={idx} className="flex-1 min-w-[220px] bg-surface-card p-5 rounded-2xl border border-surface-border premium-shadow">
               <Text className="text-typography-muted text-[10px] font-black uppercase tracking-[0.2em] mb-4">{m.label}</Text>
               <View className="flex-row items-baseline justify-between">
-                <Text className="text-typography-main text-3xl font-black">{Math.round(m.val || 0)}{m.suffix}</Text>
-                <View className={`flex-row items-center px-3 py-1 rounded-full ${isPositive ? 'bg-state-success-dim' : 'bg-state-danger-dim'}`}>
-                  <FontAwesome name={change >= 0 ? 'caret-up' : 'caret-down'} size={12} color={isPositive ? colors.success : colors.danger} style={{ marginRight: 8 }} />
-                  <Text className={`text-[10px] font-black ${isPositive ? 'text-state-success' : 'text-state-danger'}`}>
-                    {Math.abs(Math.round(change))}{m.suffix}
-                  </Text>
-                </View>
+                <Text className={`${comparison.value === null ? 'text-typography-muted' : 'text-typography-main'} text-3xl font-black`}>
+                  {comparison.value === null ? 'N/A' : `${Math.round(comparison.value)}${m.suffix}`}
+                </Text>
+                {comparison.delta !== null && (
+                  <View className={`flex-row items-center px-3 py-1 rounded-full ${isPositive ? 'bg-state-success-dim' : 'bg-state-danger-dim'}`}>
+                    <FontAwesome name={comparison.delta >= 0 ? 'caret-up' : 'caret-down'} size={12} color={isPositive ? colors.success : colors.danger} style={{ marginRight: 8 }} />
+                    <Text className={`text-[10px] font-black ${isPositive ? 'text-state-success' : 'text-state-danger'}`}>
+                      {Math.abs(Math.round(comparison.delta))}{m.suffix}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           );
@@ -472,7 +478,7 @@ export const StageDurationMiniWeb = ({ data, onViewAll, className }: { data: any
         <View>
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Stage Durations</Text>
           <Text className="text-typography-main font-bold text-base">
-            {slowStages > 0 ? `${slowStages} stages exceeding target` : 'All stages within target'}
+            {slowStages > 0 ? `${slowStages} stages over 2.5 days` : 'No stages over 2.5 days'}
           </Text>
         </View>
       </View>

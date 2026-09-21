@@ -612,7 +612,7 @@ export default function BulkCreateProjectsSheet({
   // not "batch creation failed".
   async function getOrCreateStandingFolder(): Promise<string | null> {
     try {
-      const { data: rootId, error: rootErr } = await supabase.rpc('rpc_filehub_folder_create', {
+      const { data: rootId, error: rootErr } = await supabase.rpc('rpc_filehub_get_system_folder', {
         p_name: 'Portfolio Imports',
         p_scope: 'broadcast',
       });

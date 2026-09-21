@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { reconcileMutationSelection } from '@/lib/multiSelection';
 
 // Issue #216 — bulk actions for multi-selected tasks on the Tasks board.
 // Every backing RPC here already existed for the single-task flows
@@ -10,6 +11,11 @@ export type BulkOutcome = {
   succeededIds: string[];
   failed: { id: string; message: string }[];
 };
+
+/** Keep failed and unreported ids selected until the caller has reconciled the result. */
+export function reconcileBulkSelection(selectedIds: string[], outcome: BulkOutcome): string[] {
+  return reconcileMutationSelection(selectedIds, outcome.succeededIds);
+}
 
 /**
  * Runs `fn` once per id, in order, isolating failures so one bad task

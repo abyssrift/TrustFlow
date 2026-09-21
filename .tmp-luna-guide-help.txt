@@ -1,0 +1,7 @@
+**Work package A complete.** Replaced the visible text with a FontAwesome question-circle button, wrapped it in the shared Tooltip with the exact label “Help,” and kept the guide-specific accessibility label and launch behavior.
+
+**Files changed:** [GuideHelpButton.tsx](/C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideHelpButton.tsx:1), [GuideHelpButton.test.tsx](/C:/Users/j/Documents/Github/TrustFlow/components/guides/GuideHelpButton.test.tsx:1). The test first failed against the old button’s missing 44×44 sizing, then passed after the implementation.
+
+**Checks:** `npx vitest run components/guides/GuideHelpButton.test.tsx` — passed. `node scripts/babelcheck.mjs components/guides/GuideHelpButton.tsx components/guides/GuideHelpButton.test.tsx` — both files OK.
+
+This uses one responsive control for desktop and mobile. Manual check: at ~1400px and 390px, confirm the icon, tooltip, tap target, and guide launch; tab to it and confirm the global keyboard focus ring is visible. I left the pre-existing dirty tree untouched. I did not run `graphify update .` because it would modify files outside this package’s ownership.

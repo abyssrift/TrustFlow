@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
+import { useCanonicalAnalyticsTargets } from '@/hooks/useCanonicalAnalyticsTargets';
+import { getTargetHistoryDate, toTargetScreenTarget } from '@/lib/analyticsTargets';
 import { supabase } from '@/lib/supabase';
 import { localIsoDay } from '@/lib/time';
 import { FontAwesome } from '@expo/vector-icons';
@@ -274,16 +276,22 @@ const TargetCircle = ({
   const circumference = 2 * Math.PI * r;
 
   const isVolume = target.target_type === 'volume';
-  const progress = isVolume
-    ? Math.min(((target.current_count ?? 0) / (target.target_quantity || 1)) * 100, 100)
-    : 50;
+  const hasValidVolumeProgress = isVolume
+    && typeof target.current_count === 'number'
+    && Number.isFinite(target.current_count)
+    && typeof target.target_quantity === 'number'
+    && Number.isFinite(target.target_quantity)
+    && target.target_quantity > 0;
+  const progress = hasValidVolumeProgress
+    ? Math.min((target.current_count / target.target_quantity) * 100, 100)
+    : 0;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   const isExpired =
     target.status === 'active' &&
     target.target_deadline &&
     new Date(target.target_deadline) < new Date();
-  const isMet = isVolume && target.status === 'active' && (target.current_count ?? 0) >= (target.target_quantity ?? 1);
+  const isMet = hasValidVolumeProgress && target.status === 'active' && target.current_count >= target.target_quantity;
 
   const ringColor = target.status !== 'active'
     ? palette.textDim
@@ -309,13 +317,15 @@ const TargetCircle = ({
         {/* Track */}
         <Circle cx={cx} cy={cx} r={r} fill="none" stroke={palette.border} strokeWidth={STROKE} />
         {/* Progress */}
-        <Circle
-          cx={cx} cy={cx} r={r} fill="none"
-          stroke={`url(#${gradId})`}
-          strokeWidth={STROKE} strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset} strokeLinecap="round"
-          rotation={-90} originX={cx} originY={cx}
-        />
+        {hasValidVolumeProgress && (
+          <Circle
+            cx={cx} cy={cx} r={r} fill="none"
+            stroke={`url(#${gradId})`}
+            strokeWidth={STROKE} strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset} strokeLinecap="round"
+            rotation={-90} originX={cx} originY={cx}
+          />
+        )}
         {/* Inner fill */}
         <Circle cx={cx} cy={cx} r={r - STROKE / 2 - 1} fill={palette.card} />
       </Svg>
@@ -334,21 +344,19 @@ const TargetCircle = ({
           </Text>
         </View>
 
-        <View className="flex-row items-baseline">
-          <Text className="text-typography-main font-black" style={{ fontSize: Math.round(size * 0.14), lineHeight: Math.round(size * 0.16) }}>
-            {Math.round(progress)}
-          </Text>
-          <Text className="text-typography-muted font-black text-sm ml-0.5">%</Text>
-        </View>
-
         {isVolume ? (
           <Text className="text-typography-muted font-bold mt-1" style={{ fontSize: 10 }}>
-            {target.current_count ?? 0}/{target.target_quantity}
+            {hasValidVolumeProgress ? `${target.current_count}/${target.target_quantity}` : 'Count unavailable'}
           </Text>
         ) : (
-          <Text className="text-typography-muted font-bold mt-1" style={{ fontSize: 10 }}>
-            {Math.round((target.target_active_seconds ?? 0) / 60)}m
-          </Text>
+          <View className="items-center mt-1">
+            <Text className="text-typography-muted font-bold" style={{ fontSize: 9 }}>
+              Active SLA {target.target_active_seconds == null ? '—' : `${Math.round(target.target_active_seconds / 60)}m`}
+            </Text>
+            <Text className="text-typography-muted font-bold mt-0.5" style={{ fontSize: 9 }}>
+              Lifecycle {target.target_lifecycle_seconds == null ? '—' : `${Math.round(target.target_lifecycle_seconds / 3600)}h`}
+            </Text>
+          </View>
         )}
 
         {target.target_deadline && (
@@ -401,14 +409,37 @@ const TargetCircle = ({
 
 export default function IntelligenceTargetsNative() {
   const colors = useThemeColors();
+  const { hasPermission, permissionsLoaded } = useAuth();
+
+  if (!permissionsLoaded) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!hasPermission('target.view')) {
+    return (
+      <View className="flex-1 bg-surface-background items-center justify-center p-10">
+        <Text className="text-typography-main font-black text-xl text-center">Access Restricted</Text>
+      </View>
+    );
+  }
+
+  return <IntelligenceTargetsNativeContent />;
+}
+
+function IntelligenceTargetsNativeContent() {
+  const colors = useThemeColors();
   const { showAlert } = useAlert();
-  const { profile } = useAuth();
+  const { profile, hasPermission } = useAuth();
   const { theme: activeTheme } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
-  const [targets, setTargets]     = useState<any[]>([]);
+  const { targets: canonicalTargets, loading, error, refresh } = useCanonicalAnalyticsTargets({ enabled: hasPermission('target.view') });
+  const targets = canonicalTargets.map(toTargetScreenTarget);
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [allStages, setAllStages] = useState<any[]>([]);
-  const [loading, setLoading]     = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
 
@@ -425,28 +456,7 @@ export default function IntelligenceTargetsNative() {
       if (p.data) setPipelines(p.data);
       if (s.data) setAllStages(s.data);
     });
-    fetchTargets();
   }, []);
-
-  const fetchTargets = async () => {
-    setLoading(true);
-    try {
-      const { data: res } = await supabase
-        .from('pipeline_stage_targets')
-        .select('*, stage:pipeline_stages(name, pipeline_id)')
-        .order('created_at', { ascending: false });
-
-      const enriched = await Promise.all((res || []).map(async t => {
-        if (t.target_type === 'volume') {
-          const { count } = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('current_stage_id', t.stage_id).is('deleted_at', null);
-          return { ...t, current_count: count || 0 };
-        }
-        return t;
-      }));
-      setTargets(enriched);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  };
 
   const handleCreate = async (params: any) => {
     try {
@@ -460,27 +470,33 @@ export default function IntelligenceTargetsNative() {
         target_deadline: params.deadline,
       });
       if (error) throw error;
-      fetchTargets();
+      await refresh();
     } catch (e: any) { showAlert('Error', e.message); }
   };
 
   const handleAction = async (targetId: string, action: 'completed' | 'expired' | 'clear') => {
     try {
       if (action === 'clear') {
-        await supabase.from('pipeline_stage_targets').delete().eq('id', targetId);
+        const { error } = await supabase.from('pipeline_stage_targets').delete().eq('id', targetId);
+        if (error) throw error;
       } else {
-        await supabase.from('pipeline_stage_targets').update({
+        const { error } = await supabase.from('pipeline_stage_targets').update({
           status: action,
           completed_at: action === 'completed' ? new Date().toISOString() : null,
         }).eq('id', targetId);
+        if (error) throw error;
       }
-      fetchTargets();
+      await refresh();
     } catch (e: any) { showAlert('Error', e.message); }
   };
 
   const handleUpdate = async (id: string, updates: Record<string, any>) => {
     const { error } = await supabase.from('pipeline_stage_targets').update(updates).eq('id', id);
-    if (!error) fetchTargets();
+    if (error) {
+      showAlert('Error', error.message);
+      return;
+    }
+    await refresh();
   };
 
   const activeTargets  = targets.filter(t => t.status === 'active');
@@ -488,14 +504,14 @@ export default function IntelligenceTargetsNative() {
 
   const velocityData = Object.values(
     historyTargets.reduce((acc: any, t) => {
-      if (t.status === 'completed' && t.completed_at) {
-        const date = new Date(t.completed_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        acc[date] = acc[date] || { date, count: 0 };
-        acc[date].count += 1;
-      }
+      const historyDate = getTargetHistoryDate(t);
+      if (t.status !== 'completed' || !historyDate) return acc;
+      const date = historyDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      acc[date] = acc[date] || { date, timestamp: historyDate.getTime(), count: 0 };
+      acc[date].count += 1;
       return acc;
     }, {})
-  ).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()) as any[];
+  ).sort((a: any, b: any) => a.timestamp - b.timestamp) as any[];
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -509,7 +525,7 @@ export default function IntelligenceTargetsNative() {
         </View>
         <View className="flex-row flex-wrap justify-end gap-2 mt-3">
           <Tooltip label="Refresh targets">
-            <TouchableOpacity onPress={fetchTargets} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
+            <TouchableOpacity onPress={() => void refresh()} className="w-11 h-11 items-center justify-center bg-surface-card border border-surface-border rounded-2xl">
               <FontAwesome name="refresh" size={13} color={colors.primary} />
             </TouchableOpacity>
           </Tooltip>
@@ -523,6 +539,16 @@ export default function IntelligenceTargetsNative() {
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : error ? (
+        <View className="flex-1 items-center justify-center px-6">
+          <View className="bg-surface-card p-8 rounded-3xl border border-surface-border items-center w-full">
+            <Text className="text-typography-main text-lg font-black mb-2">Targets unavailable</Text>
+            <Text className="text-typography-muted text-center text-sm mb-5">Target data could not be loaded. Try again.</Text>
+            <TouchableOpacity onPress={() => void refresh()} className="bg-brand-primary px-6 py-3 rounded-2xl">
+              <Text className="text-white font-black uppercase tracking-widest text-xs">Retry</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : targets.length === 0 ? (
         <View className="flex-1 items-center justify-center px-6">
