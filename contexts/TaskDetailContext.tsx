@@ -103,6 +103,7 @@ export type DeletedTaskAttachmentData = TaskAttachmentData & {
 export type CommentData = {
   id: string; content: string; parent_id: string | null; is_system: boolean;
   author: UserRef; created_at: string;
+  mentioned_user_ids?: string[];
 };
 
 export type WorkSessionData = {
@@ -193,7 +194,7 @@ export type TaskDetailContextType = {
   refresh: () => Promise<void>;
   executeAction: (actionId: string, payload?: any) => Promise<StageTransitionUndoMetadata | null>;
   submitWork: (content: string, transitionId?: string | null, attachments?: any[]) => Promise<void>;
-  addComment: (content: string, parentId?: string | null) => Promise<void>;
+  addComment: (content: string, parentId?: string | null, mentionedUserIds?: string[]) => Promise<void>;
   deleteComment: (commentId: string) => Promise<void>;
   advanceStage: (toStageId: string) => Promise<StageTransitionUndoMetadata | null>;
   linkPipeline: (pipelineId: string) => Promise<void>;
@@ -235,7 +236,7 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     try {
       taskFlowDebug('task-detail.fetch:start', { taskId });
       setError(null);
-      const [{ data: result, error: rpcError }, { data: childRows }, { data: linkRows }, { data: pointerData, error: pointerError }] = await Promise.all([
+      const [{ data: result, error: rpcError }, { data: childRows }, { data: linkRows }, { data: pointerData, error: pointerError }, { data: mentionRows }] = await Promise.all([
         supabase.rpc('rpc_get_task_details', { p_task_id: taskId }),
         supabase
           .from('tasks')
@@ -255,6 +256,9 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
           `)
           .eq('task_id', taskId),
         supabase.rpc('rpc_task_filehub_attachment_pointers', { p_task_id: taskId }),
+        // #461: structured mentions. rpc_get_task_details' comment objects
+        // predate the column; read it here rather than redefine that RPC.
+        supabase.from('task_comments').select('id, mentioned_user_ids').eq('task_id', taskId).is('deleted_at', null),
       ]);
 
       if (rpcError) throw rpcError;
@@ -296,9 +300,11 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
       };
       const taskPointers = new Map((pointerEnvelope.task_attachments || []).map((row) => [row.id, row]));
       const submissionPointers = new Map((pointerEnvelope.submission_attachments || []).map((row) => [row.id, row]));
+      const mentionMap = new Map((mentionRows || []).map((r: any) => [r.id, r.mentioned_user_ids as string[]]));
       const normalized = {
         ...(result as TaskDetailPayload),
         child_tasks,
+        comments: ((result as any).comments || []).map((c: any) => ({ ...c, mentioned_user_ids: mentionMap.get(c.id) ?? [] })),
         linked_pipelines,
         task_attachments: ((result as any).task_attachments || []).map((a: any) => ({
           ...a,
@@ -429,10 +435,11 @@ export const TaskDetailProvider = ({ taskId, children }: { taskId: string; child
     }
   }, [taskId, fetchDetails, successToast, errorToast]);
 
-  const addComment = useCallback(async (content: string, parentId?: string | null) => {
+  const addComment = useCallback(async (content: string, parentId?: string | null, mentionedUserIds?: string[]) => {
     try {
       const { error } = await supabase.rpc('rpc_add_task_comment', {
         p_task_id: taskId, p_content: content, p_parent_id: parentId || null,
+        p_mentioned_user_ids: mentionedUserIds?.length ? mentionedUserIds : null,
       });
       if (error) throw error;
       infoToast('Comment posted.');
