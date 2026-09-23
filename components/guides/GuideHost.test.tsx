@@ -6,6 +6,7 @@ type Renderer = ReturnType<typeof TestRenderer.create>;
 
 const state = vi.hoisted(() => ({
   pathname: '/',
+  searchParams: {} as Record<string, string | string[]>,
   viewport: { width: 1400, height: 900 },
   storage: new Map<string, string>(),
   listeners: new Set<(path: string) => void>(),
@@ -79,7 +80,6 @@ describe('GuideHost checklist', () => {
     state.searchParams = {};
     state.viewport = { width: 1400, height: 900 };
     state.storage.clear();
-    state.storage.set('guide-checklist:auto-open:v1:user-1:company-1', '1');
     state.listeners.clear();
     state.push.mockReset();
     state.push.mockImplementation((route: string) => { state.pathname = route.split('?')[0]; state.listeners.forEach((listener) => listener(state.pathname)); });
@@ -169,6 +169,22 @@ describe('GuideHost checklist', () => {
     await act(async () => { launcher.props.onPress(); });
     await vi.waitFor(() => expect(state.start).toHaveBeenCalledWith('tasks'));
     expect(renderer.root.findAllByProps({ testID: 'guide-checklist-panel' })).toHaveLength(0);
+    renderer.unmount();
+  });
+
+  it('continues into the next unfinished guide after finishing one instead of ending', async () => {
+    state.pathname = '/profile';
+    let renderer!: Renderer;
+    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHost /></ContextualGuideProvider>); });
+    await press(renderer, 'Open Your profile guide');
+    await vi.waitFor(() => expect(renderer.root.findAllByProps({ accessibilityLabel: 'Next guide step' }).length).toBeGreaterThan(0), { timeout: 2000 });
+    await press(renderer, 'Next guide step');
+    await press(renderer, 'Next guide step');
+    expect(text(renderer)).toContain('Next: Navigate TrustFlow');
+    await press(renderer, 'Finish and continue to Navigate TrustFlow');
+    await vi.waitFor(() => expect(state.start).toHaveBeenCalledWith('top-bar'), { timeout: 2000 });
+    expect(state.complete).toHaveBeenCalledWith('profile');
+    expect(state.push).toHaveBeenCalledWith('/');
     renderer.unmount();
   });
 
@@ -300,7 +316,7 @@ describe('GuideHost checklist', () => {
     renderer.unmount();
   });
 
-  it('keeps Replay available for Done and does not turn Skip for now into Done', async () => {
+  it('keeps Replay available for Done and Skip for now neither completes nor marks familiar', async () => {
     let renderer!: Renderer;
     await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHost /></ContextualGuideProvider>); });
     await press(renderer, 'Open To Do checklist');
@@ -317,7 +333,8 @@ describe('GuideHost checklist', () => {
     await vi.waitFor(() => expect(state.start).toHaveBeenCalledWith('profile'));
     await vi.waitFor(() => expect(text(skipped)).toContain('Step 1 of 3'));
     await press(skipped, 'Skip for now');
-    expect(state.skip).toHaveBeenCalledWith('profile');
+    expect(state.skip).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(state.start).toHaveBeenCalledWith('top-bar'), { timeout: 2000 });
     expect(state.complete).not.toHaveBeenCalled();
     await act(async () => { skipped.unmount(); });
   });

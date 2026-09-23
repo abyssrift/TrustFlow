@@ -1,7 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useGuideProgress } from '@/hooks/useGuideProgress';
 import { useResponsive } from '@/hooks/useResponsive';
 import { eligibleGuides, eligibleGuidePhases, filterEligibleProgress, getNewGuideIds, getSubtleNewGuideIds, getGuideForRoute, guideRouteMatches, GuideAnchorId, GuideDefinition, GuideId, GuideProgress, GuideRowStatus, clampGuideStep } from '@/lib/contextualGuides';
@@ -32,6 +31,10 @@ type GuideContextValue = {
   progressRetry(): Promise<void>;
   guideError: string | null;
   activeAnchor: GuideRect | null;
+  /** Guide the tour continues into after the active one finishes; null ends at the checklist. */
+  followingGuide: GuideDefinition | null;
+  /** Guide left mid-way by navigating off its route; the launcher offers to resume it. */
+  suspendedGuide: GuideDefinition | null;
   nextStep(): Promise<void>;
   previousStep(): void;
   skipGuide(): Promise<void>;
@@ -44,7 +47,6 @@ type GuideContextValue = {
 const GuideContext = createContext<GuideContextValue | null>(null);
 const ROUTE_TIMEOUT_MS = 1500;
 const ANCHOR_TIMEOUT_MS = 550;
-const CHECKLIST_AUTO_OPEN_KEY = 'guide-checklist:auto-open:v1';
 
 function wait(ms: number) { return new Promise<void>((resolve) => setTimeout(resolve, ms)); }
 
@@ -58,8 +60,6 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   const eligibleKey = definitions.map(({ id, version }) => `${id}:${version}`).join('|');
   const scope = user?.id && profile?.company_id ? `${user.id}:${profile.company_id}` : null;
   const progress = useGuideProgress(definitions);
-  const scopeRef = useRef(scope);
-  scopeRef.current = scope;
   const visibleProgress = useMemo(() => filterEligibleProgress(progress.progressById as Partial<Record<GuideId, GuideProgress>>, definitions) as Partial<Record<GuideId, ContextGuideProgress>>, [progress.progressById, definitions]);
   const scopedProgress = progress.scope === scope ? visibleProgress : {};
   const guidePhases = useMemo(() => eligibleGuidePhases(definitions), [definitions]);
@@ -81,6 +81,8 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   const anchorMeasureToken = useRef(0);
   const [checklistVisible, setChecklistVisible] = useState(false);
   const [activeId, setActiveId] = useState<GuideId | null>(null);
+  // Guide the user navigated away from mid-way; the launcher offers to resume it.
+  const [suspendedId, setSuspendedId] = useState<GuideId | null>(null);
   const [activeScope, setActiveScope] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [activeAnchor, setActiveAnchor] = useState<GuideRect | null>(null);
@@ -88,18 +90,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   const wasChecklistComplete = useRef(false);
   const launchToken = useRef(0);
   const activeGuide = activeScope === scope ? definitions.find((guide) => guide.id === activeId) ?? null : null;
-
-  useEffect(() => {
-    if (!scope || !user || !initialized || !profile || !permissionsLoaded || definitions.length === 0 || progress.scope !== scope || progress.loading) return;
-    let active = true;
-    const markerKey = `${CHECKLIST_AUTO_OPEN_KEY}:${scope}`;
-    void AsyncStorage.getItem(markerKey).then(async (marker) => {
-      if (!active || scopeRef.current !== scope || marker) return;
-      await AsyncStorage.setItem(markerKey, '1');
-      if (active && scopeRef.current === scope) setChecklistVisible(true);
-    }).catch(() => undefined);
-    return () => { active = false; };
-  }, [scope, initialized, permissionsLoaded, eligibleKey, progress.scope, progress.loading]);
+  const suspendedGuide = definitions.find((guide) => guide.id === suspendedId) ?? null;
 
   useEffect(() => {
     const previous = previousEligible.current;
@@ -139,6 +130,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
     anchorMeasureToken.current++;
     activeAnchorId.current = null;
     setActiveId(null);
+    setSuspendedId(null);
     setActiveScope(null);
     setActiveAnchor(null);
     setChecklistVisible(false);
@@ -158,6 +150,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   useEffect(() => {
     if (!activeGuide) return;
     if (!guideRouteMatches(pathname, activeGuide.route, searchParams)) {
+      setSuspendedId(activeGuide.id);
       setActiveId(null);
       setActiveAnchor(null);
       activeAnchorId.current = null;
@@ -198,6 +191,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
     setGuideError(null);
     setChecklistVisible(false);
     setActiveId(null);
+    setSuspendedId(null);
     setActiveScope(null);
     setActiveAnchor(null);
     activeAnchorId.current = null;
@@ -238,20 +232,33 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
     }
   }, [definitions, router, progress.start, scopedProgress, scope]);
 
+  // Next unfinished guide in curriculum order, after the active one.
+  const followingGuide = useMemo(() => {
+    const ordered = guidePhases.flatMap((phase) => phase.guides);
+    const start = activeGuide ? ordered.findIndex((guide) => guide.id === activeGuide.id) + 1 : 0;
+    const unfinished = (guide: GuideDefinition) => guide.id !== activeGuide?.id
+      && scopedProgress[guide.id]?.status !== 'done' && scopedProgress[guide.id]?.status !== 'familiar';
+    return ordered.slice(start).find(unfinished) ?? ordered.slice(0, start).find(unfinished) ?? null;
+  }, [guidePhases, activeGuide, scopedProgress]);
+
   const closeGuide = useCallback(() => {
     launchToken.current++;
     anchorMeasureToken.current++;
     activeAnchorId.current = null;
     setActiveId(null);
+    setSuspendedId(null);
     setActiveScope(null);
     setActiveAnchor(null);
     setGuideError(null);
   }, []);
+  // Skip leaves progress untouched (start already acknowledged it) and moves the tour on.
+  // It must not write 'familiar': the server rejects that from in_progress, which used to
+  // drop the whole session into device-only progress.
   const skipGuide = useCallback(async () => {
     if (!activeId) return;
-    try { await progress.skip(activeId); closeGuide(); }
-    catch { setGuideError('Could not save guide progress. Retry your action.'); }
-  }, [activeId, progress.skip, closeGuide]);
+    closeGuide();
+    if (followingGuide) await launchGuide(followingGuide.id);
+  }, [activeId, followingGuide, launchGuide, closeGuide]);
   const completeGuide = useCallback(async (id: GuideId) => {
     try { await progress.complete(id); if (activeId === id) closeGuide(); }
     catch { setGuideError('Could not save guide progress. Retry your action.'); }
@@ -268,7 +275,13 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
     if (!activeGuide) return;
     const finalStep = activeStep >= activeGuide.steps.length - 1;
     try {
-      if (finalStep) { await progress.complete(activeGuide.id); closeGuide(); }
+      if (finalStep) {
+        await progress.complete(activeGuide.id);
+        closeGuide();
+        // Keep the tour going instead of dropping the user on the last page.
+        if (followingGuide) await launchGuide(followingGuide.id);
+        else setChecklistVisible(true);
+      }
       else {
         const next = activeStep + 1;
         await progress.saveStep(activeGuide.id, next);
@@ -278,7 +291,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
         await remeasureActiveAnchor();
       }
     } catch { setGuideError('Could not save guide progress. Retry your action.'); }
-  }, [activeGuide, activeStep, progress.complete, progress.saveStep, closeGuide, remeasureActiveAnchor]);
+  }, [activeGuide, activeStep, followingGuide, launchGuide, progress.complete, progress.saveStep, closeGuide, remeasureActiveAnchor]);
   const previousStep = useCallback(async () => {
     if (!activeGuide || activeStep <= 0) return;
     const previous = activeStep - 1;
@@ -297,7 +310,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
     checklistComplete, newGuideIds,
     progressLoading: progress.loading, progressError: progress.error, fallbackActive: progress.fallbackActive, progressRetry: progress.retry,
     eligibilityLoading: !!user && (!initialized || !profile || !permissionsLoaded),
-    guideError, activeAnchor, nextStep, previousStep, skipGuide, closeGuide,
+    guideError, activeAnchor, followingGuide, suspendedGuide, nextStep, previousStep, skipGuide, closeGuide,
     completeGuide, markFamiliar, acknowledgeNewGuide,
   };
   return <GuideContext.Provider value={value}>{children}</GuideContext.Provider>;

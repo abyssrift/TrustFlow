@@ -90,75 +90,58 @@ describe('ContextualGuideProvider', () => {
     state.progress = {};
   });
 
-  it('auto-opens once after eligibility and progress hydration, and persists before opening', async () => {
+  it('never auto-opens the checklist; WelcomeTour owns the first-run introduction', async () => {
     let guide: ReturnType<typeof useContextualGuide> | null = null;
     function Actions() { guide = useContextualGuide(); return null; }
-    state.progressLoading = true;
     let renderer!: Renderer;
     await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    expect(guide!.checklistVisible).toBe(false);
-    state.progressLoading = false;
-    await act(async () => { renderer.update(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    expect(guide!.checklistVisible).toBe(true);
-    expect(state.storage.get('guide-checklist:auto-open:v1:user-1:company-1')).toBe('1');
-    await act(async () => { guide!.closeChecklist(); });
-    renderer.unmount();
-    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    expect(guide!.checklistVisible).toBe(false);
-    renderer.unmount();
-  });
-
-  it('does not auto-open when eligibility is unresolved or the guide catalog is empty', async () => {
-    let guide: ReturnType<typeof useContextualGuide> | null = null;
-    function Actions() { guide = useContextualGuide(); return null; }
-    state.initialized = false;
-    let renderer!: Renderer;
-    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    expect(guide!.checklistVisible).toBe(false);
-    state.initialized = true;
-    state.permissionsLoaded = false;
-    await act(async () => { renderer.update(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
     expect(guide!.checklistVisible).toBe(false);
     expect(state.storage.size).toBe(0);
-    state.permissionsLoaded = true;
-    await act(async () => { renderer.update(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    expect(guide!.checklistVisible).toBe(true);
     renderer.unmount();
   });
 
-  it('ignores a pending marker read after the scope changes', async () => {
-    const pendingReads: Array<(value: string | null) => void> = [];
-    const read = vi.fn(() => new Promise<string | null>((resolve) => { pendingReads.push(resolve); }));
-    state.readStorage = read as any;
+  it('suspends a guide when the user navigates away and resumes it from the launcher state', async () => {
+    state.pathname = '/profile';
+    state.progress = { profile: { guideId: 'profile', status: 'in_progress', currentStep: 1, acknowledgedAt: 'now' } };
     let guide: ReturnType<typeof useContextualGuide> | null = null;
     function Actions() { guide = useContextualGuide(); return null; }
     let renderer!: Renderer;
     await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    await vi.waitFor(() => expect(read).toHaveBeenCalled());
-    state.companyId = 'company-2';
+    await act(async () => { await guide!.launchGuide('profile'); });
+    expect(guide!.suspendedGuide).toBeNull();
+    await act(async () => { state.pathname = '/tasks'; state.listeners.forEach((listener) => listener(state.pathname)); });
+    expect(guide!.activeGuide).toBeNull();
+    expect(guide!.suspendedGuide?.id).toBe('profile');
+    let resume!: Promise<void>;
+    await act(async () => { resume = guide!.launchGuide(guide!.suspendedGuide!.id); });
     await act(async () => { renderer.update(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(2));
-    await act(async () => { pendingReads[0](null); await Promise.resolve(); });
-    expect(guide!.checklistVisible).toBe(false);
-    expect(state.storage.has('guide-checklist:auto-open:v1:user-1:company-1')).toBe(false);
+    await act(async () => { await resume; });
+    expect(state.push).toHaveBeenCalledWith('/profile');
+    expect(guide!.activeGuide?.id).toBe('profile');
+    expect(guide!.activeStep).toBe(1);
+    expect(guide!.suspendedGuide).toBeNull();
+    await act(async () => { guide!.closeGuide(); });
+    expect(guide!.suspendedGuide).toBeNull();
     renderer.unmount();
-    state.readStorage = async (key: string) => state.storage.get(key) ?? null;
   });
 
-  it('auto-opens independently for each user and workspace scope', async () => {
+  it('skips without writing progress and moves on to the next unfinished guide', async () => {
+    state.pathname = '/profile';
+    state.progress = { profile: { guideId: 'profile', status: 'in_progress', currentStep: 1, acknowledgedAt: 'now' } };
     let guide: ReturnType<typeof useContextualGuide> | null = null;
     function Actions() { guide = useContextualGuide(); return null; }
     let renderer!: Renderer;
     await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    expect(guide!.checklistVisible).toBe(true);
-    await act(async () => { guide!.closeChecklist(); });
-    state.companyId = 'company-2';
+    await act(async () => { await guide!.launchGuide('profile'); });
+    expect(guide!.followingGuide?.id).toBe('top-bar');
+    let skip!: Promise<void>;
+    await act(async () => { skip = guide!.skipGuide(); });
     await act(async () => { renderer.update(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    expect(guide!.checklistVisible).toBe(true);
-    await act(async () => { guide!.closeChecklist(); });
-    state.userId = 'user-2';
-    await act(async () => { renderer.update(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
-    expect(guide!.checklistVisible).toBe(true);
+    await act(async () => { await skip; });
+    expect(state.skip).not.toHaveBeenCalled();
+    expect(state.complete).not.toHaveBeenCalled();
+    expect(state.push).toHaveBeenCalledWith('/');
+    expect(guide!.activeGuide?.id).toBe('top-bar');
     renderer.unmount();
   });
 

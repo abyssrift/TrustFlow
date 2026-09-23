@@ -210,7 +210,7 @@ describe('useGuideProgress', () => {
     await act(async () => {});
     const before = hook.result.progressById.tasks as GuideProgress;
     rpc.mockResolvedValue({ data: null, error: new Error('network unavailable') });
-    let saved!: GuideProgress;
+    let saved!: Awaited<ReturnType<typeof hook.result.start>>;
     await act(async () => { saved = await hook.result.start('tasks'); });
     expect(saved.status).toBe('in_progress');
     expect(hook.result.progressById.tasks?.firstEligibleAt).toBe(before.firstEligibleAt);
@@ -291,7 +291,7 @@ describe('useGuideProgress', () => {
     const hook = mount();
     await act(async () => {});
     rpc.mockRejectedValueOnce(new Error('private write detail'));
-    let saved!: GuideProgress;
+    let saved!: Awaited<ReturnType<typeof hook.result.start>>;
     await act(async () => { saved = await hook.result.start('tasks'); });
     expect(saved.status).toBe('in_progress');
     expect(hook.result.progressById.tasks).toEqual(saved);

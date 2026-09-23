@@ -149,7 +149,7 @@ export const GUIDE_REGISTRY: readonly GuideDefinition[] = [
     title: 'Share and organize files', summary: 'Keep documents easy to find and available to the right people.', route: '/filehub', shortcutId: 'filehub',
     steps: [
       { id: 'folders', title: 'Use folders to organize', body: 'Browse the folder navigation to keep related files together.' },
-      { id: 'sharing', title: 'Check where a file is shared', body: 'Review a file’s details before sharing or moving it.' },
+      { id: 'sharing', title: 'Check where a file is shared', body: 'Review a file\'s details before sharing or moving it.' },
       { id: 'history', title: 'Return to earlier versions', body: 'Open version history when you need to review or restore a previous file version.' },
     ],
   },
@@ -176,7 +176,7 @@ export const GUIDE_REGISTRY: readonly GuideDefinition[] = [
     id: 'workflow-pipelines', version: 1, scope: capability, phaseId: 'organize-workspace', order: 4,
     title: 'Shape your workflow', summary: 'Find a workflow and adjust how work progresses.', route: '/admin/pipelines', shortcutId: 'pipelines-admin',
     steps: [
-      { id: 'list', title: 'Choose a workflow', body: 'Find the workflow that organizes your team’s work.', anchorId: 'workflow-pipelines:list' },
+      { id: 'list', title: 'Choose a workflow', body: 'Find the workflow that organizes your team\'s work.', anchorId: 'workflow-pipelines:list' },
       { id: 'configuration', title: 'Shape the stages', body: 'Adjust stages so the workflow reflects how work moves forward.', anchorId: 'workflow-pipelines:configuration' },
       { id: 'review', title: 'Review the path', body: 'Check the stage order so teammates can tell what should happen next.' },
     ],

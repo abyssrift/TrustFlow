@@ -15,11 +15,12 @@ describe('GuideCoachPanel styling', () => {
     for (const label of ['Close guide', 'Skip for now', 'Previous guide step']) {
       expect(source).toContain(`accessibilityLabel="${label}"`);
     }
-    expect(source).toMatch(/accessibilityLabel=\{final \? 'Finish guide' : 'Next guide step'\}/);
+    expect(source).toMatch(/accessibilityLabel=\{final \? finishLabel : 'Next guide step'\}/);
+    expect(source).toMatch(/Finish and continue to \$\{followingGuide\.title\}/);
     expect(source).toMatch(/h-11 w-11/);
     expect(source).toMatch(/accessibilityState=\{\{ selected: final \}\}/);
     expect(source).toMatch(/name=\{final \? 'check' : 'arrow-right'\}/);
     expect(source).toMatch(/void nextStep\(\)/);
-    expect(source).toMatch(/Tooltip label=\{final \? 'Finish guide' : 'Next step'\}/);
+    expect(source).toMatch(/Tooltip label=\{final \? finishLabel : 'Next step'\}/);
   });
 });

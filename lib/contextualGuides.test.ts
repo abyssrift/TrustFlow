@@ -147,3 +147,13 @@ describe('contextual guide registry', () => {
     expect(getSubtleNewGuideIds(after, after, progress)).toEqual([]);
   });
 });
+
+describe('guide copy', () => {
+  it('is plain printable text so a wrong-codepage paste cannot ship as garbled characters', () => {
+    for (const guide of GUIDE_REGISTRY) {
+      for (const text of [guide.title, guide.summary, ...guide.steps.flatMap((step) => [step.title, step.body])]) {
+        expect(text, `${guide.id}: ${text}`).toMatch(/^[\x20-\x7E]+$/);
+      }
+    }
+  });
+});
