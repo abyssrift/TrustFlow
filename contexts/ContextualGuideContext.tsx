@@ -39,7 +39,6 @@ type GuideContextValue = {
   previousStep(): void;
   skipGuide(): Promise<void>;
   completeGuide(id: GuideId): Promise<void>;
-  markFamiliar(id: GuideId): Promise<void>;
   acknowledgeNewGuide(id: GuideId): Promise<void>;
   closeGuide(): void;
 };
@@ -83,6 +82,9 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   const [activeId, setActiveId] = useState<GuideId | null>(null);
   // Guide the user navigated away from mid-way; the launcher offers to resume it.
   const [suspendedId, setSuspendedId] = useState<GuideId | null>(null);
+  // Guides skipped this session. Skip writes no progress, so without this the tour's
+  // wrap-around would offer them again and Skip could cycle forever.
+  const [skippedIds, setSkippedIds] = useState<readonly GuideId[]>([]);
   const [activeScope, setActiveScope] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [activeAnchor, setActiveAnchor] = useState<GuideRect | null>(null);
@@ -131,6 +133,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
     activeAnchorId.current = null;
     setActiveId(null);
     setSuspendedId(null);
+    setSkippedIds([]);
     setActiveScope(null);
     setActiveAnchor(null);
     setChecklistVisible(false);
@@ -192,6 +195,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
     setChecklistVisible(false);
     setActiveId(null);
     setSuspendedId(null);
+    setSkippedIds((ids) => ids.filter((skipped) => skipped !== id));
     setActiveScope(null);
     setActiveAnchor(null);
     activeAnchorId.current = null;
@@ -236,10 +240,10 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   const followingGuide = useMemo(() => {
     const ordered = guidePhases.flatMap((phase) => phase.guides);
     const start = activeGuide ? ordered.findIndex((guide) => guide.id === activeGuide.id) + 1 : 0;
-    const unfinished = (guide: GuideDefinition) => guide.id !== activeGuide?.id
+    const unfinished = (guide: GuideDefinition) => guide.id !== activeGuide?.id && !skippedIds.includes(guide.id)
       && scopedProgress[guide.id]?.status !== 'done' && scopedProgress[guide.id]?.status !== 'familiar';
     return ordered.slice(start).find(unfinished) ?? ordered.slice(0, start).find(unfinished) ?? null;
-  }, [guidePhases, activeGuide, scopedProgress]);
+  }, [guidePhases, activeGuide, scopedProgress, skippedIds]);
 
   const closeGuide = useCallback(() => {
     launchToken.current++;
@@ -256,17 +260,16 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   // drop the whole session into device-only progress.
   const skipGuide = useCallback(async () => {
     if (!activeId) return;
+    setSkippedIds((ids) => ids.includes(activeId) ? ids : [...ids, activeId]);
     closeGuide();
+    // Same ending as finishing: continue, or land on the checklist instead of vanishing.
     if (followingGuide) await launchGuide(followingGuide.id);
+    else setChecklistVisible(true);
   }, [activeId, followingGuide, launchGuide, closeGuide]);
   const completeGuide = useCallback(async (id: GuideId) => {
     try { await progress.complete(id); if (activeId === id) closeGuide(); }
     catch { setGuideError('Could not save guide progress. Retry your action.'); }
   }, [activeId, progress.complete, closeGuide]);
-  const markFamiliar = useCallback(async (id: GuideId) => {
-    try { await progress.skip(id); if (activeId === id) closeGuide(); }
-    catch { setGuideError('Could not save guide progress. Retry your action.'); }
-  }, [activeId, progress.skip, closeGuide]);
   const acknowledgeNewGuide = useCallback(async (id: GuideId) => {
     try { await progress.acknowledge(id); }
     catch { setGuideError('Could not save guide progress. Retry your action.'); }
@@ -311,7 +314,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
     progressLoading: progress.loading, progressError: progress.error, fallbackActive: progress.fallbackActive, progressRetry: progress.retry,
     eligibilityLoading: !!user && (!initialized || !profile || !permissionsLoaded),
     guideError, activeAnchor, followingGuide, suspendedGuide, nextStep, previousStep, skipGuide, closeGuide,
-    completeGuide, markFamiliar, acknowledgeNewGuide,
+    completeGuide, acknowledgeNewGuide,
   };
   return <GuideContext.Provider value={value}>{children}</GuideContext.Provider>;
 }

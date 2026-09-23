@@ -191,8 +191,6 @@ export function useGuideProgress(eligibleDefinitions: readonly GuideDefinition[]
     const progress = state.scope === scope ? state.rows[id] : undefined;
     return write(id, progress?.status === 'done' ? 'done' : 'in_progress', step, true);
   }, [scope, state.scope, state.rows, write]);
-  const markFamiliar = useCallback((id: GuideId) => write(id, 'familiar', 0, true), [write]);
-  const skip = markFamiliar;
   const acknowledge = useCallback((id: GuideId) => {
     const progress = state.scope === scope ? state.rows[id] : undefined;
     if (!progress) return Promise.reject(new Error(SAVE_ERROR));
@@ -212,8 +210,6 @@ export function useGuideProgress(eligibleDefinitions: readonly GuideDefinition[]
     retry,
     start,
     saveStep,
-    skip,
-    markFamiliar,
     acknowledge,
     complete,
   };

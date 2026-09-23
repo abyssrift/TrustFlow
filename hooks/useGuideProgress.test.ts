@@ -140,7 +140,7 @@ describe('useGuideProgress', () => {
     hook.unmount();
   });
 
-  it('writes start, resumable step, skip, and completion through the RPC contract', async () => {
+  it('writes start, resumable step, and completion through the RPC contract', async () => {
     rpc.mockResolvedValue({ data: [row()], error: null });
     const hook = mount();
     await act(async () => {});
@@ -149,12 +149,12 @@ describe('useGuideProgress', () => {
     expect(rpc).toHaveBeenLastCalledWith('rpc_update_user_guide_progress', { p_guide_id: 'tasks', p_guide_version: 1, p_status: 'in_progress', p_current_step: 0, p_acknowledge: true });
     await act(async () => { await hook.result.saveStep('tasks', 99); });
     expect(rpc).toHaveBeenLastCalledWith('rpc_update_user_guide_progress', { p_guide_id: 'tasks', p_guide_version: 1, p_status: 'in_progress', p_current_step: 2, p_acknowledge: true });
-    const beforeSkip = hook.result.progressById.tasks;
-    await act(async () => { await hook.result.skip('tasks'); });
-    expect(rpc).toHaveBeenLastCalledWith('rpc_update_user_guide_progress', { p_guide_id: 'tasks', p_guide_version: 1, p_status: 'familiar', p_current_step: 0, p_acknowledge: true });
-    expect(beforeSkip?.status).toBe('in_progress');
     await act(async () => { await hook.result.complete('tasks'); });
-    expect(rpc).toHaveBeenLastCalledWith('rpc_update_user_guide_progress', { p_guide_id: 'tasks', p_guide_version: 1, p_status: 'familiar', p_current_step: 0, p_acknowledge: true });
+    expect(rpc).toHaveBeenLastCalledWith('rpc_update_user_guide_progress', { p_guide_id: 'tasks', p_guide_version: 1, p_status: 'done', p_current_step: 2, p_acknowledge: true });
+    // No client path may write 'familiar': the server rejects it from in_progress and
+    // the rejection drops the session into device-only progress.
+    expect(hook.result).not.toHaveProperty('skip');
+    expect(hook.result).not.toHaveProperty('markFamiliar');
     hook.unmount();
   });
 
@@ -241,13 +241,6 @@ describe('useGuideProgress', () => {
     expect(hook.result.progressById.tasks?.currentStep).toBe(1);
     await act(async () => { await hook.result.acknowledge('tasks'); });
     expect(hook.result.progressById.tasks?.acknowledgedAt).toBeTruthy();
-    await act(async () => { await hook.result.markFamiliar('tasks'); });
-    const familiar = hook.result.progressById.tasks;
-    expect(familiar?.status).toBe('familiar');
-    expect(familiar?.completedAt).toBeNull();
-    await act(async () => { await hook.result.skip('tasks'); });
-    expect(hook.result.progressById.tasks?.status).toBe('familiar');
-    expect(hook.result.progressById.tasks?.acknowledgedAt).toBe(familiar?.acknowledgedAt);
     expect(JSON.parse([...storage.values()][0]).rows.tasks).toEqual(hook.result.progressById.tasks);
     hook.unmount();
 

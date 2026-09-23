@@ -24,10 +24,10 @@ const state = vi.hoisted(() => ({
   listeners: new Set<(path: string) => void>(),
   push: vi.fn((route: string) => { const [path, query = ''] = route.split('?'); state.pathname = path; state.searchParams = Object.fromEntries(new URLSearchParams(query)); state.listeners.forEach((listener) => listener(state.pathname)); }),
   progress: {} as Record<string, any>,
-  start: vi.fn(async () => undefined),
+  start: vi.fn(async (_id: string) => undefined),
   saveStep: vi.fn(async () => undefined),
   skip: vi.fn(async () => undefined),
-  complete: vi.fn(async () => undefined),
+  complete: vi.fn(async (_id: string) => undefined),
   acknowledge: vi.fn(async () => undefined),
 }));
 
@@ -145,6 +145,68 @@ describe('ContextualGuideProvider', () => {
     renderer.unmount();
   });
 
+  describe('full tour passes', () => {
+    const remaining = ['profile', 'top-bar', 'tasks'];
+    beforeEach(() => {
+      // Every other guide is already done, so the tour is profile -> top-bar -> tasks.
+      state.progress = Object.fromEntries(GUIDE_REGISTRY.map(({ id }) => [id, remaining.includes(id)
+        ? { guideId: id, status: 'not_started', currentStep: 0, acknowledgedAt: null }
+        : { guideId: id, status: 'done', currentStep: 2, acknowledgedAt: 'now' }]));
+      // Progress writes update the rows the provider reads, like the real hook.
+      state.start.mockImplementation(async (id: string) => { state.progress = { ...state.progress, [id]: { ...state.progress[id], status: 'in_progress', acknowledgedAt: 'now' } }; });
+      state.complete.mockImplementation(async (id: string) => { state.progress = { ...state.progress, [id]: { ...state.progress[id], status: 'done', currentStep: 2 } }; });
+      state.pathname = '/profile';
+    });
+
+    async function mountTour() {
+      let guide: ReturnType<typeof useContextualGuide> | null = null;
+      function Actions() { guide = useContextualGuide(); return null; }
+      let renderer!: Renderer;
+      await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
+      // Actions that navigate must let the route change flush before awaiting them.
+      const drive = async (run: () => Promise<void>) => {
+        let pending!: Promise<void>;
+        await act(async () => { pending = run(); });
+        await act(async () => { renderer.update(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
+        await act(async () => { await pending; });
+        await act(async () => { renderer.update(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
+      };
+      return { renderer, drive, guide: () => guide! };
+    }
+
+    it('skipping every guide visits each once and ends at the checklist instead of cycling', async () => {
+      const { renderer, drive, guide } = await mountTour();
+      await drive(() => guide().launchGuide('profile'));
+      const visited = [guide().activeGuide?.id];
+      for (let i = 0; i < remaining.length; i++) {
+        await drive(() => guide().skipGuide());
+        if (guide().activeGuide) visited.push(guide().activeGuide!.id);
+      }
+      expect(visited).toEqual(remaining);
+      expect(guide().activeGuide).toBeNull();
+      expect(guide().checklistVisible).toBe(true);
+      expect(state.start.mock.calls.map(([id]) => id)).toEqual(remaining);
+      renderer.unmount();
+    });
+
+    it('finishing after a skip continues forward and never reopens the skipped guide', async () => {
+      const { renderer, drive, guide } = await mountTour();
+      await drive(() => guide().launchGuide('profile'));
+      await drive(() => guide().skipGuide());
+      expect(guide().activeGuide?.id).toBe('top-bar');
+      await drive(() => guide().nextStep());
+      await drive(() => guide().nextStep());
+      await drive(() => guide().nextStep());
+      expect(state.complete).toHaveBeenCalledWith('top-bar');
+      expect(guide().activeGuide?.id).toBe('tasks');
+      await drive(() => guide().skipGuide());
+      expect(guide().activeGuide).toBeNull();
+      expect(guide().checklistVisible).toBe(true);
+      expect(state.start.mock.calls.map(([id]) => id)).toEqual(remaining);
+      renderer.unmount();
+    });
+  });
+
   it('allows only one active guide and resumes its stored step', async () => {
     state.progress = {
       'top-bar': { guideId: 'top-bar', status: 'in_progress', currentStep: 1, acknowledgedAt: 'now' },
@@ -215,19 +277,17 @@ describe('ContextualGuideProvider', () => {
     renderer.unmount();
   });
 
-  it('exposes completion, skip-as-familiar, and new-guide acknowledgement actions', async () => {
+  it('exposes completion and new-guide acknowledgement actions, and no familiar write', async () => {
     let guide: ReturnType<typeof useContextualGuide> | null = null;
     function Actions() { guide = useContextualGuide(); return null; }
     let renderer!: Renderer;
     state.pathname = '/profile';
     await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
     expect(guide!.completeGuide).toEqual(expect.any(Function));
-    expect(guide!.markFamiliar).toEqual(expect.any(Function));
+    expect(guide).not.toHaveProperty('markFamiliar');
     expect(guide!.acknowledgeNewGuide).toEqual(expect.any(Function));
     await act(async () => { await guide!.acknowledgeNewGuide('profile'); });
     expect(state.acknowledge).toHaveBeenCalledWith('profile');
-    await act(async () => { await guide!.markFamiliar('profile'); });
-    expect(state.skip).toHaveBeenCalledWith('profile');
     await act(async () => { await guide!.completeGuide('profile'); });
     expect(state.complete).toHaveBeenCalledWith('profile');
     renderer.unmount();
