@@ -27,9 +27,9 @@ responses and prevents a prior scope from appearing after a filter change.
 - Desktop key: `JSON.stringify([pipelineId, from, to, days])`. `days` is the
   value passed to `getOrganizationalAudit`; `from` and `to` remain in the key
   because they are the user's actual date inputs.
-- Adaptive key: `JSON.stringify(['radar', pipelineId, days])`. Audit requests
-  run only for the radar section, and `days` is its actual date input. Changes
-  to section, pipeline, or days supersede the prior request.
+- Adaptive key: `JSON.stringify([activeSection, pipelineId, days])`. Audit
+  requests run only for the radar section, and `days` is its actual date input.
+  Changes to section, pipeline, or days supersede the prior request.
 
 Capture the key and increment the monotonic generation before each initial
 load, filter load, or explicit refresh. A completion whose key or generation is
