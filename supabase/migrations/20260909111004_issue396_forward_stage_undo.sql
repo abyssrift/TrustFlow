@@ -12,6 +12,8 @@ CREATE INDEX IF NOT EXISTS pipeline_stage_history_task_recorded_idx ON public.pi
 ALTER TABLE public.task_stage_undo_ledger ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.task_stage_undo_ledger FROM anon,authenticated,public;
 CREATE OR REPLACE FUNCTION public.fn_trg_harvest_task_on_stage_entry() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$ BEGIN IF current_setting('trustflow.undo_forward_stage',true)='on' THEN RETURN NEW; END IF; IF COALESCE((SELECT harvests_to_deliverable FROM public.pipeline_stages WHERE id=NEW.current_stage_id),false) THEN PERFORM public.fn_harvest_task_output(NEW.id); END IF; RETURN NEW; END; $$;
+-- Return type changes void -> jsonb; CREATE OR REPLACE cannot do that. Grants re-applied below.
+DROP FUNCTION IF EXISTS public.rpc_advance_stage(uuid,uuid,uuid);
 CREATE OR REPLACE FUNCTION public.rpc_advance_stage(p_task_id uuid, p_to_stage_id uuid, p_submission_id uuid DEFAULT NULL::uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
