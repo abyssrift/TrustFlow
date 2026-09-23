@@ -39,7 +39,7 @@ vi.mock('@expo/vector-icons/FontAwesome', () => ({ default: 'FontAwesome' }));
 vi.mock('@/hooks/useThemeColors', () => ({ useThemeColors: () => ({ primary: 'primary-token', textMuted: 'muted-token' }) }));
 vi.mock('@/components/common/Tooltip', async () => {
   const React = await vi.importActual<typeof import('react')>('react');
-  return { default: ({ children, label }: any) => React.createElement('Tooltip', { testID: `tooltip-${label}` }, children) };
+  return { default: ({ children, label, className, style }: any) => React.createElement('Tooltip', { testID: `tooltip-${label}`, className, style }, children) };
 });
 vi.mock('@react-native-async-storage/async-storage', () => ({ default: {
   getItem: vi.fn(async (key: string) => state.storage.get(key) ?? null),
@@ -210,14 +210,24 @@ describe('GuideHost checklist', () => {
   it('places the launcher below the desktop top bar and preserves mobile bottom placement', async () => {
     let renderer!: Renderer;
     await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHost /></ContextualGuideProvider>); });
+    const desktopTooltip = renderer.root.findByProps({ testID: 'tooltip-Open To Do checklist' });
     const desktopLauncher = renderer.root.findByProps({ accessibilityLabel: 'Open To Do checklist' });
-    expect(desktopLauncher.props.style).toEqual({ top: 76 });
+    expect(desktopTooltip.props.style).toEqual({ top: 76 });
+    expect(desktopTooltip.props.className).toContain('absolute right-4 min-h-[44px] min-w-[44px] items-center justify-center');
+    expect(desktopLauncher.props.style).toBeUndefined();
+    expect(desktopLauncher.props.className).not.toContain('absolute');
+    expect(desktopLauncher.props.className).toContain('min-h-[44px] min-w-[44px] items-center justify-center');
     renderer.unmount();
 
     state.viewport = { width: 390, height: 900 };
     await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHost launcherBottom={86} /></ContextualGuideProvider>); });
+    const mobileTooltip = renderer.root.findByProps({ testID: 'tooltip-Open To Do checklist' });
     const mobileLauncher = renderer.root.findByProps({ accessibilityLabel: 'Open To Do checklist' });
-    expect(mobileLauncher.props.style).toEqual({ bottom: 86 });
+    expect(mobileTooltip.props.style).toEqual({ bottom: 86 });
+    expect(mobileTooltip.props.className).toContain('absolute right-4 min-h-[44px] min-w-[44px] items-center justify-center');
+    expect(mobileLauncher.props.style).toBeUndefined();
+    expect(mobileLauncher.props.className).not.toContain('absolute');
+    expect(mobileLauncher.props.className).toContain('min-h-[44px] min-w-[44px] items-center justify-center');
     renderer.unmount();
   });
 
