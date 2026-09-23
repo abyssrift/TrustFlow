@@ -220,6 +220,7 @@ BEGIN
 END;
 $function$;
 
+REVOKE ALL ON FUNCTION public.rpc_add_task_comment(uuid, text, uuid, uuid[]) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_add_task_comment(uuid, text, uuid, uuid[]) TO authenticated, service_role;
 
 -- 5. Notify trigger: structured mentions, no name regex --------------------
