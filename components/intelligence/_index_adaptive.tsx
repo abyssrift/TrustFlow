@@ -19,7 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Platform, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 
@@ -296,10 +296,18 @@ export default function IntelligenceScreen() {
 
   const [activeSection, setActiveSection] = useState('radar');
   const [loading, setLoading] = useState(true);
+  const [baseDataLoaded, setBaseDataLoaded] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showArchitect, setShowArchitect] = useState(false);
   // Core Data State
-  const [data, setData] = useState<OrganizationalAudit | null>(null);
+  type AuditState = 'loading' | 'updating' | 'ready' | 'empty' | 'error';
+  type AuditSnapshot = { key: string; data: OrganizationalAudit | null };
+  const [auditState, setAuditState] = useState<AuditState>('loading');
+  const [auditStateKey, setAuditStateKey] = useState<string | null>(null);
+  const [auditSnapshot, setAuditSnapshot] = useState<AuditSnapshot | null>(null);
+  const auditGenerationRef = useRef(0);
+  const auditKeyRef = useRef('');
+  const auditSnapshotKeyRef = useRef<string | null>(null);
   const [reports, setReports] = useState<any[]>([]);
   const [pipelines, setPipelines] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
@@ -319,6 +327,10 @@ export default function IntelligenceScreen() {
   const [days, setDays] = useState(30);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const { getOrganizationalAudit } = useAnalytics();
+  const auditKey = JSON.stringify([activeSection, pipelineId, days]);
+  auditKeyRef.current = auditKey;
+  const currentAuditSnapshot = auditSnapshot?.key === auditKey ? auditSnapshot : null;
+  const currentAuditState = auditStateKey === auditKey ? auditState : 'loading';
 
   useEffect(() => {
     fetchBaseData();
@@ -361,22 +373,36 @@ export default function IntelligenceScreen() {
   }, [activeSection, pipelineId, days]);
 
   const fetchBaseData = async () => {
-    const { data: p } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);
-    const { data: t } = await supabase.from('teams').select('id, name').is('deleted_at', null);
-    const { data: u } = await supabase.from('users').select('id, full_name');
-    if (p) setPipelines(p);
-    if (t) setTeams(t);
-    if (u) setUsers(u);
+    try {
+      const { data: p } = await supabase.from('pipelines').select('id, name').is('deleted_at', null);
+      const { data: t } = await supabase.from('teams').select('id, name').is('deleted_at', null);
+      const { data: u } = await supabase.from('users').select('id, full_name');
+      if (p) setPipelines(p);
+      if (t) setTeams(t);
+      if (u) setUsers(u);
+    } finally {
+      setBaseDataLoaded(true);
+    }
   };
 
   const fetchAudit = async (forceRefresh = false) => {
+    const requestKey = auditKey;
+    const generation = ++auditGenerationRef.current;
+    const hasCurrentSnapshot = auditSnapshotKeyRef.current === requestKey;
+    setAuditStateKey(requestKey);
+    setAuditState(hasCurrentSnapshot ? 'updating' : 'loading');
     try {
-      setLoading(true);
-      setData(await getOrganizationalAudit(pipelineId, days, forceRefresh));
+      const result = await getOrganizationalAudit(pipelineId, days, forceRefresh);
+      if (auditKeyRef.current !== requestKey || auditGenerationRef.current !== generation) return;
+      auditSnapshotKeyRef.current = requestKey;
+      setAuditSnapshot({ key: requestKey, data: result });
+      setAuditState(result == null ? 'empty' : 'ready');
     } catch (err) {
+      if (auditKeyRef.current !== requestKey || auditGenerationRef.current !== generation) return;
+      auditSnapshotKeyRef.current = null;
+      setAuditSnapshot(null);
+      setAuditState('error');
       console.error('Audit Error:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -470,7 +496,7 @@ export default function IntelligenceScreen() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <ScrollView className="flex-1" stickyHeaderIndices={[1]} refreshControl={<RefreshControl refreshing={false} onRefresh={() => fetchAudit(true)} />}>
+      <ScrollView className="flex-1" stickyHeaderIndices={[1]} refreshControl={<RefreshControl refreshing={activeSection === 'radar' && currentAuditState === 'updating'} onRefresh={() => fetchAudit(true)} />}>
         {/* Header */}
         <View className="px-6 pt-12 pb-6">
           <View className="flex-row items-start justify-between mb-4">
@@ -494,7 +520,7 @@ export default function IntelligenceScreen() {
 
         {/* Main Sections */}
         <View className="px-6">
-          {loading ? (
+          {!baseDataLoaded || (activeSection === 'archives' && loading) ? (
             <View className="py-20 items-center gap-3" accessibilityRole="progressbar" accessibilityLabel="Loading intelligence data">
               <ActivityIndicator color={colors.primary} />
               <Text className="text-typography-muted text-xs">Loading intelligence data…</Text>
@@ -535,10 +561,40 @@ export default function IntelligenceScreen() {
               </View>
             </View>
           ) : activeSection === 'radar' ? (
-            <RadarSection
-              data={data}
-              targetWatchEnabled={permissionsLoaded && hasPermission('target.view')}
-            />
+            currentAuditState === 'error' ? (
+              <View className="py-12 items-center gap-4">
+                <Text className="text-typography-main text-base font-black text-center">Couldn’t load overview.</Text>
+                <TouchableOpacity
+                  onPress={() => fetchAudit(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry"
+                  className="min-h-[44px] min-w-[44px] px-5 rounded-xl bg-brand-primary items-center justify-center"
+                >
+                  <Text className="text-white font-black uppercase tracking-widest text-[10px]">Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : currentAuditState === 'empty' ? (
+              <View className="py-12 items-center" accessible accessibilityRole="text" accessibilityLabel="No overview data available">
+                <Text className="text-typography-muted text-sm text-center">No overview data available for this period.</Text>
+              </View>
+            ) : currentAuditState === 'loading' ? (
+              <View className="py-20 items-center gap-3" accessible accessibilityRole="progressbar" accessibilityLabel="Loading overview">
+                <ActivityIndicator color={colors.primary} />
+                <Text className="text-typography-muted text-xs">Loading overview…</Text>
+              </View>
+            ) : (
+              <>
+                {currentAuditState === 'updating' && (
+                  <View className="py-3 items-center" accessible accessibilityRole="progressbar" accessibilityLabel="Updating overview">
+                    <ActivityIndicator color={colors.primary} />
+                  </View>
+                )}
+                <RadarSection
+                  data={currentAuditSnapshot?.data ?? null}
+                  targetWatchEnabled={permissionsLoaded && hasPermission('target.view')}
+                />
+              </>
+            )
           ) : activeSection === 'archives' && (
             <ArchivesSection
               reports={reports}

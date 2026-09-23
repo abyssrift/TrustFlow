@@ -197,6 +197,31 @@ describe('ContextualGuideProvider', () => {
     renderer.unmount();
   });
 
+  it('derives the first eligible route guide for the canonical launcher', async () => {
+    let guide: ReturnType<typeof useContextualGuide> | null = null;
+    function Actions() { guide = useContextualGuide(); return null; }
+    let renderer!: Renderer;
+    state.pathname = '/tasks';
+    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
+    expect(guide!.launcherGuide?.id).toBe('tasks');
+    state.pathname = '/people';
+    state.searchParams = { section: 'teams' };
+    await act(async () => { state.listeners.forEach((listener) => listener(state.pathname)); });
+    expect(guide!.launcherGuide?.id).toBe('team-people');
+    renderer.unmount();
+  });
+
+  it('excludes a route guide when its declared query parameter is absent', async () => {
+    let guide: ReturnType<typeof useContextualGuide> | null = null;
+    function Actions() { guide = useContextualGuide(); return null; }
+    let renderer!: Renderer;
+    state.pathname = '/people';
+    state.searchParams = {};
+    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><Actions /></ContextualGuideProvider>); });
+    expect(guide!.launcherGuide).toBeNull();
+    renderer.unmount();
+  });
+
   it('exposes when guide progress is using the device fallback', async () => {
     state.fallbackActive = true;
     let guide: ReturnType<typeof useContextualGuide> | null = null;

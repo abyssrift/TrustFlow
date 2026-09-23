@@ -301,6 +301,24 @@ describe('useGuideProgress', () => {
     hook.unmount();
   });
 
+  it('refreshes the device cache after a successful server write', async () => {
+    const hook = mount();
+    await act(async () => {});
+    rpc.mockResolvedValueOnce({
+      data: [{ ...row('in_progress', 1), acknowledged_at: '2026-02-01T00:00:00Z', updated_at: '2026-02-01T00:00:00Z' }],
+      error: null,
+    });
+    await act(async () => { await hook.result.saveStep('tasks', 1); });
+    expect(JSON.parse([...storage.values()][0]).rows.tasks).toEqual(hook.result.progressById.tasks);
+    hook.unmount();
+
+    rpc.mockRejectedValueOnce(new Error('offline'));
+    const remount = mount();
+    await act(async () => {});
+    expect(remount.result.progressById.tasks?.currentStep).toBe(1);
+    remount.unmount();
+  });
+
   it('rejects malformed scoped fallback data and seeds fresh rows', async () => {
     storage.set('@TrustFlow_guide_progress_v1:account-a:company-a', JSON.stringify({ tasks: { ...row(), currentStep: 'bad' } }));
     rpc.mockRejectedValueOnce(new Error('offline'));

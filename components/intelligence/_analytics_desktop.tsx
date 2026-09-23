@@ -1,4 +1,5 @@
 import UserLink from '@/components/common/UserLink';
+import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
 import { DateRangeControls, useGranularity } from '@/components/intelligence/DateRangeFilter';
 import PortfolioFlowTab from '@/components/intelligence/PortfolioFlowTab';
 import { ConversionFunnelChartWeb, StageDwellChartWeb } from '@/components/intelligence/RadarWidgets';
@@ -11,11 +12,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useBillingPlan } from '@/hooks/useBillingPlan';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { AnalyticsLimits, getAnalyticsLimits } from '@/lib/planLimits';
+import { summarizeAnalyticsSeries, type AnalyticsSeriesKey } from '@/lib/analyticsSeriesState';
 import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -137,6 +139,7 @@ function PipelineTab({ planCode, planReady, limits }: { planCode: string; planRe
   const { getOrganizationalAudit, getPipelineStageDwell, getPipelineThroughputRange } = useAnalytics();
   const { theme: activeTheme } = useTheme();
   const [pipelines, setPipelines] = useState<any[]>([]);
+  const [pipelinesLoaded, setPipelinesLoaded] = useState(false);
   const [selectedPipeline, setSelectedPipeline] = useState<string | null>(null);
   const granularity = useGranularity();
   const buckets = granularity.buckets;
@@ -152,8 +155,18 @@ function PipelineTab({ planCode, planReady, limits }: { planCode: string; planRe
   const [dwell, setDwell]         = useState<StageDwell[]>([]);
   const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
   const [auditData, setAuditData]   = useState<OrganizationalAudit | null>(null);
-  const [loading, setLoading]     = useState(false);
-  const [loaded, setLoaded]       = useState(false);
+  const [seriesErrors, setSeriesErrors] = useState<Record<AnalyticsSeriesKey, boolean>>({ dwell: false, throughput: false, points: false, audit: false });
+  const [requestState, setRequestState] = useState<'idle' | 'loading' | 'updating' | 'ready' | 'empty' | 'error'>('idle');
+  const [requestStateKey, setRequestStateKey] = useState<string | null>(null);
+  const [snapshotKey, setSnapshotKey] = useState<string | null>(null);
+  const acceptedKeyRef = useRef<string | null>(null);
+  const currentKeyRef = useRef<string | null>(null);
+  const requestGenerationRef = useRef(0);
+
+  const requestKey = JSON.stringify([selectedPipeline, from, to, buckets]);
+  // Keep the guard current during render so a response cannot commit for the
+  // previous filters in the small interval before the effect starts the next load.
+  currentKeyRef.current = requestKey;
 
   useEffect(() => {
     supabase
@@ -167,35 +180,73 @@ function PipelineTab({ planCode, planReady, limits }: { planCode: string; planRe
           setPipelines(data);
           setSelectedPipeline(data[0].id);
         }
-      });
+      })
+      .finally(() => setPipelinesLoaded(true));
   }, []);
 
   const load = useCallback(async () => {
     if (!selectedPipeline) return;
-    setLoading(true);
+    const key = requestKey;
+    const generation = ++requestGenerationRef.current;
+    currentKeyRef.current = key;
+    const hasAcceptedSnapshot = acceptedKeyRef.current === key;
+    setRequestStateKey(key);
+    setRequestState(hasAcceptedSnapshot ? 'updating' : 'loading');
     try {
       const nDays = Math.max(7, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000));
-      const [d, t, a] = await Promise.all([
+      const [dResult, tResult, aResult] = await Promise.allSettled([
         getPipelineStageDwell(selectedPipeline, from, to),
         getPipelineThroughputRange(selectedPipeline, from, to, buckets),
-        getOrganizationalAudit(selectedPipeline, nDays).catch(error => {
-          console.error('[Analytics] Failed to load organizational audit:', error);
-          return null;
-        }),
+        getOrganizationalAudit(selectedPipeline, nDays),
+      ]);
+      if (generation !== requestGenerationRef.current || currentKeyRef.current !== key) return;
+      const d = dResult.status === 'fulfilled' ? dResult.value : [];
+      const t = tResult.status === 'fulfilled' ? tResult.value : [];
+      const a = aResult.status === 'fulfilled' ? aResult.value : null;
+      const summary = summarizeAnalyticsSeries([
+        { key: 'dwell', status: dResult.status === 'fulfilled' ? 'ready' : 'error', data: d },
+        { key: 'throughput', status: tResult.status === 'fulfilled' ? 'ready' : 'error', data: t },
+        { key: 'audit', status: aResult.status === 'fulfilled' ? 'ready' : 'error', data: a },
       ]);
       setDwell(d);
       setThroughput(t);
       setAuditData(a);
-      setLoaded(true);
-    } finally {
-      setLoading(false);
+      setSeriesErrors({
+        dwell: dResult.status === 'rejected',
+        throughput: tResult.status === 'rejected',
+        points: false,
+        audit: aResult.status === 'rejected',
+      });
+      if (summary.allFailed) {
+        setSnapshotKey(null);
+        acceptedKeyRef.current = null;
+        setRequestStateKey(key);
+        setRequestState('error');
+        return;
+      }
+      acceptedKeyRef.current = key;
+      setSnapshotKey(key);
+      setRequestStateKey(key);
+      setRequestState(summary.isEmpty ? 'empty' : 'ready');
+    } catch {
+      if (generation !== requestGenerationRef.current || currentKeyRef.current !== key) return;
+      setSnapshotKey(null);
+      acceptedKeyRef.current = null;
+      setRequestStateKey(key);
+      setRequestState('error');
     }
-  }, [selectedPipeline, from, to, buckets]);
+  }, [selectedPipeline, from, to, buckets, requestKey]);
 
 
 
   useEffect(() => { load(); }, [load]);
 
+  const hasCurrentSnapshot = snapshotKey === requestKey && snapshotKey !== null;
+  const hasCurrentRequestState = requestStateKey === requestKey;
+  const showLoading = !hasCurrentSnapshot && (!hasCurrentRequestState || requestState === 'idle' || requestState === 'loading' || requestState === 'updating');
+  const showUpdating = hasCurrentSnapshot && requestState === 'updating';
+  const showError = hasCurrentRequestState && requestState === 'error';
+  const showEmpty = hasCurrentRequestState && requestState === 'empty';
 
   return (
     <View className="gap-5">
@@ -209,13 +260,17 @@ function PipelineTab({ planCode, planReady, limits }: { planCode: string; planRe
               <TouchableOpacity
                 key={p.id}
                 onPress={() => setSelectedPipeline(p.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${p.name} pipeline`}
+                accessibilityState={{ selected: selectedPipeline === p.id }}
+                style={{ minHeight: 44 }}
                 className={`px-3 py-1.5 rounded-lg border transition-all ${
                   selectedPipeline === p.id
                     ? 'bg-brand-primary border-brand-primary'
                     : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
                 }`}
               >
-                <Text className={`text-xs font-bold ${selectedPipeline === p.id ? 'text-white' : 'text-typography-main'}`}>
+                <Text className={`text-xs font-bold ${selectedPipeline === p.id ? 'text-brand-on-primary' : 'text-typography-main'}`}>
                   {p.name}
                 </Text>
               </TouchableOpacity>
@@ -232,29 +287,73 @@ function PipelineTab({ planCode, planReady, limits }: { planCode: string; planRe
                 <Text className="text-typography-muted text-[9px] font-bold">Max {limits.maxDays}d · {planCode.charAt(0).toUpperCase() + planCode.slice(1)}</Text>
               </View>
             )}
-            {loading && loaded && <ActivityIndicator size="small" color={colors.primary} />}
+            {(showLoading || showUpdating) && <ActivityIndicator size="small" color={colors.primary} />}
           </View>
           <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} maxDays={limits.maxDays} granularity={granularity} />
         </View>
       </View>
 
-      {loading && !loaded ? (
+      {!pipelinesLoaded ? (
         <View className="py-10 items-center">
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading pipelines" />
         </View>
       ) : pipelines.length === 0 ? (
         <View className="bg-surface-card border border-surface-border rounded-2xl p-6 items-center gap-2">
           <Text className="text-typography-main font-black text-base">No Pipelines Found</Text>
           <Text className="text-typography-muted text-xs">Create a pipeline to see analytics.</Text>
         </View>
+      ) : showLoading ? (
+        <View className="py-10 items-center">
+          <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading analytics" />
+        </View>
+      ) : showError ? (
+        <View className="bg-surface-card border border-surface-border rounded-2xl p-6 items-center gap-3">
+          <Text accessibilityLiveRegion="polite" className="text-typography-main font-black text-base">Could not load analytics.</Text>
+          <TouchableOpacity
+            onPress={load}
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
+            className="bg-brand-primary px-5 rounded-xl items-center justify-center"
+            style={{ minHeight: 44, minWidth: 88 }}
+          >
+            <Text className="text-brand-on-primary text-xs font-bold">Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : showEmpty ? (
+        <View className="bg-surface-card border border-surface-border rounded-2xl p-6 items-center gap-2">
+          <Text className="text-typography-main font-black text-base">No activity in this range.</Text>
+          <Text className="text-typography-muted text-xs text-center">Try a longer date range or another pipeline.</Text>
+        </View>
       ) : (
         <View className="gap-5">
+          {showUpdating && (
+            <View accessible accessibilityRole="progressbar" accessibilityLabel="Updating analytics" className="flex-row items-center gap-2">
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text className="text-typography-muted text-xs">Updating analytics...</Text>
+            </View>
+          )}
           {/* Stage Dwell — always available */}
-          <StageDwellChartWeb data={dwell} />
+          {seriesErrors.dwell ? (
+            <View className="bg-surface-card border border-surface-border rounded-2xl p-4 gap-2">
+              <Text className="text-typography-main font-black text-sm">Stage dwell unavailable.</Text>
+              <Text className="text-typography-muted text-xs">Retry to load stage movement for this range.</Text>
+              <TouchableOpacity onPress={load} accessibilityRole="button" accessibilityLabel="Retry stage dwell" style={{ minHeight: 44, minWidth: 88 }} className="bg-brand-primary px-4 rounded-xl items-center justify-center self-start">
+                <Text className="text-brand-on-primary text-xs font-bold">Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : <StageDwellChartWeb data={dwell} />}
 
           {/* Throughput — Pro+ */}
           <PlanGate feature="throughput" ready={planReady} limits={limits}>
-            <View className="bg-surface-card border border-surface-border rounded-2xl p-4">
+            {seriesErrors.throughput ? (
+              <View className="bg-surface-card border border-surface-border rounded-2xl p-4 gap-2">
+                <Text className="text-typography-main font-black text-sm">Completed tasks unavailable.</Text>
+                <Text className="text-typography-muted text-xs">Retry to load completed task activity for this range.</Text>
+                <TouchableOpacity onPress={load} accessibilityRole="button" accessibilityLabel="Retry completed task activity" style={{ minHeight: 44, minWidth: 88 }} className="bg-brand-primary px-4 rounded-xl items-center justify-center self-start">
+                  <Text className="text-brand-on-primary text-xs font-bold">Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : <View className="bg-surface-card border border-surface-border rounded-2xl p-4">
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-typography-main font-black text-sm">Throughput Trend</Text>
                 <View className="px-2 py-0.5 bg-surface-background border border-surface-border rounded-lg">
@@ -262,12 +361,12 @@ function PipelineTab({ planCode, planReady, limits }: { planCode: string; planRe
                 </View>
               </View>
               <ThroughputChart data={throughput} />
-            </View>
+            </View>}
           </PlanGate>
 
           {/* Conversion Funnel — Business+ */}
           <PlanGate feature="funnel" ready={planReady} limits={limits}>
-            <ConversionFunnelChartWeb data={auditData} />
+            {seriesErrors.audit ? <Text className="text-typography-muted text-xs">Summary data unavailable for this range.</Text> : <ConversionFunnelChartWeb data={auditData} />}
           </PlanGate>
         </View>
       )}
@@ -288,7 +387,6 @@ function PersonnelTab({ limits }: { limits: AnalyticsLimits }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [salaries, setSalaries] = useState<Record<string, string>>({});
   const [bulkRate, setBulkRate] = useState('');
-  const [search, setSearch] = useState('');
 
   const today = new Date();
   const initDays = Math.min(limits.maxDays ?? 30, 30);
@@ -348,7 +446,6 @@ function PersonnelTab({ limits }: { limits: AnalyticsLimits }) {
     );
   };
 
-  const selectAll = () => setSelected(users.map(u => u.id));
   const clearAll = () => setSelected([]);
 
   const applyBulkRate = () => {
@@ -451,9 +548,12 @@ function PersonnelTab({ limits }: { limits: AnalyticsLimits }) {
     return undefined;
   };
 
-  const filteredUsers = users.filter(u =>
-    u.full_name.toLowerCase().includes(search.toLowerCase())
-  );
+  const personnelItems = users.map(u => ({
+    id: u.id,
+    label: u.full_name,
+    avatarUrl: u.avatar_url,
+  }));
+  const selectedPersonnelItems = personnelItems.filter(item => selected.includes(item.id));
 
   const SortHeader = ({ field, label }: { field: keyof PersonnelRow; label: string }) => (
     <TouchableOpacity
@@ -549,54 +649,20 @@ function PersonnelTab({ limits }: { limits: AnalyticsLimits }) {
               <Text className="text-typography-main font-black text-xl">Select Cohort</Text>
               <Text className="text-typography-muted text-xs font-medium">Choose personnel to benchmark</Text>
             </View>
-            <View className="flex-row gap-2">
-              <TouchableOpacity onPress={selectAll} className="bg-surface-background border border-surface-border px-3 py-1.5 rounded-lg">
-                <Text className="text-typography-main text-[10px] font-black uppercase">All</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={clearAll} className="bg-surface-background border border-surface-border px-3 py-1.5 rounded-lg">
-                <Text className="text-typography-main text-[10px] font-black uppercase">None</Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
-          <View className="flex-row items-center bg-surface-background border border-surface-border rounded-xl px-4 py-2 mb-4">
-            <FontAwesome name="search" size={12} color={colors.muted} className="mr-3" />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search by name..."
-              placeholderTextColor={colors.muted}
-              className="flex-1 text-typography-main text-sm"
-            />
-          </View>
-
-          <ScrollView className="max-h-[300px]" showsVerticalScrollIndicator={false}>
-            <View className="flex-row flex-wrap gap-2">
-              {filteredUsers.map(u => {
-                const isSel = selected.includes(u.id);
-                return (
-                  <TouchableOpacity
-                    key={u.id}
-                    onPress={() => toggleUser(u.id)}
-                    className={`flex-row items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
-                      isSel ? 'bg-brand-primary/10 border-brand-primary' : 'bg-surface-background border-surface-border opacity-70'
-                    }`}
-                  >
-                    {u.avatar_url ? (
-                      <Image source={{ uri: u.avatar_url }} className="w-5 h-5 rounded-full" />
-                    ) : (
-                      <View className="w-5 h-5 rounded-full bg-surface-border items-center justify-center">
-                        <Text className="text-[8px] font-black">{u.full_name[0]}</Text>
-                      </View>
-                    )}
-                    <Text className={`text-[11px] font-bold ${isSel ? 'text-brand-primary' : 'text-typography-main'}`}>
-                      {u.full_name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </ScrollView>
+          <SearchableMultiSelect
+            title="Personnel"
+            items={personnelItems}
+            selectedIds={selected}
+            selectedItems={selectedPersonnelItems}
+            onToggle={toggleUser}
+            onClearSelection={clearAll}
+            searchPlaceholder="Search by name..."
+            emptyText="No personnel match this search."
+            accent={colors.primary}
+            flat
+          />
         </View>
 
         {/* Column 2: The Radar Chart (Insights) */}
@@ -622,7 +688,12 @@ function PersonnelTab({ limits }: { limits: AnalyticsLimits }) {
                 <View className="pt-4 border-t border-surface-border/50">
                   <View className="flex-row items-center justify-between mb-3">
                     <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Salary Configuration</Text>
-                    <TouchableOpacity onPress={() => setSalaries({})}>
+                    <TouchableOpacity
+                      onPress={() => setSalaries({})}
+                      className="min-h-11 justify-center"
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear salary rates"
+                    >
                       <Text className="text-state-warning text-[10px] font-black uppercase">Clear Rates</Text>
                     </TouchableOpacity>
                   </View>
@@ -638,11 +709,13 @@ function PersonnelTab({ limits }: { limits: AnalyticsLimits }) {
                         className="py-2 px-2 text-typography-main text-xs flex-1"
                       />
                     </View>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       onPress={applyBulkRate}
-                      className="bg-brand-primary px-4 py-2.5 rounded-xl"
+                      className="bg-brand-primary px-4 py-2.5 rounded-xl min-h-11 items-center justify-center"
+                      accessibilityRole="button"
+                      accessibilityLabel="Apply monthly salary to selected personnel"
                     >
-                      <Text className="text-white text-[10px] font-black uppercase">Apply</Text>
+                      <Text className="text-brand-on-primary text-[10px] font-black uppercase">Apply</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -676,16 +749,18 @@ function PersonnelTab({ limits }: { limits: AnalyticsLimits }) {
             <TouchableOpacity
               onPress={handleRun}
               disabled={selected.length < 2 || loading}
-              className={`mt-6 py-4 rounded-2xl items-center shadow-lg transition-all active:scale-[0.98] ${
+              className={`mt-6 py-4 rounded-2xl items-center min-h-11 shadow-lg transition-all active:scale-[0.98] ${
                 selected.length < 2 ? 'bg-surface-border opacity-50' : 'bg-brand-primary shadow-brand-primary/20'
               }`}
+              accessibilityRole="button"
+              accessibilityLabel="Generate personnel report"
             >
               {loading ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <View className="flex-row items-center gap-2">
                   <FontAwesome name="play" size={10} color="white" />
-                  <Text className="text-white font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
+                  <Text className="text-brand-on-primary font-black uppercase tracking-widest text-[11px]">Generate Report</Text>
                 </View>
               )}
             </TouchableOpacity>

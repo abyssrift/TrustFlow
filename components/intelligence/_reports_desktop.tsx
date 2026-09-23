@@ -23,6 +23,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { formatStopwatch } from '@/lib/time';
+import ReportReader, { type ReportReaderRecord } from '@/components/intelligence/ReportReader';
+import { useToast } from '@/contexts/ToastContext';
 function formatDuration(seconds: number): string {
   return formatStopwatch(seconds);
 }
@@ -137,7 +139,10 @@ function IntelligenceReportsInner() {
   const [users, setUsers]             = useState<any[]>([]);
   const [filters, setFilters]         = useState<ReportFilters>(EMPTY_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<ReportReaderRecord | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const pollRef                       = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { errorToast, successToast } = useToast();
 
   const filteredReports = useMemo(() => applyReportFilters(reports, filters), [reports, filters]);
   const activeFilterCount = countActiveFilters(filters);
@@ -184,15 +189,17 @@ function IntelligenceReportsInner() {
 
   const fetchReports = async () => {
     setLoading(true);
+    setFetchError(null);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('reporting_jobs')
         .select('*')
         .order('created_at', { ascending: false });
+      if (error) throw error;
       const list = data || [];
       setReports(list);
       if (hasActive(list)) startPolling(); else stopPolling();
-    } catch (e) { console.error(e); }
+    } catch (e: any) { console.error(e); setFetchError(e?.message || 'Could not load report history.'); }
     finally { setLoading(false); }
   };
 
@@ -206,7 +213,21 @@ function IntelligenceReportsInner() {
       if (error) throw error;
       setShowModal(false);
       fetchReports();
-    } catch (e: any) { console.error(e); }
+    } catch (e: any) { console.error(e); errorToast(e?.message || 'Could not start report generation.', 'Report generation failed'); }
+  };
+
+  const handleRetry = async (report: ReportReaderRecord) => {
+    if (!reportCapability.allowed) return;
+    try {
+      const { error } = await supabase.rpc('rpc_request_report', {
+        p_report_type: report.report_type || 'performance_audit',
+        p_parameters: report.parameters || {},
+      });
+      if (error) throw error;
+      successToast('A fresh report run was queued.', 'Retry started');
+      setSelectedReport(null);
+      await fetchReports();
+    } catch (e: any) { errorToast(e?.message || 'Could not retry this report.', 'Retry failed'); }
   };
 
   const handleDownload = async (path: string) => {
@@ -328,7 +349,15 @@ function IntelligenceReportsInner() {
         </View>
       )}
 
-      {loading ? (
+      {fetchError ? (
+        <View className="flex-1 items-center justify-center px-6">
+          <View accessibilityRole="alert" className="bg-surface-card p-10 rounded-3xl border border-state-danger/40 items-center max-w-[520px]">
+            <Text className="text-state-danger text-lg font-black text-center">Report history unavailable</Text>
+            <Text className="text-typography-muted text-sm text-center mt-2">{fetchError}</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading report history" onPress={fetchReports} className="mt-5 rounded-xl bg-brand-primary px-5 py-3"><Text className="text-white font-black">Retry</Text></TouchableOpacity>
+          </View>
+        </View>
+      ) : loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -392,7 +421,9 @@ function IntelligenceReportsInner() {
                       />
                     </View>
                     <View>
-                      <Text className="text-typography-main font-black text-sm">Report #{r.id.substring(0, 8).toUpperCase()}</Text>
+                      <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Open report ${r.id.substring(0, 8)}`} onPress={() => setSelectedReport(r)}>
+                        <Text className="text-typography-main font-black text-sm">Report #{r.id.substring(0, 8).toUpperCase()}</Text>
+                      </TouchableOpacity>
                       <Text className="text-typography-muted text-[10px]">{getReportSubtitle(r)}</Text>
                     </View>
                   </View>
@@ -427,11 +458,11 @@ function IntelligenceReportsInner() {
                   <View className="w-28 items-end">
                     {r.status === 'completed' && r.file_url ? (
                       <TouchableOpacity
-                        onPress={() => handleDownload(r.file_url)}
+                        onPress={() => setSelectedReport(r)}
                         className="bg-brand-primary/10 border border-brand-primary/20 px-3 py-1.5 rounded-lg flex-row items-center gap-1.5 max-w-full"
                       >
                         <FontAwesome name="download" size={10} color={colors.primary} />
-                        <Text className="text-brand-primary text-[10px] font-black truncate">Download</Text>
+                        <Text className="text-brand-primary text-[10px] font-black truncate">Preview</Text>
                       </TouchableOpacity>
                     ) : (
                       <View className="px-3 py-1.5">
@@ -457,6 +488,14 @@ function IntelligenceReportsInner() {
         visible={showArchitect}
         onClose={() => setShowArchitect(false)}
         onReportGenerated={fetchReports}
+      />
+      <ReportReader
+        visible={!!selectedReport}
+        report={selectedReport}
+        onClose={() => setSelectedReport(null)}
+        onRetry={selectedReport ? () => handleRetry(selectedReport) : undefined}
+        canDownload={!!reportCapability.allowed}
+        onDownload={selectedReport?.file_url ? () => handleDownload(selectedReport.file_url as string) : undefined}
       />
     </View>
   );

@@ -25,17 +25,17 @@ import {
     WorkDistributionChartWeb
 } from './RadarWidgets';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { mapThroughputKpi } from './throughputKpi';
 
 export const RadarSectionWeb = ({ data, activeWidgets, onEditWidgets }: any) => {
   const colors = useThemeColors();
   if (!data) return null;
-  const curThr = data.current?.throughput || 0;
-  const prevThr = data.comparison?.throughput || 0;
+  const throughputKpi = mapThroughputKpi(data.current?.throughput, data.comparison?.throughput);
   const adv = data.radar_advanced || {};
   const curr = data.current || {};
   const renderWidget = (key: string, idx: number) => {
     switch (key) {
-      case 'throughput': return <KPIBoxWeb key={idx} label="Throughput" val={curThr} delta={curThr - prevThr} />;
+      case 'throughput': return <KPIBoxWeb key={idx} label="Throughput" val={throughputKpi.value ?? '—'} delta={throughputKpi.delta ?? undefined} />;
       case 'efficiency': return <KPIBoxWeb key={idx} label="Success Rate" val={curr.success_rate == null ? '—' : `${Math.round(curr.success_rate)}%`} delta={undefined} />;
       case 'first_pass_yield': return <KPIBoxWeb key={idx} label="First-Pass Integrity" val={adv.first_pass_yield == null ? '—' : `${adv.first_pass_yield}%`} delta={undefined} />;
       default: return null;

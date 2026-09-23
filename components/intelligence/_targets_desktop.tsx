@@ -11,6 +11,7 @@ import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/u
 import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
 import { NATIVE_THEME_COLORS } from '@/lib/layout';
 import { getTargetHistoryDate, toTargetScreenTarget } from '@/lib/analyticsTargets';
+import { isTargetProgressRingEligible, unavailableLabel } from '@/components/intelligence/targetPresentation';
 import { supabase } from '@/lib/supabase';
 import { useCanonicalAnalyticsTargets } from '@/hooks/useCanonicalAnalyticsTargets';
 import { FontAwesome } from '@expo/vector-icons';
@@ -44,6 +45,11 @@ const EditTargetModal = ({
     target.target_deadline ? new Date(target.target_deadline).toISOString().split('T')[0] : null
   );
   const colors = useThemeColors();
+  const parsedQuantity = parseInt(quantity);
+  const parsedActiveMins = parseInt(activeMins);
+  const saveDisabled = isVolume
+    ? isNaN(parsedQuantity) || parsedQuantity <= 0
+    : isNaN(parsedActiveMins) || parsedActiveMins <= 0;
 
   const handleSave = () => {
     if (isVolume) {
@@ -74,12 +80,15 @@ const EditTargetModal = ({
         <View>
           <Text className="text-xl font-black tracking-tight" style={{ color: colors.textMain }}>Edit Target</Text>
           <Text className="text-xs font-bold mt-1" style={{ color: colors.textMuted }}>
-            {target.stage?.name} · {isVolume ? 'Volume Quota' : 'Performance SLA'}
+            {target.stage?.name} · {isVolume ? 'Volume target' : 'Time target'}
           </Text>
         </View>
         <TouchableOpacity
           onPress={onClose}
-          className="w-9 h-9 rounded-full border items-center justify-center"
+          accessibilityRole="button"
+          accessibilityLabel="Close edit target"
+          accessibilityState={{ disabled: false }}
+          className="min-h-[44px] min-w-[44px] rounded-full border items-center justify-center"
           style={{ backgroundColor: colors.background, borderColor: colors.border }}
         >
           <FontAwesome name="times" size={13} color={colors.textDim} />
@@ -92,7 +101,7 @@ const EditTargetModal = ({
             <>
               <View>
                 <Text className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>
-                  Target Quota (units)
+                  Task goal (tasks)
                 </Text>
                 <TextInput
                   value={quantity}
@@ -105,7 +114,7 @@ const EditTargetModal = ({
               </View>
               <View>
                 <Text className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>
-                  Expiration Deadline
+                  Due date
                 </Text>
                 <Calendar selectedDate={deadline} onSelect={setDeadline} scale="compact" />
               </View>
@@ -114,7 +123,7 @@ const EditTargetModal = ({
             <View className="flex-row gap-4">
               <View className="flex-1">
                 <Text className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>
-                  Active Budget (minutes)
+                  Active work limit (minutes)
                 </Text>
                 <TextInput
                   value={activeMins}
@@ -127,7 +136,7 @@ const EditTargetModal = ({
               </View>
               <View className="flex-1">
                 <Text className="text-[9px] font-black uppercase tracking-widest mb-3" style={{ color: colors.textMuted }}>
-                  Max Lifecycle (hours)
+                  Total time limit (hours)
                 </Text>
                 <TextInput
                   value={lifecycleHours}
@@ -146,17 +155,24 @@ const EditTargetModal = ({
       <View className="p-8 border-t flex-row gap-4" style={{ borderColor: colors.border, backgroundColor: `${colors.card}80` }}>
         <TouchableOpacity
           onPress={onClose}
-          className="flex-1 py-4 rounded-2xl border items-center"
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+          accessibilityState={{ disabled: false }}
+          className="min-h-[44px] flex-1 py-4 rounded-2xl border items-center"
           style={{ backgroundColor: colors.background, borderColor: colors.border }}
         >
           <Text className="font-black uppercase tracking-widest text-xs" style={{ color: colors.textMuted }}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => { handleSave(); onClose(); }}
-          className="flex-1 py-4 rounded-2xl items-center"
+          onPress={() => { if (!saveDisabled) { handleSave(); onClose(); } }}
+          disabled={saveDisabled}
+          accessibilityRole="button"
+          accessibilityLabel="Save changes"
+          accessibilityState={{ disabled: saveDisabled }}
+          className="min-h-[44px] flex-1 py-4 rounded-2xl items-center"
           style={{ backgroundColor: colors.primary }}
         >
-          <Text className="text-white font-black uppercase tracking-widest text-xs">Save Changes</Text>
+          <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Save Changes</Text>
         </TouchableOpacity>
       </View>
     </Popup>
@@ -184,9 +200,8 @@ const TargetCircle = ({
 }) => {
   const palette = NATIVE_THEME_COLORS[activeTheme];
   const isVolume = target.target_type === 'volume';
-  const volumeProgressAvailable = Number.isFinite(target.current_count)
-    && Number.isFinite(target.target_quantity)
-    && target.target_quantity > 0;
+  const volumeProgressAvailable = isTargetProgressRingEligible(target);
+  const showRing = volumeProgressAvailable;
   const progress = isVolume && volumeProgressAvailable
     ? Math.min((target.current_count / (target.target_quantity || 1)) * 100, 100)
     : 0;
@@ -211,9 +226,12 @@ const TargetCircle = ({
   const innerSize = CIRCLE_SIZE - innerPad * 2;
 
   return (
-    <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE, position: 'relative' }}>
+    <View
+      style={{ width: CIRCLE_SIZE, height: showRing ? CIRCLE_SIZE : 220, position: 'relative' }}
+      className={showRing ? undefined : 'bg-surface-card border border-surface-border rounded-3xl p-5'}
+    >
       {/* Progress Ring */}
-      <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} style={{ position: 'absolute' }}>
+      {showRing && <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} style={{ position: 'absolute' }}>
         <Defs>
           <LinearGradient id={`grad-${target.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
             <Stop offset="0%" stopColor={ringColor} stopOpacity={0.7} />
@@ -239,17 +257,13 @@ const TargetCircle = ({
         } as any} />}
         {/* Filled inner background */}
         <Circle cx={CX} cy={CX} r={R - STROKE / 2 - 1} fill={palette.card} />
-      </Svg>
+      </Svg>}
 
       {/* Content */}
       <View
-        style={{
-          position: 'absolute',
-          left: innerPad,
-          top: innerPad,
-          width: innerSize,
-          height: innerSize,
-        }}
+        style={showRing
+          ? { position: 'absolute', left: innerPad, top: innerPad, width: innerSize, height: innerSize }
+          : { flex: 1, width: '100%' }}
         className="items-center justify-center"
       >
         {/* Stage name */}
@@ -258,7 +272,7 @@ const TargetCircle = ({
           numberOfLines={1}
           style={{ maxWidth: innerSize - 8 }}
         >
-          {target.stage?.name ?? '—'}
+          {unavailableLabel(target.stage?.name)}
         </Text>
 
         {/* Type badge */}
@@ -273,18 +287,18 @@ const TargetCircle = ({
         {/* Value display */}
         {isVolume ? (
           <Text className="text-typography-muted text-[11px] font-bold mt-1">
-            {volumeProgressAvailable ? `${target.current_count} / ${target.target_quantity} units` : 'Progress unavailable'}
+            {volumeProgressAvailable ? `${target.current_count} / ${target.target_quantity} tasks` : 'Progress unavailable'}
           </Text>
         ) : (
           <View className="items-center mt-1">
             <Text className="text-typography-muted text-[9px] font-black uppercase tracking-widest mb-2">
-              SLA budgets
+              Time limits
             </Text>
             <Text className="text-typography-muted text-[10px] font-bold">
-              {target.target_active_seconds == null ? 'Active budget unavailable' : `${Math.round(target.target_active_seconds / 60)}m active budget`}
+              {target.target_active_seconds == null ? 'Active work limit unavailable' : `${Math.round(target.target_active_seconds / 60)}m active work limit`}
             </Text>
             <Text className="text-typography-dim text-[9px] font-bold">
-              {target.target_lifecycle_seconds == null ? 'Lifecycle budget unavailable' : `${Math.round(target.target_lifecycle_seconds / 3600)}h lifecycle budget`}
+              {target.target_lifecycle_seconds == null ? 'Total time limit unavailable' : `${Math.round(target.target_lifecycle_seconds / 3600)}h total time limit`}
             </Text>
           </View>
         )}
@@ -305,7 +319,9 @@ const TargetCircle = ({
           {target.status === 'active' && !isMet && !isExpired && (
             <TouchableOpacity
               onPress={onEdit}
-              className="bg-brand-primary/10 border border-brand-primary/20 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 hover:bg-brand-primary/20 transition-colors"
+              accessibilityRole="button"
+              accessibilityLabel="Edit target"
+              className="min-h-[44px] bg-brand-primary/10 border border-brand-primary/20 px-3 py-1.5 rounded-full flex-row items-center gap-1.5 hover:bg-brand-primary/20 transition-colors"
             >
               <FontAwesome name="pencil-square-o" size={9} color={palette.primary} />
               <Text className="text-brand-primary text-[8px] font-black uppercase tracking-widest">Edit</Text>
@@ -314,19 +330,23 @@ const TargetCircle = ({
           {target.status === 'active' && isMet && (
             <TouchableOpacity
               onPress={() => onClear('completed')}
-              className="bg-state-success px-3 py-1.5 rounded-full flex-row items-center gap-1.5"
+              accessibilityRole="button"
+              accessibilityLabel="Complete target"
+              className="min-h-[44px] bg-state-success px-3 py-1.5 rounded-full flex-row items-center gap-1.5"
             >
               <FontAwesome name="check" size={9} color="white" />
-              <Text className="text-white text-[8px] font-black uppercase tracking-widest">Complete</Text>
+              <Text className="text-brand-on-primary text-[8px] font-black uppercase tracking-widest">Complete</Text>
             </TouchableOpacity>
           )}
           {target.status === 'active' && isExpired && (
             <TouchableOpacity
               onPress={() => onClear('expired')}
-              className="bg-state-danger px-3 py-1.5 rounded-full flex-row items-center gap-1.5"
+              accessibilityRole="button"
+              accessibilityLabel="Expire target"
+              className="min-h-[44px] bg-state-danger px-3 py-1.5 rounded-full flex-row items-center gap-1.5"
             >
               <FontAwesome name="times" size={9} color="white" />
-              <Text className="text-white text-[8px] font-black uppercase tracking-widest">Expire</Text>
+              <Text className="text-brand-on-primary text-[8px] font-black uppercase tracking-widest">Expire</Text>
             </TouchableOpacity>
           )}
           {target.status !== 'active' && (
@@ -496,19 +516,24 @@ function IntelligenceTargetsInner() {
       <View className="flex-1 flex-col overflow-hidden">
         <IntelligencePageHeader
           eyebrow="Intelligence Hub"
-          title="Performance Targets"
+          title="Targets"
           right={
             <>
               <TouchableOpacity
                 onPress={() => setShowModal(true)}
-                className="bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2"
+                accessibilityRole="button"
+                accessibilityLabel="Create target"
+                className="min-h-[44px] bg-brand-primary px-6 py-2.5 rounded-xl flex-row items-center gap-2"
               >
                 <FontAwesome name="plus" size={12} color="white" />
-                <Text className="text-white font-black uppercase tracking-widest text-[11px]">New Target</Text>
+                <Text className="text-brand-on-primary font-black uppercase tracking-widest text-[11px]">New Target</Text>
               </TouchableOpacity>
               <CustomTooltip label="Toggle activity panel">
                 <TouchableOpacity
                   onPress={() => setShowRightSidebar(!showRightSidebar)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle activity panel"
+                  accessibilityState={{ expanded: showRightSidebar }}
                   className={`px-4 py-2.5 rounded-xl border flex-row items-center gap-2 transition-all ${
                     showRightSidebar ? 'bg-brand-primary border-brand-primary premium-shadow' : 'bg-surface-card border-surface-border hover:bg-surface-overlay'
                   }`}
@@ -539,9 +564,11 @@ function IntelligenceTargetsInner() {
                   <Text className="text-typography-muted font-bold text-sm">No active targets found.</Text>
                   <TouchableOpacity
                     onPress={() => setShowModal(true)}
-                    className="mt-6 bg-brand-primary px-6 py-2.5 rounded-xl"
+                    accessibilityRole="button"
+                    accessibilityLabel="Create first target"
+                    className="mt-6 min-h-[44px] bg-brand-primary px-6 py-2.5 rounded-xl"
                   >
-                    <Text className="text-white font-black uppercase tracking-widest text-[10px]">Create First Target</Text>
+                    <Text className="text-brand-on-primary font-black uppercase tracking-widest text-[10px]">Create First Target</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -565,7 +592,7 @@ function IntelligenceTargetsInner() {
                     <View>
                       <Text className="text-typography-main font-black text-2xl tracking-tighter">Fulfillment Trace</Text>
                       <Text className="text-typography-muted text-xs mt-1">
-                        Timeline of satisfied performance benchmarks by stage
+                        Completed targets by stage
                       </Text>
                     </View>
                     <View className="bg-brand-primary/10 px-4 py-2 rounded-xl border border-brand-primary/20">
@@ -662,7 +689,7 @@ function IntelligenceTargetsInner() {
                           : 'bg-surface-overlay border-surface-border'
                       }`}
                     >
-                      <Text className={`text-[8px] font-black ${timeframe === tf ? 'text-white' : 'text-typography-muted'}`}>
+                      <Text className={`text-[8px] font-black ${timeframe === tf ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
                         {tf}
                       </Text>
                     </TouchableOpacity>
@@ -723,7 +750,7 @@ function IntelligenceTargetsInner() {
                   <Text className="text-typography-main font-black uppercase tracking-[0.2em] text-[10px]">Recent Activity</Text>
                 </View>
                 <CustomTooltip label="Refresh targets">
-                  <TouchableOpacity onPress={() => void refresh()}>
+                  <TouchableOpacity onPress={() => void refresh()} accessibilityRole="button" accessibilityLabel="Refresh targets" className="min-h-[44px] min-w-[44px] items-center justify-center">
                     <FontAwesome name="refresh" size={10} color={colors.muted} />
                   </TouchableOpacity>
                 </CustomTooltip>

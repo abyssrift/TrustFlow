@@ -12,14 +12,14 @@ export interface OrganizationalAudit {
     };
   };
   current: {
-    throughput: number;
+    throughput: number | null;
     sample_size?: number;
     success_rate: number | null;
     avg_lead_time_minutes: number | null;
     revision_rate: number | null;
   };
   comparison: {
-    throughput: number;
+    throughput: number | null;
     success_rate: number | null;
     avg_lead_time_minutes: number | null;
     revision_rate: number | null;

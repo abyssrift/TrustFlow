@@ -14,9 +14,9 @@ describe('General Report nullable organizational KPIs', () => {
       success_rate: 90,
     })
 
-    expect(kpis.map(({ value }) => value)).toEqual(['0', 'N/A', 'N/A', 'N/A'])
+    expect(kpis.map(({ value }) => value)).toEqual(['N/A', 'N/A', 'N/A', 'N/A'])
     expect(kpis.slice(1).every(kpi => kpi.accent === kpi.neutralColor && kpi.color === kpi.neutralColor)).toBe(true)
-    expect(kpis[0].note).toBe('-100% vs prior')
+    expect(kpis[0].note).toBeUndefined()
     expect(kpis.slice(1).map(kpi => kpi.note)).toEqual([undefined, undefined, 'Rework ratio'])
   })
 

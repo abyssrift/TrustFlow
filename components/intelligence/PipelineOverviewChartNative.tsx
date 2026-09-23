@@ -3,6 +3,7 @@ import {
   OVERVIEW_METRICS,
   OverviewMetricKey,
   OverviewPeriod,
+  OverviewPoint,
   usePipelineOverviewData,
 } from '@/hooks/usePipelineOverviewData';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -29,6 +30,42 @@ interface Props {
 const CHART_H = 170;
 const PAD_TOP = 12;
 const PAD_BOTTOM = 12;
+
+export function buildOverviewSeries(
+  data: OverviewPoint[],
+  key: OverviewMetricKey,
+  width: number,
+  plotH: number,
+  padTop: number,
+): { segments: string[]; dots: { x: number; y: number }[] } {
+  if (width === 0 || data.length === 0) return { segments: [], dots: [] };
+  const values = data.map(d => {
+    const value = d[key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  });
+  const measured = values.filter((value): value is number => value !== null);
+  if (measured.length === 0) return { segments: [], dots: [] };
+  const max = Math.max(1, ...measured);
+  const stepX = data.length > 1 ? width / (data.length - 1) : 0;
+  const dots = values.flatMap((value, i) => value === null ? [] : [{
+    x: data.length > 1 ? i * stepX : width / 2,
+    y: padTop + plotH - (value / max) * plotH,
+  }]);
+  const segments: string[] = [];
+  let current: string[] = [];
+  values.forEach((value, i) => {
+    if (value === null) {
+      if (current.length > 0) segments.push(current.join(' '));
+      current = [];
+      return;
+    }
+    const x = data.length > 1 ? i * stepX : width / 2;
+    const y = padTop + plotH - (value / max) * plotH;
+    current.push(`${x},${y}`);
+  });
+  if (current.length > 0) segments.push(current.join(' '));
+  return { segments, dots };
+}
 
 export default function PipelineOverviewChartNative({
   pipelineIds,
@@ -66,19 +103,13 @@ export default function PipelineOverviewChartNative({
 
   // Normalize each metric to its own max so lines with different units share
   // one band as a trend overview. Absolute latest values live in the legend.
-  const seriesFor = (key: OverviewMetricKey): { points: string; dots: { x: number; y: number }[] } => {
-    if (width === 0 || data.length === 0) return { points: '', dots: [] };
-    const vals = data.map(d => (d as any)[key] as number);
-    const max = Math.max(1, ...vals);
-    const stepX = data.length > 1 ? width / (data.length - 1) : 0;
-    const dots = vals.map((v, i) => ({
-      x: data.length > 1 ? i * stepX : width / 2,
-      y: PAD_TOP + plotH - (v / max) * plotH,
-    }));
-    return { points: dots.map(d => `${d.x},${d.y}`).join(' '), dots };
-  };
+  const seriesFor = (key: OverviewMetricKey) => buildOverviewSeries(data, key, width, plotH, PAD_TOP);
 
-  const latest = (key: OverviewMetricKey): number => (data.length ? (data[data.length - 1] as any)[key] : 0);
+  const latest = (key: OverviewMetricKey): number | null => {
+    if (data.length === 0) return null;
+    const value = data[data.length - 1][key];
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  };
 
   return (
     // No card and no heading — the widget shell draws both, and it is the only
@@ -127,7 +158,7 @@ export default function PipelineOverviewChartNative({
             >
               <View className="w-2 h-2 rounded-full" style={{ backgroundColor: colorFor(m.colorKey) }} />
               <Text className={`text-[9px] font-black uppercase tracking-widest ${on ? 'text-typography-main' : 'text-typography-muted'}`}>
-                {m.label}{on && !loading ? ` ${latest(m.key)}${m.unit ?? ''}` : ''}
+                {m.label}{on && !loading ? ` ${latest(m.key) === null ? '\u2014' : `${latest(m.key)}${m.unit ?? ''}`}` : ''}
               </Text>
             </TouchableOpacity>
           );
@@ -164,9 +195,9 @@ export default function PipelineOverviewChartNative({
                   const stroke = colorFor(m.colorKey);
                   return (
                     <React.Fragment key={m.key}>
-                      {data.length > 1 ? (
-                        <Polyline points={s.points} fill="none" stroke={stroke} strokeWidth={2.5} />
-                      ) : null}
+                      {s.segments.map((points, i) => points.includes(' ') ? (
+                        <Polyline key={i} points={points} fill="none" stroke={stroke} strokeWidth={2.5} />
+                      ) : null)}
                       {s.dots.map((d, i) => (
                         <Circle key={i} cx={d.x} cy={d.y} r={3} fill={stroke} />
                       ))}

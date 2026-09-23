@@ -15,7 +15,6 @@ import MultiViewList from '@/components/common/MultiViewList';
 import GridSectionHeader from '@/components/admin/GridSectionHeader';
 import { useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import GuideAnchor from '@/components/guides/GuideAnchor';
-import GuideHelpButton from '@/components/guides/GuideHelpButton';
 
 cssInterop(FontAwesome, {
   className: {
@@ -226,7 +225,6 @@ export default function TeamAssignmentGrid() {
           title="Active Teams"
           right={
             <View className="flex-row items-center gap-2">
-              <GuideHelpButton guideId="team-people" />
               <GuideAnchor id="team-people:primary-action">
                 <View className="flex-row items-center gap-2">
                   {canAssignRoles && <TouchableOpacity onPress={selectionMode ? clearTeamSelection : () => setSelectionMode(true)} className="border border-surface-border px-3 py-3 rounded-xl">

@@ -13,7 +13,8 @@ DECLARE
   owner1 uuid := gen_random_uuid(); owner2 uuid := gen_random_uuid();
   denied1 uuid := gen_random_uuid();
   role1 uuid := gen_random_uuid(); pipe_empty uuid; pipe_measured uuid; pipe_zero_revision uuid; pipe_foreign uuid;
-  open_stage uuid; failure_stage uuid; measured jsonb; empty_result jsonb;
+  open_stage uuid; failure_stage uuid; foreign_success_stage uuid;
+  measured jsonb; empty_result jsonb; global_before jsonb;
   denied boolean; public_proc regprocedure; private_proc regprocedure;
   wrapper_owner oid; private_owner oid; auth_role oid;
   wrapper_security_definer boolean; private_security_definer boolean;
@@ -155,6 +156,33 @@ BEGIN
   ASSERT (measured->'current'->>'success_rate')::numeric=0, 'observed success_rate zero must remain numeric 0';
   ASSERT (measured->'current'->>'revision_rate')::numeric=0, 'observed revision_rate zero must remain numeric 0';
   ASSERT (measured->'radar_advanced'->>'flow_ratio')::numeric=0, 'observed flow_ratio zero must remain numeric 0';
+
+  -- A global request is still company-scoped. Capture the owner company's
+  -- result, then add a successful task to the foreign company's pipeline and
+  -- assert that neither current sample_size nor throughput changes.
+  SELECT public.rpc_get_organizational_audit(
+    p_pipeline_id:=NULL,p_date_start:=now()-interval '10 days',p_date_end:=now()
+  ) INTO global_before;
+  ASSERT (global_before->'current'->>'sample_size')::bigint = 2,
+    'global sample_size did not reflect the two current-company tasks';
+  ASSERT (global_before->'current'->>'throughput')::bigint = 0,
+    'global throughput did not reflect the current-company failure tasks';
+  RESET ROLE;
+  INSERT INTO public.pipeline_stages(pipeline_id,name,color,position,is_initial,is_terminal,terminal_type,submission_mode)
+    VALUES(pipe_foreign,'done','#22C55E',1,true,true,'success','none') RETURNING id INTO foreign_success_stage;
+  INSERT INTO public.tasks(company_id,title,created_by,manager_id,pipeline_id,current_stage_id)
+    VALUES(c2,marker||' foreign success',owner2,owner2,pipe_foreign,foreign_success_stage);
+  UPDATE public.tasks SET created_at=now()-interval '2 days',completed_at=now()-interval '2 days'
+    WHERE company_id=c2 AND title=marker||' foreign success';
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',owner1::text,'role','authenticated')::text,true);
+  SELECT public.rpc_get_organizational_audit(
+    p_pipeline_id:=NULL,p_date_start:=now()-interval '10 days',p_date_end:=now()
+  ) INTO measured;
+  ASSERT (measured->'current'->>'sample_size')::bigint = (global_before->'current'->>'sample_size')::bigint,
+    'global sample_size included a foreign-company task';
+  ASSERT (measured->'current'->>'throughput')::bigint = (global_before->'current'->>'throughput')::bigint,
+    'global throughput included a foreign-company task';
 
   -- Unauthorized same-company callers and authorized callers targeting a
   -- different company must still be rejected by the public wrapper.

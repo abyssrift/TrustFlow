@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 import type { OrganizationalAudit } from '@/lib/analyticsMetrics';
 import { useAnalytics } from '@/contexts/AnalyticsContext';
 import { FontAwesome } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { CollapsibleHeaderProvider, useCollapsibleHeaderScroll } from '@/hooks/useCollapsibleHeader';
 import IntelligencePageHeader from '@/components/intelligence/IntelligencePageHeader';
@@ -34,14 +34,18 @@ function IntelligenceOverviewInner() {
   const limits = getAnalyticsLimits(planLimits);
 
   // Use a neutral initial range; plan-specific controls and fetches wait for billing readiness.
-  const [data, setData]           = useState<OrganizationalAudit | null>(null);
-  const [loading, setLoading]     = useState(true);
   const { from, to, setFrom, setTo } = useDateRange(30);
   const granularity = useGranularity();
   const days = daysBetween(from, to);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [pipelines, setPipelines] = useState<any[]>([]);
   const { getOrganizationalAudit } = useAnalytics();
+  const [auditSnapshot, setAuditSnapshot] = useState<{ key: string; data: OrganizationalAudit | null } | null>(null);
+  const [auditState, setAuditState] = useState<'loading' | 'updating' | 'ready' | 'empty' | 'error'>('loading');
+  const [auditStateKey, setAuditStateKey] = useState<string | null>(null);
+  const currentKeyRef = useRef<string | null>(null);
+  const acceptedKeyRef = useRef<string | null>(null);
+  const requestGenerationRef = useRef(0);
 
   useEffect(() => {
     supabase.from('pipelines').select('id, name').is('deleted_at', null)
@@ -49,19 +53,43 @@ function IntelligenceOverviewInner() {
   }, []);
 
   const canViewAnalytics = permissionsLoaded && hasPermission('analytics.view');
+  const requestKey = JSON.stringify([pipelineId, from, to, days]);
+  currentKeyRef.current = requestKey;
 
   useEffect(() => {
     if (canViewAnalytics && billingReady) fetchAudit();
-    else setLoading(false);
   }, [from, to, pipelineId, canViewAnalytics, billingReady]);
 
   const fetchAudit = async (forceRefresh = false) => {
-    setLoading(true);
+    const key = requestKey;
+    const generation = ++requestGenerationRef.current;
+    currentKeyRef.current = key;
+    const hasAcceptedSnapshot = acceptedKeyRef.current === key;
+    setAuditStateKey(key);
+    setAuditState(hasAcceptedSnapshot ? 'updating' : 'loading');
     try {
-      setData(await getOrganizationalAudit(pipelineId, days, forceRefresh));
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+      const nextData = await getOrganizationalAudit(pipelineId, days, forceRefresh);
+      if (generation !== requestGenerationRef.current || currentKeyRef.current !== key) return;
+      setAuditSnapshot({ key, data: nextData });
+      acceptedKeyRef.current = key;
+      setAuditStateKey(key);
+      setAuditState(nextData == null ? 'empty' : 'ready');
+    } catch (e) {
+      if (generation !== requestGenerationRef.current || currentKeyRef.current !== key) return;
+      setAuditSnapshot(null);
+      acceptedKeyRef.current = null;
+      setAuditStateKey(key);
+      setAuditState('error');
+    }
   };
+
+  const currentSnapshot = auditSnapshot?.key === requestKey ? auditSnapshot.data : null;
+  const effectiveAuditState = auditStateKey === requestKey ? auditState : 'loading';
+  const auditUpdating = currentSnapshot != null && effectiveAuditState === 'updating';
+  const auditLoading = currentSnapshot == null && (effectiveAuditState === 'loading' || effectiveAuditState === 'updating');
+  const auditError = effectiveAuditState === 'error';
+  const auditEmpty = effectiveAuditState === 'empty';
+  const data = currentSnapshot;
 
   // #308 scroll-linked collapse of the shared header; only one scroll per screen
   // drives it — the analytics body ScrollView below.
@@ -92,7 +120,7 @@ function IntelligenceOverviewInner() {
                 </View>
                 <Tooltip label="Refresh data">
                   <TouchableOpacity onPress={() => fetchAudit(true)} className="h-10 w-10 items-center justify-center bg-surface-card border border-surface-border rounded-xl">
-                    {loading && data
+                    {auditUpdating
                       ? <ActivityIndicator size="small" color={colors.primary} />
                       : <FontAwesome name="refresh" size={13} color={colors.primary} />}
                   </TouchableOpacity>
@@ -116,16 +144,36 @@ function IntelligenceOverviewInner() {
         <View className="flex-1 items-center justify-center px-6">
           <Text className="text-typography-muted text-sm text-center">Plan information unavailable.</Text>
         </View>
-      ) : canViewAnalytics && loading && !data ? (
-        <View className="flex-1 items-center justify-center">
+      ) : canViewAnalytics && auditLoading ? (
+        <View className="flex-1 items-center justify-center" accessibilityRole="progressbar" accessibilityLabel="Loading overview">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : canViewAnalytics && !data ? (
+      ) : canViewAnalytics && auditError ? (
+        <View className="flex-1 items-center justify-center px-6 gap-3">
+          <Text accessibilityLiveRegion="polite" className="text-typography-main font-black text-base">Couldn’t load overview.</Text>
+          <TouchableOpacity
+            onPress={() => fetchAudit(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
+            className="bg-brand-primary px-5 rounded-xl items-center justify-center"
+            style={{ minHeight: 44, minWidth: 88 }}
+          >
+            <Text className="text-brand-on-primary text-xs font-bold">Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : canViewAnalytics && auditEmpty ? (
         <View className="flex-1 items-center justify-center">
           <Text className="text-typography-muted text-sm">No data available for this period.</Text>
         </View>
       ) : canViewAnalytics ? (
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} {...headerScroll}>
+
+          {auditUpdating && (
+            <View accessible accessibilityRole="progressbar" accessibilityLabel="Updating overview" className="px-10 pt-4 flex-row items-center gap-2">
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text className="text-typography-muted text-xs">Updating overview…</Text>
+            </View>
+          )}
 
           {/* ── KPI Row ── */}
           <View className="px-10 pt-6 pb-8 flex-shrink-0">

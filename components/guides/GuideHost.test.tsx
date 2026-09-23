@@ -27,7 +27,7 @@ const state = vi.hoisted(() => ({
 
 vi.mock('expo-router', async () => {
   const React = await vi.importActual<typeof import('react')>('react');
-  return { usePathname: () => { const [path, setPath] = React.useState(state.pathname); React.useEffect(() => { state.listeners.add(setPath); return () => { state.listeners.delete(setPath); }; }, []); return path; }, useGlobalSearchParams: () => ({}), useRouter: () => ({ push: state.push }) };
+  return { usePathname: () => { const [path, setPath] = React.useState(state.pathname); React.useEffect(() => { state.listeners.add(setPath); return () => { state.listeners.delete(setPath); }; }, []); return path; }, useGlobalSearchParams: () => state.searchParams, useRouter: () => ({ push: state.push }) };
 });
 vi.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator', Platform: { OS: 'web' }, Pressable: 'Pressable', ScrollView: 'ScrollView',
@@ -54,7 +54,6 @@ vi.mock('@/hooks/useGuideProgress', () => ({ useGuideProgress: () => ({ scope: '
 const { ContextualGuideProvider } = await import('@/contexts/ContextualGuideContext');
 const { GUIDE_REGISTRY } = await import('@/lib/contextualGuides');
 const { default: GuideHost } = await import('./GuideHost');
-const { default: GuideHelpButton } = await import('./GuideHelpButton');
 const actEnvironment = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 actEnvironment.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -76,7 +75,8 @@ describe('GuideHost checklist', () => {
       'workflow-pipelines': { guideId: 'workflow-pipelines', guideVersion: 1, status: 'done', currentStep: 1, firstEligibleAt: 'now', acknowledgedAt: 'now' },
       filehub: { guideId: 'filehub', guideVersion: 1, status: 'not_started', currentStep: 0, firstEligibleAt: 'now', acknowledgedAt: null },
     };
-    state.pathname = '/';
+    state.pathname = '/unmapped';
+    state.searchParams = {};
     state.viewport = { width: 1400, height: 900 };
     state.storage.clear();
     state.storage.set('guide-checklist:auto-open:v1:user-1:company-1', '1');
@@ -158,6 +158,51 @@ describe('GuideHost checklist', () => {
     expect(renderer.root.findByProps({ testID: 'guide-checklist-panel' })).toBeTruthy();
     renderer.unmount();
     state.progress = originalProgress;
+  });
+
+  it('launches the matching route guide from the canonical launcher', async () => {
+    state.pathname = '/tasks';
+    let renderer!: Renderer;
+    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHost /></ContextualGuideProvider>); });
+    const launcher = renderer.root.findByProps({ accessibilityLabel: 'Open Work through tasks guide' });
+    expect(renderer.root.findByProps({ testID: 'tooltip-Open Work through tasks guide' })).toBeTruthy();
+    await act(async () => { launcher.props.onPress(); });
+    await vi.waitFor(() => expect(state.start).toHaveBeenCalledWith('tasks'));
+    expect(renderer.root.findAllByProps({ testID: 'guide-checklist-panel' })).toHaveLength(0);
+    renderer.unmount();
+  });
+
+  it('uses registry priority for shared routes and falls back to the checklist on an unmapped route', async () => {
+    state.pathname = '/people';
+    state.searchParams = { section: 'teams' };
+    let renderer!: Renderer;
+    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHost /></ContextualGuideProvider>); });
+    expect(renderer.root.findByProps({ accessibilityLabel: 'Open Find your team guide' })).toBeTruthy();
+    await press(renderer, 'Open Find your team guide');
+    await vi.waitFor(() => expect(state.start).toHaveBeenCalledWith('team-people'));
+    renderer.unmount();
+
+    state.pathname = '/unmapped';
+    state.searchParams = {};
+    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHost /></ContextualGuideProvider>); });
+    expect(renderer.root.findByProps({ accessibilityLabel: 'Open To Do checklist' })).toBeTruthy();
+    await press(renderer, 'Open To Do checklist');
+    expect(renderer.root.findByProps({ testID: 'guide-checklist-panel' })).toBeTruthy();
+    renderer.unmount();
+  });
+
+  it('places the launcher below the desktop top bar and preserves mobile bottom placement', async () => {
+    let renderer!: Renderer;
+    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHost /></ContextualGuideProvider>); });
+    const desktopLauncher = renderer.root.findByProps({ accessibilityLabel: 'Open To Do checklist' });
+    expect(desktopLauncher.props.style).toEqual({ top: 76 });
+    renderer.unmount();
+
+    state.viewport = { width: 390, height: 900 };
+    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHost launcherBottom={86} /></ContextualGuideProvider>); });
+    const mobileLauncher = renderer.root.findByProps({ accessibilityLabel: 'Open To Do checklist' });
+    expect(mobileLauncher.props.style).toEqual({ bottom: 86 });
+    renderer.unmount();
   });
 
   it('groups guides into phases with done counts and collapsible sections', async () => {
@@ -264,7 +309,7 @@ describe('GuideHost checklist', () => {
     await vi.waitFor(() => expect(text(renderer)).toContain('Step 1 of 3'));
     await act(async () => { renderer.unmount(); });
 
-    state.pathname = '/profile';
+    state.pathname = '/unmapped';
     let skipped!: Renderer;
     await act(async () => { skipped = TestRenderer.create(<ContextualGuideProvider><GuideHost /></ContextualGuideProvider>); });
     await press(skipped, 'Open To Do checklist');
@@ -275,15 +320,6 @@ describe('GuideHost checklist', () => {
     expect(state.skip).toHaveBeenCalledWith('profile');
     expect(state.complete).not.toHaveBeenCalled();
     await act(async () => { skipped.unmount(); });
-  });
-
-  it('per-screen Help launches the registry guide for its screen', async () => {
-    let renderer!: Renderer;
-    await act(async () => { renderer = TestRenderer.create(<ContextualGuideProvider><GuideHelpButton guideId="profile" /></ContextualGuideProvider>); });
-    await press(renderer, 'Open profile guide');
-    await vi.waitFor(() => expect(state.start).toHaveBeenCalledWith('profile'));
-    expect(state.push).toHaveBeenCalledWith('/profile');
-    await act(async () => { renderer.unmount(); });
   });
 
   it('auto-hides when every eligible guide is done or familiar, and remains rediscoverable', async () => {

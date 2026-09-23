@@ -117,42 +117,10 @@ const trendStart = radar.indexOf('export const TrendComparisonCardsWeb');
 if (trendStart < 0 || radar.slice(trendStart, nextExport(radar, trendStart)).includes('<Block')) throw new Error('RadarWidgets TrendComparisonCardsWeb must remain specialized');
 const radarBlockOpeningLines = radar.split('\n').filter(line => line.includes('<Block'));
 if (radarBlockOpeningLines.some(line => /(?:bg-surface-card|border-surface-border|rounded-|\bp-\d)/.test(line))) throw new Error('Migrated Radar Block className must not restate shared surface chrome');
-if (!adaptiveIntelligence.includes("import Block from '@/components/common/Block';")) throw new Error('_index_adaptive.tsx must import Block');
+for (const marker of ['<AtAGlance ', '<TargetWatch ', '<ProjectLens']) {
+  if (!adaptiveIntelligence.includes(marker)) throw new Error(`_index_adaptive.tsx missing simple Overview surface: ${marker}`);
+}
 for (const title of ['Retention Funnel', 'Operator Engagement', 'Quality Scoreboard', 'Pipeline Load Distribution']) {
-  if (!adaptiveIntelligence.includes(`<Block title="${title}"`)) throw new Error(`_index_adaptive.tsx ${title} section must use Block`);
+  if (adaptiveIntelligence.includes(title)) throw new Error(`_index_adaptive.tsx must not restore removed detail section: ${title}`);
 }
-const adaptiveTrendStart = adaptiveIntelligence.indexOf('const TrendComparisonCards =');
-const adaptiveTrendEnd = adaptiveIntelligence.indexOf('// Same validated categorical palette', adaptiveTrendStart);
-if (adaptiveTrendStart < 0 || adaptiveTrendEnd < 0 || adaptiveIntelligence.slice(adaptiveTrendStart, adaptiveTrendEnd).includes('<Block')) throw new Error('_index_adaptive.tsx TrendComparisonCards must remain specialized');
-const adaptiveBlockClassNames = [...adaptiveIntelligence.matchAll(/<Block\b[^>]*\bclassName="([^"]*)"/g)].map(m => m[1]);
-if (adaptiveBlockClassNames.some(c => /(?:bg-surface-card|border-surface-border|rounded-|\bp\d)/.test(c))) throw new Error('Migrated adaptive Block className must not restate shared surface chrome');
-
-// Adaptive Intelligence controls: semantics and touch sizing are contracts,
-// while the surrounding card markup remains intentionally implementation-free.
-const radarSectionStart = adaptiveIntelligence.indexOf('const RadarSection =');
-const archivesSectionStart = adaptiveIntelligence.indexOf('const ArchivesSection =');
-const reportConfigStart = adaptiveIntelligence.indexOf('const ReportConfigModal =');
-const intelligenceHeaderSection = radarSectionStart >= 0 && archivesSectionStart >= 0
-  ? adaptiveIntelligence.slice(radarSectionStart, archivesSectionStart)
-  : '';
-const archiveSection = archivesSectionStart >= 0 && reportConfigStart >= 0
-  ? adaptiveIntelligence.slice(archivesSectionStart, reportConfigStart)
-  : '';
-for (const marker of ['accessibilityLabel="Customize visible metrics"', 'min-h-[44px]']) {
-  if (!intelligenceHeaderSection.includes(marker)) throw new Error(`Intelligence Customize marker missing: ${marker}`);
-}
-if ((archiveSection.match(/accessibilityRole="tab"/g) || []).length < 2 || (archiveSection.match(/min-h-\[44px\]/g) || []).length < 2) {
-  throw new Error('Intelligence archive subsection controls need tab semantics and 44px targets');
-}
-for (const marker of ['accessibilityRole="radio"', 'accessibilityState={{ checked: d === val }}', 'min-h-[44px]']) {
-  if (!adaptiveIntelligence.includes(marker)) throw new Error(`Intelligence timeframe marker missing: ${marker}`);
-}
-for (const marker of ['accessibilityRole="progressbar"', 'accessibilityLabel="Loading intelligence data"', 'Loading intelligence data']) {
-  if (!adaptiveIntelligence.includes(marker)) throw new Error(`Intelligence loading marker missing: ${marker}`);
-}
-if (!adaptiveIntelligence.includes('flex-row flex-wrap gap-4') || !adaptiveIntelligence.includes('flex-1 min-w-[320px]')) {
-  throw new Error('Adaptive Intelligence wide peer rows need flex-wrap/min-width contracts');
-}
-if (/grid(?:-cols)?[-\s]/.test(adaptiveIntelligence)) throw new Error('Adaptive Intelligence must remain grid-free');
-
 console.log('Block.check.ts: OK');

@@ -19,10 +19,15 @@ export const C = {
   darkMid:    '#1e293b',
 } as const
 
-export const F = { xs: 7, sm: 8, base: 10, md: 12, lg: 14, xl: 20, '2xl': 28, '3xl': 38 } as const
+// Keep body/cell text above the PDF reader's practical minimum.
+export const F = { xs: 8, sm: 9, base: 10, md: 12, lg: 14, xl: 20, '2xl': 28, '3xl': 38 } as const
+
+export const PDF_RENDERER_VERSION = 'trustflow-pdf-v2'
+export const PDF_MIN_READABLE_FONT_SIZE = F.xs
 
 export const M = 36   // page margin
 export const GAP = 10 // standard gap between elements
+export const CONTENT_WIDTH = 595 - (M * 2)
 
 export const statusColor = (s: string) =>
   s === 'hit' || s === 'completed' ? C.success

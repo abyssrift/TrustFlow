@@ -20,6 +20,8 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { useCapability } from '@/hooks/useCapability';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useAlert } from '@/contexts/AlertContext';
+import ReportReader, { type ReportReaderRecord } from '@/components/intelligence/ReportReader';
+import { useToast } from '@/contexts/ToastContext';
 
 const STATUS_COLOR: Record<string, string> = {
   completed:  'text-state-success',
@@ -101,6 +103,9 @@ export default function IntelligenceReportsNative() {
   const [users, setUsers]         = useState<any[]>([]);
   const [filters, setFilters]         = useState<ReportFilters>(EMPTY_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedReport, setSelectedReport] = useState<ReportReaderRecord | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const { errorToast, successToast } = useToast();
 
   const filteredReports   = useMemo(() => applyReportFilters(reports, filters), [reports, filters]);
   const activeFilterCount = countActiveFilters(filters);
@@ -126,10 +131,12 @@ export default function IntelligenceReportsNative() {
 
   const fetchReports = async () => {
     setLoading(true);
+    setFetchError(null);
     try {
-      const { data } = await supabase.from('reporting_jobs').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('reporting_jobs').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
       setReports(data || []);
-    } catch (e) { console.error(e); }
+    } catch (e: any) { console.error(e); setFetchError(e?.message || 'Could not load report history.'); }
     finally { setLoading(false); }
   };
 
@@ -146,7 +153,21 @@ export default function IntelligenceReportsNative() {
       if (error) throw error;
       showAlert('Processing', 'Your report is being generated.');
       fetchReports();
-    } catch (e: any) { showAlert('Error', e.message); }
+    } catch (e: any) { showAlert('Error', e.message); errorToast(e?.message || 'Could not start report generation.', 'Report generation failed'); }
+  };
+
+  const handleRetry = async (report: ReportReaderRecord) => {
+    if (!reportCapability.allowed) return;
+    try {
+      const { error } = await supabase.rpc('rpc_request_report', {
+        p_report_type: report.report_type || 'performance_audit',
+        p_parameters: report.parameters || {},
+      });
+      if (error) throw error;
+      successToast('A fresh report run was queued.', 'Retry started');
+      setSelectedReport(null);
+      await fetchReports();
+    } catch (e: any) { errorToast(e?.message || 'Could not retry this report.', 'Retry failed'); }
   };
 
   const handleDownload = async (path: string) => {
@@ -199,6 +220,7 @@ export default function IntelligenceReportsNative() {
             <FontAwesome name="file-pdf-o" size={11} color="white" />
             <Text className="text-white font-black text-[11px]">Generate</Text>
           </TouchableOpacity>}
+          {!reportCapability.allowed && !reportCapability.loading && <Text className="text-typography-muted text-[10px] self-center">You can view available history; generation and downloads require report access.</Text>}
         </View>
       </View>
 
@@ -258,7 +280,15 @@ export default function IntelligenceReportsNative() {
         </ScrollView>
       )}
 
-      {loading ? (
+      {fetchError ? (
+        <View className="flex-1 items-center justify-center px-6">
+          <View accessibilityRole="alert" className="bg-surface-card p-8 rounded-3xl border border-state-danger/40 items-center w-full">
+            <Text className="text-state-danger text-lg font-black text-center">Report history unavailable</Text>
+            <Text className="text-typography-muted text-sm text-center mt-2">{fetchError}</Text>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Retry loading report history" onPress={fetchReports} className="mt-5 rounded-xl bg-brand-primary px-5 py-3"><Text className="text-white font-black">Retry</Text></TouchableOpacity>
+          </View>
+        </View>
+      ) : loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -297,25 +327,26 @@ export default function IntelligenceReportsNative() {
           {filteredReports.map(r => (
             <TouchableOpacity
               key={r.id}
-              onPress={() => r.status === 'completed' && r.file_url && handleDownload(r.file_url)}
+              onPress={() => setSelectedReport(r)}
+              accessibilityRole="button"
+              accessibilityLabel={`Open report ${r.id.substring(0, 8)}`}
               className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-3 flex-row items-center"
             >
               <View className={`w-11 h-11 rounded-xl items-center justify-center mr-4 ${r.status === 'completed' ? 'bg-state-success/10' : 'bg-surface-background border border-surface-border'}`}>
                 <FontAwesome name="file-text-o" size={16} color={r.status === 'completed' ? colors.success : colors.primary} />
               </View>
-              <View className="flex-1">
-                <Text className="text-typography-main font-black text-sm">Report #{r.id.substring(0, 8).toUpperCase()}</Text>
-                <View className="flex-row items-center gap-2 mt-0.5">
+                <View className="flex-1">
+                  <Text className="text-typography-main font-black text-sm">Report #{r.id.substring(0, 8).toUpperCase()}</Text>
+                  <View className="flex-row items-center gap-2 mt-0.5">
                   <Text className={`text-[10px] font-bold capitalize ${STATUS_COLOR[r.status] || 'text-typography-muted'}`}>{r.status}</Text>
                   <Text className="text-typography-dim text-[10px]">·</Text>
                   <Text className="text-typography-muted text-[10px]">
                     {new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </Text>
+                    </Text>
+                  </View>
+                  <Text className="text-typography-muted text-[10px] mt-1" numberOfLines={1}>{typeLabel(r.report_type || 'report')} · {r.parameters?.date_start && r.parameters?.date_end ? `${String(r.parameters.date_start).slice(0, 10)} → ${String(r.parameters.date_end).slice(0, 10)}` : `${r.parameters?.days ?? 30} day window`}</Text>
                 </View>
-              </View>
-              {r.status === 'completed' && r.file_url && (
-                <FontAwesome name="download" size={14} color={colors.primary} />
-              )}
+              <FontAwesome name="chevron-right" size={12} color={colors.textMuted} />
             </TouchableOpacity>
           ))}
           <View className="h-10" />
@@ -335,6 +366,14 @@ export default function IntelligenceReportsNative() {
         visible={showArchitect}
         onClose={() => setShowArchitect(false)}
         onReportGenerated={fetchReports}
+      />
+      <ReportReader
+        visible={!!selectedReport}
+        report={selectedReport}
+        onClose={() => setSelectedReport(null)}
+        onRetry={selectedReport ? () => handleRetry(selectedReport) : undefined}
+        canDownload={!!reportCapability.allowed}
+        onDownload={selectedReport?.file_url ? () => handleDownload(selectedReport.file_url as string) : undefined}
       />
     </View>
   );

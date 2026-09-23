@@ -35,7 +35,7 @@ export default function TargetWatch({ enabled }: TargetWatchProps) {
           onPress={() => router.push('/intelligence/targets')}
           accessibilityRole="link"
           accessibilityLabel="View targets"
-          className="min-h-[36px] flex-row items-center gap-2 px-3 rounded-xl border border-surface-border"
+          className="min-h-[44px] flex-row items-center gap-2 px-3 rounded-xl border border-surface-border"
         >
           <Text className="text-typography-main text-xs font-semibold">All targets</Text>
           <FontAwesome name="arrow-right" size={11} color={colors.textDim} />
@@ -45,7 +45,7 @@ export default function TargetWatch({ enabled }: TargetWatchProps) {
       {loading ? (
         <View className="flex-row items-center gap-2 py-1">
           <ActivityIndicator size="small" color={colors.primary} />
-          <Text className="text-typography-muted text-xs">Loading targets…</Text>
+          <Text className="text-typography-muted text-xs">Loading targets...</Text>
         </View>
       ) : error ? (
         <Text className="text-typography-muted text-sm">Target data is unavailable right now.</Text>

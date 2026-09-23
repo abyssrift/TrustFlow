@@ -8,8 +8,8 @@ type PersistedGuideProgress = Omit<GuideProgress, 'status'> & { status: GuideSta
 type State = { scope: string | null; rows: Partial<Record<GuideId, PersistedGuideProgress>>; loading: boolean; error: string | null; fallbackActive: boolean };
 type RpcResult = { data: unknown; error: { message?: string } | null };
 
-const LOAD_ERROR = 'Cloud guide sync is unavailable. Progress is saved on this device; retry to sync.';
-const SAVE_ERROR = 'Cloud guide sync is unavailable. Progress is saved on this device; retry to sync.';
+const LOAD_ERROR = 'Cloud guide sync is unavailable. Progress is saved on this device; retry the cloud connection.';
+const SAVE_ERROR = 'Cloud guide sync is unavailable. Progress is saved on this device; retry the cloud connection.';
 const STORAGE_VERSION = 1;
 const STORAGE_PREFIX = '@TrustFlow_guide_progress_v1';
 
@@ -171,6 +171,12 @@ export function useGuideProgress(eligibleDefinitions: readonly GuideDefinition[]
       const updated = parseRows(data)[0];
       if (!updated) throw new Error(SAVE_ERROR);
       setState((current) => current.scope === scope ? { ...current, rows: { ...current.rows, [id]: updated }, error: null } : current);
+      try {
+        await AsyncStorage.setItem(storageKey(scope), JSON.stringify({
+          version: STORAGE_VERSION,
+          rows: { ...(state.scope === scope ? state.rows : {}), [id]: updated },
+        }));
+      } catch { /* Server remains authoritative if device caching is unavailable. */ }
       return updated;
     } catch {
       return applyLocal();

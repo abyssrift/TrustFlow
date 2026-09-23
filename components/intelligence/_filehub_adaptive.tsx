@@ -44,7 +44,6 @@ import FileHubBin from './FileHubBin';
 import FileHubOverview from './FileHubOverview';
 import FileHubBrowse from './FileHubBrowse';
 import GuideAnchor from '@/components/guides/GuideAnchor';
-import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import { useShareFile } from '../common/ShareFile';
 import TaskFileResults from './TaskFileResults';
 import { FileActivityRows } from './FileHubActivity';
@@ -2314,7 +2313,6 @@ function FileHubAdaptiveInner() {
 
       {/* ── Search ── */}
       <View className="px-6 mb-4 flex-row items-center gap-3">
-        <GuideHelpButton guideId="filehub" />
         <View className="flex-1 flex-row items-center bg-surface-card border border-surface-border rounded-2xl px-4 py-3 gap-3">
           <FontAwesome name="search" size={12} color={colors.textMain} />
           <TextInput

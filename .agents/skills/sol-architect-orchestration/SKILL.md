@@ -44,9 +44,46 @@ Before delegating implementation, the Sol architect must produce a compact inter
 
 Delegate the resulting work packages to Luna agents. The architect should coordinate and refine their assignments without taking over routine implementation merely to stay busy. It may make small integration edits when that is safer than another handoff.
 
+## Claude challenge gates
+
+When the user has not explicitly disabled cross-agent review, Sol must use the
+repository's Claude challenger before dispatching workers and again before the
+final PASS decision. The adapter is `scripts/claude-challenge.ps1`.
+
+### Plan gate
+
+After the architecture brief and before worker dispatch, write a temporary
+prompt packet containing the requested outcome, non-goals, invariants,
+acceptance criteria, work-package boundaries, and relevant repository rules.
+Run:
+
+```powershell
+pwsh -File scripts/claude-challenge.ps1 -Phase plan -PromptFile <packet> -OutputDir <artifact-dir>
+```
+
+Do not dispatch workers when this gate returns non-zero. Review every finding
+and revise the architecture brief or record a concrete rejection rationale.
+
+### Implementation gate
+
+After worker integration and required verification, create a packet containing
+the final diff, changed-file list, verification evidence, and the original
+acceptance criteria. Run the same adapter with `-Phase implementation`. A
+critical finding or reviewer failure blocks final PASS. Sol must disposition
+every finding in the generated `report.md` as accepted, rejected with a
+rationale, or resolved by a change, and preserve the artifact directory in
+the handoff.
+
+Claude is an adversarial reviewer, not an implementer. The adapter must remain
+read-only and must not be replaced with a Claude session that can edit, commit,
+reset, migrate, or otherwise mutate the worktree. An unavailable reviewer may
+only be bypassed with an explicit user-approved emergency note in the final
+handoff.
+
 ## Sol performs the final review
 
-After all Luna work returns, the Sol architect must personally:
+After all Luna work returns and the implementation challenge gate passes, the
+Sol architect must personally:
 
 1. inspect the complete final diff and relevant surrounding code;
 2. verify that the pieces form one coherent design and follow all repository rules;

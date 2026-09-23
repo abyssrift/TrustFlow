@@ -8,8 +8,7 @@ const guideRegistry = readFileSync('lib/contextualGuides.ts', 'utf8');
 for (const [name, source] of [['native', native], ['web', web]] as const) {
   assert.equal((source.match(/<GuideAnchor id="workflow-pipelines:list"/g) ?? []).length, 1, `${name} registers one workflow list anchor`);
   assert.equal((source.match(/<GuideAnchor id="workflow-pipelines:configuration"/g) ?? []).length, 1, `${name} registers one configuration anchor`);
-  assert.equal((source.match(/<GuideHelpButton\b/g) ?? []).length, 1, `${name} defines one screen Help launcher`);
-  assert.match(source, /<GuideHelpButton guideId="workflow-pipelines"\s*\/>/, `${name} Help launches Workflow & Pipelines`);
+  assert.doesNotMatch(source, /GuideHelpButton/, `${name} has no per-screen Help launcher`);
 }
 
 assert.match(native, /<GuideAnchor id="workflow-pipelines:list"[^>]*>\s*<PipelineList\s*\/>\s*<\/GuideAnchor>/, 'native list anchor covers PipelineList');

@@ -15,7 +15,6 @@ import { boardCacheMeta, compareTasksBySortKey, fetchLinkedTasks, prefetchOtherB
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import GuideAnchor from '@/components/guides/GuideAnchor';
-import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
 import AssignmentModal from '@/components/tasks/AssignmentModal';
 import BulkTaskActionBar from '@/components/tasks/BulkTaskActionBar';
@@ -1383,7 +1382,6 @@ export function TasksScreenWeb() {
   return (
     <View ref={taskDropRef} className="flex-1 bg-surface-background">
       <GuideAnchor id="tasks:board" className="pointer-events-none absolute inset-0" />
-      <View className="absolute right-4 top-4 z-50"><GuideHelpButton guideId="tasks" /></View>
       {/* Phase 3 / 3.5: drop-to-create affordance — dim on every zone the instant
           a file drag enters the window, full-strength while it's over this
           screen. Web-only: taskDropOver / taskDropActive never trip on native. */}

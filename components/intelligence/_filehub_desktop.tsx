@@ -20,7 +20,6 @@ import FileHubBin from './FileHubBin';
 import FileHubOverview from './FileHubOverview';
 import FileHubBrowse from './FileHubBrowse';
 import GuideAnchor from '@/components/guides/GuideAnchor';
-import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import FileHubChannelsMultiView from './FileHubChannelsMultiView';
 import { groupPickedFiles, relDir, resolveExistingFolderLeaf } from '@/lib/filehubFolderTree';
 import FolderTreePicker from './FolderTreePicker';
@@ -2749,7 +2748,6 @@ function FileHubDesktopInner() {
           <Text className="text-typography-main text-3xl font-black tracking-tighter">File Hub</Text>
         </View>
         <View className="flex-row items-center gap-3 flex-nowrap justify-end">
-          <GuideHelpButton guideId="filehub" />
           <View className="flex-row items-center bg-surface-card border border-surface-border rounded-xl px-4 py-2.5 gap-3 w-full max-w-[280px] min-w-[200px]">
             <FontAwesome name="search" size={12} color={colors.textMuted} />
             <TextInput

@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useGuideProgress } from '@/hooks/useGuideProgress';
 import { useResponsive } from '@/hooks/useResponsive';
-import { eligibleGuides, eligibleGuidePhases, filterEligibleProgress, getNewGuideIds, getSubtleNewGuideIds, GuideAnchorId, GuideDefinition, GuideId, GuideProgress, GuideRowStatus, clampGuideStep } from '@/lib/contextualGuides';
+import { eligibleGuides, eligibleGuidePhases, filterEligibleProgress, getNewGuideIds, getSubtleNewGuideIds, getGuideForRoute, guideRouteMatches, GuideAnchorId, GuideDefinition, GuideId, GuideProgress, GuideRowStatus, clampGuideStep } from '@/lib/contextualGuides';
 
 type ContextGuideProgress = Omit<GuideProgress, 'status'> & { status: GuideRowStatus };
 
@@ -15,6 +15,7 @@ type GuideContextValue = {
   openChecklist(): void;
   closeChecklist(): void;
   launchGuide(id: GuideId): Promise<void>;
+  launcherGuide: GuideDefinition | null;
   registerAnchor(id: GuideAnchorId, handle: GuideAnchorHandle): () => void;
   remeasureActiveAnchor(): Promise<void>;
   activeGuide: GuideDefinition | null;
@@ -45,16 +46,6 @@ const ROUTE_TIMEOUT_MS = 1500;
 const ANCHOR_TIMEOUT_MS = 550;
 const CHECKLIST_AUTO_OPEN_KEY = 'guide-checklist:auto-open:v1';
 
-function routeMatches(pathname: string, route: string, searchParams: Record<string, string | string[] | undefined>) {
-  const [routePath, query = ''] = route.split('?');
-  if (pathname !== routePath) return false;
-  for (const [key, value] of new URLSearchParams(query)) {
-    const current = searchParams[key];
-    if (Array.isArray(current) ? !current.includes(value) : current !== value) return false;
-  }
-  return true;
-}
-
 function wait(ms: number) { return new Promise<void>((resolve) => setTimeout(resolve, ms)); }
 
 export function ContextualGuideProvider({ children }: { children: React.ReactNode }) {
@@ -79,6 +70,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useGlobalSearchParams();
+  const launcherGuide = useMemo(() => getGuideForRoute(definitions, pathname, searchParams), [definitions, pathname, searchParams]);
   const pathnameRef = useRef(pathname);
   const searchParamsRef = useRef(searchParams);
   const accountRef = useRef(scope);
@@ -165,7 +157,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   }, [activeId, definitions]);
   useEffect(() => {
     if (!activeGuide) return;
-    if (!routeMatches(pathname, activeGuide.route, searchParams)) {
+    if (!guideRouteMatches(pathname, activeGuide.route, searchParams)) {
       setActiveId(null);
       setActiveAnchor(null);
       activeAnchorId.current = null;
@@ -209,12 +201,12 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
     setActiveScope(null);
     setActiveAnchor(null);
     activeAnchorId.current = null;
-    if (!routeMatches(pathnameRef.current, definition.route, searchParamsRef.current)) {
+    if (!guideRouteMatches(pathnameRef.current, definition.route, searchParamsRef.current)) {
       try { router.push(definition.route as any); }
       catch { setChecklistVisible(true); setGuideError('Guide could not be opened.'); return; }
       const started = Date.now();
-      while (token === launchToken.current && !routeMatches(pathnameRef.current, definition.route, searchParamsRef.current) && Date.now() - started < ROUTE_TIMEOUT_MS) await wait(40);
-      if (token === launchToken.current && !routeMatches(pathnameRef.current, definition.route, searchParamsRef.current)) {
+      while (token === launchToken.current && !guideRouteMatches(pathnameRef.current, definition.route, searchParamsRef.current) && Date.now() - started < ROUTE_TIMEOUT_MS) await wait(40);
+      if (token === launchToken.current && !guideRouteMatches(pathnameRef.current, definition.route, searchParamsRef.current)) {
         setChecklistVisible(true);
         setGuideError('Guide could not be opened.');
         return;
@@ -300,7 +292,7 @@ export function ContextualGuideProvider({ children }: { children: React.ReactNod
   }, [activeGuide, activeStep, progress.saveStep, remeasureActiveAnchor]);
 
   const value: GuideContextValue = {
-    checklistVisible, openChecklist, closeChecklist, launchGuide, registerAnchor, remeasureActiveAnchor,
+    checklistVisible, openChecklist, closeChecklist, launchGuide, launcherGuide, registerAnchor, remeasureActiveAnchor,
     activeGuide, activeStep, guideDefinitions: definitions, guidePhases, progressById: scopedProgress,
     checklistComplete, newGuideIds,
     progressLoading: progress.loading, progressError: progress.error, fallbackActive: progress.fallbackActive, progressRetry: progress.retry,

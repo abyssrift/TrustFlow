@@ -5,13 +5,14 @@ import { BackButton } from '@/components/common/BackButton';
 import { DateRangeControls, useDateRange, useGranularity } from '@/components/intelligence/DateRangeFilter';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { SLARiskPulseDot, slaPulseStagger } from '@/components/intelligence/SLARiskPulse';
 import { bucketLabel } from '@/lib/chartBuckets';
 import { formatDuration as fmtSec } from '@/lib/duration';
 import { getThroughputPresentation } from '@/lib/throughputPresentation';
 import { compareAuditMetric } from '@/lib/analyticsMetrics';
+import { summarizeAnalyticsSeries, type AnalyticsSeriesSnapshot } from '@/lib/analyticsSeriesState';
 import { ActivityIndicator, Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 // ─── SLA Risk Section ─────────────────────────────────────────────────────────
@@ -282,40 +283,95 @@ function IntelligenceGraphsAuthorized() {
   const { from, to, setFrom, setTo, nDays } = useDateRange(56);
   const granularity = useGranularity();
   const buckets = granularity.buckets;
-  const [dwell, setDwell]           = useState<StageDwell[]>([]);
-  const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
-  const [pointsData, setPointsData] = useState<PointsBucket[]>([]);
-  const [auditData, setAuditData]   = useState<any>(null);
-  const [loading, setLoading]       = useState(true);
-  const [loaded, setLoaded]         = useState(false);
+  type PerformanceState = 'loading' | 'updating' | 'ready' | 'empty' | 'error';
+  type SeriesState = 'loading' | 'ready' | 'error';
+  type PerformanceSeries = {
+    dwell: SeriesState;
+    throughput: SeriesState;
+    points: SeriesState;
+    audit: SeriesState;
+  };
+  type PerformanceSnapshot = {
+    key: string;
+    dwell: StageDwell[];
+    throughput: ThroughputBucket[];
+    pointsData: PointsBucket[];
+    auditData: any;
+    series: PerformanceSeries;
+  };
+
+  const requestKey = JSON.stringify([pipelineId, from, to, buckets]);
+  const currentKeyRef = useRef(requestKey);
+  const requestGenerationRef = useRef(0);
+  const snapshotKeyRef = useRef<string | null>(null);
+  const [snapshot, setSnapshot] = useState<PerformanceSnapshot | null>(null);
+  const [pipelinesLoaded, setPipelinesLoaded] = useState(false);
+  currentKeyRef.current = requestKey;
 
   useEffect(() => {
     supabase.from('pipelines').select('id, name').is('deleted_at', null)
-      .then(({ data }) => { if (data?.length) { setPipelines(data); setPipelineId(data[0].id); } });
+      .then(({ data }) => { if (data?.length) { setPipelines(data); setPipelineId(data[0].id); } })
+      .finally(() => setPipelinesLoaded(true));
   }, []);
 
   const load = useCallback(async () => {
     if (!pipelineId) return;
-    setLoading(true);
-    try {
-      const [d, t, pts, a] = await Promise.all([
-        getPipelineStageDwell(pipelineId, from, to),
-        getPipelineThroughputRange(pipelineId, from, to, buckets),
-        getPipelinePointsRange(pipelineId, from, to, buckets).catch(() => []),
-        supabase.rpc('rpc_get_organizational_audit', { p_pipeline_id: pipelineId, p_days: nDays }),
-      ]);
-      setDwell(d || []);
-      setThroughput(t || []);
-      setPointsData(pts || []);
-      setAuditData(a.data);
-      setLoaded(true);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [pipelineId, from, to, buckets, nDays]);
+    const key = requestKey;
+    const generation = requestGenerationRef.current + 1;
+    requestGenerationRef.current = generation;
+    setSnapshot({
+      key,
+      dwell: [],
+      throughput: [],
+      pointsData: [],
+      auditData: null,
+      series: { dwell: 'loading', throughput: 'loading', points: 'loading', audit: 'loading' },
+    });
+    const commit = <K extends keyof PerformanceSnapshot>(field: K, value: PerformanceSnapshot[K], series: keyof PerformanceSeries, status: SeriesState) => {
+      if (currentKeyRef.current !== key || requestGenerationRef.current !== generation) return;
+      snapshotKeyRef.current = key;
+      setSnapshot(previous => previous?.key === key ? {
+        ...previous,
+        [field]: value,
+        series: { ...previous.series, [series]: status },
+      } as PerformanceSnapshot : previous);
+    };
+    void getPipelineStageDwell(pipelineId, from, to)
+      .then(data => commit('dwell', data ?? [], 'dwell', 'ready'))
+      .catch(() => commit('dwell', [], 'dwell', 'error'));
+    void getPipelineThroughputRange(pipelineId, from, to, buckets)
+      .then(data => commit('throughput', data ?? [], 'throughput', 'ready'))
+      .catch(() => commit('throughput', [], 'throughput', 'error'));
+    void getPipelinePointsRange(pipelineId, from, to, buckets)
+      .then(data => commit('pointsData', data ?? [], 'points', 'ready'))
+      .catch(() => commit('pointsData', [], 'points', 'error'));
+    void supabase.rpc('rpc_get_organizational_audit', { p_pipeline_id: pipelineId, p_days: nDays })
+      .then(({ data, error }) => error ? Promise.reject(error) : data)
+      .then(data => commit('auditData', data, 'audit', 'ready'))
+      .catch(() => commit('auditData', null, 'audit', 'error'));
+  }, [buckets, from, getPipelinePointsRange, getPipelineStageDwell, getPipelineThroughputRange, nDays, pipelineId, requestKey, to]);
 
   useEffect(() => { load(); }, [load]);
 
-  const maxDwellSec = Math.max(1, ...dwell.map(d => d.avg_seconds));
+  const currentSnapshot = snapshot?.key === requestKey ? snapshot : null;
+  const seriesSummary = currentSnapshot
+    ? summarizeAnalyticsSeries(([
+      ['dwell', currentSnapshot.dwell, currentSnapshot.series.dwell],
+      ['throughput', currentSnapshot.throughput, currentSnapshot.series.throughput],
+      ['points', currentSnapshot.pointsData, currentSnapshot.series.points],
+      ['audit', currentSnapshot.auditData, currentSnapshot.series.audit],
+    ] as const)
+      .filter(([, , status]) => status !== 'loading')
+      .map(([key, data, status]) => ({ key, data, status })) as AnalyticsSeriesSnapshot[])
+    : null;
+  const hasPendingSeries = currentSnapshot !== null && Object.values(currentSnapshot.series).some(status => status === 'loading');
+  const effectiveState: PerformanceState = currentSnapshot === null || hasPendingSeries
+    ? (currentSnapshot ? 'updating' : 'loading')
+    : seriesSummary?.allFailed ? 'error'
+      : seriesSummary?.isEmpty ? 'empty'
+        : 'ready';
+  const showCharts = currentSnapshot !== null && (effectiveState === 'ready' || effectiveState === 'updating');
+  const maxDwellSec = Math.max(1, ...(currentSnapshot?.dwell ?? []).map(d => d.avg_seconds));
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -338,7 +394,10 @@ function IntelligenceGraphsAuthorized() {
                 <TouchableOpacity
                   key={p.id}
                   onPress={() => setPipelineId(p.id)}
-                  className={`px-4 py-2 rounded-lg ${pipelineId === p.id ? 'bg-brand-primary' : ''}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select pipeline ${p.name}`}
+                  accessibilityState={{ selected: pipelineId === p.id }}
+                  className={`min-h-[44px] px-4 py-2 rounded-lg ${pipelineId === p.id ? 'bg-brand-primary' : ''}`}
                 >
                   <Text className={`text-[11px] font-black ${pipelineId === p.id ? 'text-white' : 'text-typography-muted'}`}>{p.name}</Text>
                 </TouchableOpacity>
@@ -347,31 +406,81 @@ function IntelligenceGraphsAuthorized() {
           </ScrollView>
         )}
         <DateRangeControls from={from} to={to} setFrom={setFrom} setTo={setTo} granularity={granularity} />
-        {loading && loaded && <ActivityIndicator size="small" color={colors.primary} className="self-start" />}
+        <Text className="text-typography-muted text-[10px] leading-4">
+          Charts use the dates above. Summary cards cover the same length of time through today.
+        </Text>
+        {effectiveState === 'updating' && (
+          <View accessible accessibilityRole="progressbar" accessibilityLabel="Updating performance" className="flex-row items-center gap-2">
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text className="text-typography-muted text-xs">Updating performance</Text>
+          </View>
+        )}
       </View>
 
-      {!loaded ? (
-        <View className="flex-1 items-center justify-center">
+      {!pipelinesLoaded ? (
+        <View accessible accessibilityRole="progressbar" accessibilityLabel="Loading performance" className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : (
+      ) : pipelines.length === 0 ? (
+        <View className="flex-1 items-center justify-center px-6">
+          <Text className="text-typography-main font-black text-base">No Pipelines Found</Text>
+          <Text className="text-typography-muted text-sm text-center mt-2">Create a pipeline to see performance.</Text>
+        </View>
+      ) : effectiveState === 'loading' ? (
+        <View accessible accessibilityRole="progressbar" accessibilityLabel="Loading performance" className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : effectiveState === 'error' ? (
+        <View accessible accessibilityRole="alert" className="flex-1 items-center justify-center px-6 gap-3">
+          <Text className="text-typography-main font-black text-base">Could not load analytics.</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
+            onPress={load}
+            className="min-h-[44px] min-w-[44px] px-4 rounded-xl bg-brand-primary items-center justify-center"
+          >
+            <Text className="text-brand-on-primary font-black">Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : effectiveState === 'empty' ? (
+        <View className="flex-1 items-center justify-center px-6">
+          <Text className="text-typography-main font-black text-base text-center">No performance data in this range.</Text>
+          <Text className="text-typography-muted text-sm text-center mt-2">Try a longer date range or another pipeline.</Text>
+        </View>
+      ) : showCharts ? (
         <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
 
           {/* SLA Risks */}
-          <SLARiskSection data={auditData} />
+          {currentSnapshot.series.audit === 'error' ? (
+            <View accessible accessibilityRole="alert" className="bg-surface-card border border-surface-border rounded-2xl p-4 mb-4 flex-row items-center justify-between gap-3">
+              <Text className="text-typography-muted text-sm flex-1">Summary data is unavailable for this range.</Text>
+              <TouchableOpacity onPress={load} accessibilityRole="button" accessibilityLabel="Retry summary data" className="min-h-[44px] px-3 rounded-xl bg-brand-primary items-center justify-center">
+                <Text className="text-brand-on-primary text-xs font-black">Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : <SLARiskSection data={currentSnapshot.auditData} />}
 
           {/* Stage Dwell */}
           <View className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-4">
             <Text className="text-typography-main font-black text-base mb-1">Stage Dwell Times</Text>
             <Text className="text-typography-muted text-[10px] mb-4">Avg time tasks spend per stage</Text>
-            {dwell.length === 0 ? (
+            {currentSnapshot.series.dwell === 'error' ? (
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-typography-muted text-sm flex-1">Stage dwell data is unavailable.</Text>
+                <TouchableOpacity onPress={load} accessibilityRole="button" accessibilityLabel="Retry stage dwell data" className="min-h-[44px] px-3 rounded-xl bg-brand-primary items-center justify-center">
+                  <Text className="text-brand-on-primary text-xs font-black">Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : currentSnapshot.series.dwell === 'loading' ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : currentSnapshot.dwell.length === 0 ? (
               <Text className="text-typography-muted text-sm">No stage history in this period.</Text>
             ) : (
-              dwell.slice().sort((a, b) => a.stage_position - b.stage_position).map(s => {
+              currentSnapshot.dwell.slice().sort((a, b) => a.stage_position - b.stage_position).map(s => {
                 const pct   = (s.avg_seconds / maxDwellSec) * 100;
-                const color = s.is_bottleneck ? '#F59E0B'
-                  : (s.is_terminal && s.terminal_type === 'success') ? '#10B981'
-                  : s.is_terminal ? '#EF4444'
+                const color = s.is_bottleneck ? colors.warning
+                  : (s.is_terminal && s.terminal_type === 'success') ? colors.success
+                  : s.is_terminal ? colors.danger
                   : colors.primary;
                 return (
                   <View key={s.stage_id} className="mb-3">
@@ -393,12 +502,21 @@ function IntelligenceGraphsAuthorized() {
 
           {/* Throughput */}
           <View className="bg-surface-card border border-surface-border rounded-2xl p-5 mb-4">
-            <Text className="text-typography-main font-black text-base mb-1">Throughput</Text>
+            <Text className="text-typography-main font-black text-base mb-1">Completed tasks</Text>
             <Text className="text-typography-muted text-[10px] mb-4">Tasks completed vs failed per period</Text>
-            {throughput.length === 0 ? (
+            {currentSnapshot.series.throughput === 'error' ? (
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-typography-muted text-sm flex-1">Completed task data is unavailable.</Text>
+                <TouchableOpacity onPress={load} accessibilityRole="button" accessibilityLabel="Retry completed task data" className="min-h-[44px] px-3 rounded-xl bg-brand-primary items-center justify-center">
+                  <Text className="text-brand-on-primary text-xs font-black">Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : currentSnapshot.series.throughput === 'loading' ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : currentSnapshot.throughput.length === 0 ? (
               <Text className="text-typography-muted text-sm">No throughput data for this period.</Text>
             ) : (
-              [...throughput].reverse().map((t, i, arr) => {
+              [...currentSnapshot.throughput].reverse().map((t, i, arr) => {
                 const { successPct, failurePct } = getThroughputPresentation(t.tasks_succeeded, t.tasks_failed);
                 return (
                   <View key={i} className={`py-3 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
@@ -423,20 +541,29 @@ function IntelligenceGraphsAuthorized() {
           </View>
 
           {/* Points Over Time */}
-          <PointsSection data={pointsData} />
+          {currentSnapshot.series.points === 'error' ? (
+            <View className="bg-surface-card border border-surface-border rounded-2xl p-4 mb-4 flex-row items-center justify-between gap-3">
+              <Text className="text-typography-muted text-sm flex-1">Points data is unavailable for this range.</Text>
+              <TouchableOpacity onPress={load} accessibilityRole="button" accessibilityLabel="Retry points data" className="min-h-[44px] px-3 rounded-xl bg-brand-primary items-center justify-center">
+                <Text className="text-brand-on-primary text-xs font-black">Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : currentSnapshot.series.points === 'loading' ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : <PointsSection data={currentSnapshot.pointsData} />}
 
           {/* Performance Trends */}
-          <TrendsSection data={auditData} />
+          {currentSnapshot.series.audit !== 'error' && <TrendsSection data={currentSnapshot.auditData} />}
 
           {/* Work Distribution */}
-          <WorkDistributionSection data={auditData} />
+          {currentSnapshot.series.audit !== 'error' && <WorkDistributionSection data={currentSnapshot.auditData} />}
 
           {/* Quality Integrity */}
-          <QualitySection data={auditData} />
+          {currentSnapshot.series.audit !== 'error' && <QualitySection data={currentSnapshot.auditData} />}
 
           <View className="h-10" />
         </ScrollView>
-      )}
+      ) : null}
     </View>
   );
 }

@@ -3,7 +3,6 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, TextInput,
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Popup from '@/components/common/Popup';
 import GuideAnchor from '@/components/guides/GuideAnchor';
-import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import { PipelineEditorProvider, usePipelineEditor } from '@/contexts/PipelineEditorContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -19,10 +18,6 @@ import PipelineSettingsForm from '@/components/pipeline-editor/PipelineSettingsF
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 type Section = 'stages' | 'transitions' | 'automations' | 'handshakes' | 'settings' | 'subpipelines';
-
-function PipelineGuideHelp() {
-  return <GuideHelpButton guideId="workflow-pipelines" />;
-}
 
 function PipelinesWebInner() {
   const colors = useThemeColors();
@@ -183,7 +178,6 @@ function PipelinesWebInner() {
                 <FontAwesome name="plus" size={14} className="text-brand-primary" />
               </TouchableOpacity>
             )}
-            {showPipelineList && <PipelineGuideHelp />}
           </View>
 
           <GuideAnchor id="workflow-pipelines:list" className="flex-1">
@@ -260,7 +254,6 @@ function PipelinesWebInner() {
                 <FontAwesome name="arrow-left" size={14} className="text-typography-main" />
               </TouchableOpacity>
               <Text className="text-typography-main font-black text-base flex-1" numberOfLines={1}>{selectedPipeline?.name || 'Pipeline'}</Text>
-              {!showPipelineList && <PipelineGuideHelp />}
             </View>
           )}
           {selectedPipeline && (

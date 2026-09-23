@@ -9,13 +9,13 @@ const adaptive = readFileSync('components/tabs/_tasks_adaptive.tsx', 'utf8');
 const nativeLayout = readFileSync('app/_layout.tsx', 'utf8');
 const webLayout = readFileSync('app/_layout.web.tsx', 'utf8');
 
-assert.match(profile, /GuideHelpButton[\s\S]*guideId="profile"/);
+assert.doesNotMatch(profile, /GuideHelpButton/, 'profile has no per-screen Help launcher');
 assert.doesNotMatch(profile, /id="profile:identity"/, 'identity anchor belongs to the details section, not the screen wrapper');
 assert.equal((profileDesktop.match(/id="profile:identity"/g) ?? []).length, 1, 'desktop profile has exactly one identity anchor');
 assert.equal((profileAdaptive.match(/id="profile:identity"/g) ?? []).length, 1, 'adaptive profile has exactly one identity anchor');
 
 for (const [name, source] of [['desktop', desktop], ['adaptive', adaptive]] as const) {
-  assert.match(source, /GuideHelpButton[\s\S]*guideId="tasks"/, `${name} tasks Help`);
+  assert.doesNotMatch(source, /GuideHelpButton/, `${name} has no per-screen Help launcher`);
   assert.match(source, /GuideAnchor[\s\S]*id="tasks:board"/, `${name} board anchor`);
   assert.equal((source.match(/id="tasks:move"/g) ?? []).length, 1, `${name} tasks screen has exactly one movement anchor`);
   assert.match(source, /<GuideAnchor id="tasks:move" className="flex-1">[\s\S]*?(?:<ScrollView|<HorizontalScroll)/, `${name} movement anchor preserves board sizing`);

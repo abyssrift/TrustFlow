@@ -1,4 +1,4 @@
-import { PointsBucket, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
+﻿import { PointsBucket, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -21,7 +21,7 @@ import type { OrganizationalAudit } from '@/lib/analyticsMetrics';
 // SLA risk driver -> label + colour tone. `reason` from rpc_get_organizational_audit
 // (deadline | over_budget | stalled). Colour is keyed to the DRIVER, not raw severity,
 // so a stalled task with plenty of deadline slack reads calm-blue instead of alarm-red.
-// Severity is carried by a separate channel — pulse tempo, see SLARiskPulse.tsx.
+// Severity is carried by a separate channel â€” pulse tempo, see SLARiskPulse.tsx.
 // `swatch` is the same tone resolved to a literal colour (for anything that has to
 // be styled by value rather than by class, e.g. an animated ring); it must always
 // name the same token as `bar`.
@@ -79,7 +79,7 @@ const DwellTooltip = ({ active, payload, mode }: any) => {
       )}
       {d.is_bottleneck && (
         <View className="mt-2 bg-state-warning-dim border border-state-warning/20 px-2 py-1 rounded-md">
-          <Text className="text-state-warning text-[9px] font-black uppercase">⚠ Bottleneck Detected</Text>
+          <Text className="text-state-warning text-[9px] font-black uppercase">âš  Bottleneck Detected</Text>
         </View>
       )}
     </View>
@@ -145,13 +145,13 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
           </Text>
           <View className="gap-2">
             <Text className="text-typography-muted text-xs leading-relaxed">
-              <Text className="text-state-danger font-bold">Deadline</Text> — its projected finish (current pace plus the remaining stages) runs past its due date.
+              <Text className="text-state-danger font-bold">Deadline</Text> â€” its projected finish (current pace plus the remaining stages) runs past its due date.
             </Text>
             <Text className="text-typography-muted text-xs leading-relaxed">
-              <Text className="text-state-warning font-bold">Over budget</Text> — logged hours have outpaced the estimate for how far it has progressed.
+              <Text className="text-state-warning font-bold">Over budget</Text> â€” logged hours have outpaced the estimate for how far it has progressed.
             </Text>
             <Text className="text-typography-muted text-xs leading-relaxed">
-              <Text className="text-brand-primary font-bold">Stalled</Text> — it has sat in its current stage longer than 1.5× the stage average.
+              <Text className="text-brand-primary font-bold">Stalled</Text> â€” it has sat in its current stage longer than 1.5Ã— the stage average.
             </Text>
           </View>
           {stageBaselines.length > 0 && (
@@ -181,7 +181,7 @@ export const SLARiskAlertWeb = ({ data, className }: { data: any, className?: st
         </View>
       )}
 
-      {/* Dense one-line rows — glanceable, two columns on wide screens */}
+      {/* Dense one-line rows â€” glanceable, two columns on wide screens */}
       <View className="flex-row flex-wrap gap-x-5 gap-y-0.5">
         {data.sla_risks.map((r: any, i: number) => {
           const t = slaTone(r.reason);
@@ -319,7 +319,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
         <View className="flex-1 mr-3">
           <Text className="text-typography-main font-black text-sm tracking-tight">Quality Integrity</Text>
           <Text className="text-typography-muted text-[11px] font-medium">
-            First-pass accuracy · 100% − rework{filteredOutCount > 0 ? ` · ${filteredOutCount} below ${MIN_TASKS}-task min` : ''}
+            First-pass accuracy Â· 100% âˆ’ rework{filteredOutCount > 0 ? ` Â· ${filteredOutCount} below ${MIN_TASKS}-task min` : ''}
           </Text>
         </View>
         <View className="flex-row items-center gap-1.5">
@@ -346,7 +346,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
       {showInfo && (
         <View className="mb-3 bg-surface-background border border-surface-border rounded-2xl p-4">
           <Text className="text-typography-muted text-xs leading-relaxed">
-            Integrity is first-pass accuracy — <Text className="text-typography-main font-bold">100% minus the rework rate</Text>. Only contributors with at least {MIN_TASKS} completed tasks are ranked; when everyone is tied at 100%, the order falls back to task volume.
+            Integrity is first-pass accuracy â€” <Text className="text-typography-main font-bold">100% minus the rework rate</Text>. Only contributors with at least {MIN_TASKS} completed tasks are ranked; when everyone is tied at 100%, the order falls back to task volume.
           </Text>
         </View>
       )}
@@ -390,7 +390,7 @@ export const QualityLeaderboardWeb = ({ data, className }: { data: any, classNam
                   {worker.full_name || 'Anonymous User'}
                 </Text>
                 <Text className="text-typography-muted text-[10px] font-medium">
-                  {worker.total_tasks || 0} {worker.total_tasks === 1 ? 'task' : 'tasks'} · {(worker.revision_rate || 0).toFixed(0)}% rework
+                  {worker.total_tasks || 0} {worker.total_tasks === 1 ? 'task' : 'tasks'} Â· {(worker.revision_rate || 0).toFixed(0)}% rework
                 </Text>
                 <Text className={`w-11 text-right text-sm font-black ${tone}`}>{score.toFixed(0)}%</Text>
               </View>
@@ -514,10 +514,10 @@ export const ConversionFunnelMiniWeb = ({ data, onViewAll, className }: { data: 
 
 export const TrendComparisonMiniWeb = ({ data, onViewAll, className }: { data: any, onViewAll: () => void, className?: string }) => {
   const colors = useThemeColors();
-  const curThr = data?.current?.throughput || 0;
-  const prevThr = data?.comparison?.throughput || 0;
-  const change = curThr - prevThr;
-  const isPositive = change >= 0;
+  const curThr = data?.current?.throughput ?? null;
+  const prevThr = data?.comparison?.throughput ?? null;
+  const change = curThr !== null && prevThr !== null ? curThr - prevThr : null;
+  const isPositive = change !== null && change >= 0;
 
   return (
     <View className={`bg-surface-card p-5 rounded-2xl border border-surface-border flex-row flex-wrap items-center justify-between gap-3 ${className || ''}`}>
@@ -528,12 +528,16 @@ export const TrendComparisonMiniWeb = ({ data, onViewAll, className }: { data: a
         <View>
           <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Performance Trends</Text>
           <View className="flex-row items-center gap-2">
-            <Text className="text-typography-main font-bold text-base">Throughput: {curThr} units</Text>
-            <View className={`px-2 py-0.5 rounded-full ${isPositive ? 'bg-state-success-dim' : 'bg-state-danger-dim'}`}>
-              <Text className={`text-[9px] font-black ${isPositive ? 'text-state-success' : 'text-state-danger'}`}>
-                {isPositive ? '+' : ''}{change}
-              </Text>
-            </View>
+            <Text className={`${curThr === null ? 'text-typography-muted' : 'text-typography-main'} font-bold text-base`}>
+              {curThr === null ? 'Throughput unavailable' : `Throughput: ${curThr} units`}
+            </Text>
+            {change !== null && (
+              <View className={`px-2 py-0.5 rounded-full ${isPositive ? 'bg-state-success-dim' : 'bg-state-danger-dim'}`}>
+                <Text className={`text-[9px] font-black ${isPositive ? 'text-state-success' : 'text-state-danger'}`}>
+                  {isPositive ? '+' : ''}{change}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -571,7 +575,7 @@ export const ThroughputOverTimeMiniWeb = ({ pipelineId, from, to, buckets, onVie
     label: bucketLabel(t.bucket_start, t.bucket_end),
     succeeded: t.tasks_succeeded,
     failed: t.tasks_failed,
-    success_rate: t.success_rate ?? 0,
+    success_rate: t.success_rate,
   }));
 
   const tooltipStyle = {
@@ -636,56 +640,6 @@ export const ThroughputOverTimeMiniWeb = ({ pipelineId, from, to, buckets, onVie
             </View>
         )}
       </View>
-    </View>
-  );
-};
-
-export const TargetsMiniWeb = ({ onViewAll, className }: { onViewAll: () => void, className?: string }) => {
-  const colors = useThemeColors();
-  const { getTargetsStatus } = useAnalytics();
-  const [targets, setTargets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await getTargetsStatus();
-        const filtered = data.filter(t => t.status === 'hit' || t.status === 'expired');
-        setTargets(filtered);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [getTargetsStatus]);
-
-  if (loading || targets.length === 0) return null;
-
-  const hitCount = targets.filter(t => t.status === 'hit').length;
-  const expiredCount = targets.filter(t => t.status === 'expired').length;
-
-  return (
-    <View className={`bg-surface-card p-5 rounded-2xl border border-surface-border flex-row flex-wrap items-center justify-between gap-3 mb-4 ${className || ''}`}>
-      <View className="flex-1 min-w-[200px] flex-row items-center gap-4">
-        <View className={`w-10 h-10 rounded-full items-center justify-center ${expiredCount > 0 ? 'bg-state-danger-dim' : 'bg-state-success-dim'}`}>
-          <FontAwesome name="bullseye" size={16} color={expiredCount > 0 ? colors.danger : colors.success} />
-        </View>
-        <View>
-          <Text className="text-typography-muted text-[10px] font-black uppercase tracking-widest">Active Targets</Text>
-          <View className="flex-row items-center gap-2">
-            <Text className="text-typography-main font-bold text-base">
-              {hitCount > 0 && `${hitCount} Hit`}
-              {hitCount > 0 && expiredCount > 0 && ' • '}
-              {expiredCount > 0 && `${expiredCount} Expired`}
-            </Text>
-          </View>
-        </View>
-      </View>
-      <TouchableOpacity onPress={onViewAll} className="bg-surface-overlay border border-surface-border px-4 py-2 rounded-xl active:scale-95 transition-all">
-        <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">View All</Text>
-      </TouchableOpacity>
     </View>
   );
 };
@@ -829,7 +783,7 @@ export const StageDwellChartWeb = ({ data, onViewDetails, className }: { data: S
   );
 };
 
-// ─── Pipeline Points Over Time Mini Widget ────────────────────────────────────
+// â”€â”€â”€ Pipeline Points Over Time Mini Widget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const PipelinePointsMiniWeb = ({
   pipelineId,

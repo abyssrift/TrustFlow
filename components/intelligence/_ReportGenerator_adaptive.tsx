@@ -503,6 +503,16 @@ export default function ReportGenerator({ visible, onClose, onReportGenerated, i
         <View className="h-12" />
       </ScrollView>
 
+      <View accessibilityLabel="Report preview summary" className="mx-6 mb-2 rounded-2xl border border-brand-primary/30 bg-brand-primary/5 px-5 py-4">
+        <View className="flex-row items-center gap-2">
+          <FontAwesome name="eye" size={13} color={colors.primary} />
+          <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Preview before generation</Text>
+        </View>
+        <Text className="text-typography-main text-sm font-bold mt-2">{selectedTypes.map(type => REPORT_TYPES.find(item => item.value === type)?.label).filter(Boolean).join(', ') || 'No report selected'}</Text>
+        <Text className="text-typography-muted text-xs mt-1">{needsDateRange ? (timeFrame === 'custom' ? `${dateStart || 'Start'} → ${dateEnd || 'End'}` : `${timeFrame} day window`) : 'The selected report defines its own period.'}</Text>
+        <Text className="text-typography-muted text-xs mt-1">This is a request preview. The reader will show the immutable snapshot after generation; it does not change scope or permissions.</Text>
+      </View>
+
       {/* Leave warning */}
       {loading && (
         <View className="mx-6 mb-0 mt-2 bg-state-warning/10 border border-state-warning/30 rounded-2xl px-5 py-3 flex-row items-center gap-3">

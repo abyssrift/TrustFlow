@@ -14,7 +14,6 @@ import SkeletonBlock, { SkeletonList } from '@/components/Skeleton';
 import ActiveSessionAvatars from '@/components/task-detail/ActiveSessionAvatars';
 import TaskCardActions, { type ActiveSessionUser } from '@/components/task-detail/TaskCardActions';
 import GuideAnchor from '@/components/guides/GuideAnchor';
-import GuideHelpButton from '@/components/guides/GuideHelpButton';
 import { boardCacheMeta, prefetchOtherBoards, taskCache, type BoardSnapshot, TASK_SORT_OPTIONS, compareTasksBySortKey, fetchLinkedTasks, type LinkedTask, type TaskSortKey } from '@/components/tabs/taskBoardCache';
 import LinkedTasksStrip from '@/components/tabs/LinkedTasksStrip';
 import TaskPingButton from '@/components/task-detail/TaskPingButton';
@@ -1355,7 +1354,6 @@ function TasksScreen() {
    return (
      <View ref={taskDropRef} className="flex-1 bg-surface-background">
       <GuideAnchor id="tasks:board" className="pointer-events-none absolute inset-0" />
-      <View className="absolute right-4 top-4 z-50"><GuideHelpButton guideId="tasks" /></View>
       {/* Phase 3 / 3.5: drop-to-create affordance (web only — taskDropOver /
           taskDropActive never trip on native). Dim on drag-enter-window,
           full-strength while the cursor is over this screen. */}

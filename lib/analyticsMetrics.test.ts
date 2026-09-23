@@ -53,6 +53,8 @@ describe('overview metric values', () => {
   it('preserves measured zero and rejects null or non-finite values', () => {
     expect(getOverviewMetricValue(audit({ current: { ...audit().current, success_rate: 0 } }), 'efficiency')).toBe(0);
     expect(getOverviewMetricValue(audit({ current: { ...audit().current, success_rate: null } }), 'efficiency')).toBeNull();
+    expect(getOverviewMetricValue(audit({ current: { ...audit().current, throughput: null } }), 'throughput')).toBeNull();
+    expect(getOverviewMetricValue(audit({ current: { ...audit().current, throughput: 0 } }), 'throughput')).toBe(0);
     expect(getOverviewMetricValue(audit({ current: { ...audit().current, success_rate: Number.NaN } }), 'efficiency')).toBeNull();
     expect(getOverviewMetricValue(audit({ current: { ...audit().current, throughput: Number.POSITIVE_INFINITY } }), 'throughput')).toBeNull();
   });

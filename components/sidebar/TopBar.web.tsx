@@ -17,7 +17,6 @@ import ThemeButton from './ThemeButton.web';
 import TimelineDropdown from './timeline/TimelineDropdown.web';
 import TimelineStrip from './timeline/TimelineStrip.web';
 import GuideAnchor from '../guides/GuideAnchor';
-import GuideHelpButton from '../guides/GuideHelpButton';
 
 cssInterop(FontAwesome, {
   className: {
@@ -247,7 +246,6 @@ export default function TopBar({
           <NotificationsDropdown visible={notifOpen} onClose={closeNotifications} />
         </View>
 
-        <GuideHelpButton guideId="top-bar" />
         <ProfilePill profileAvatarUrl={profileAvatarUrl} profileLabel={profileLabel} />
       </View>
   );

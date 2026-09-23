@@ -58,7 +58,7 @@ export function buildGeneralKpis(current: GeneralMetricValues, prior: GeneralMet
   }
 
   return [
-    metric('Throughput', current.throughput ?? 0, prior.throughput ?? 0, value => String(value), () => C.primary),
+    metric('Throughput', current.throughput, prior.throughput, value => String(value), () => C.primary),
     metric('Lead Time', current.avg_lead_time_minutes, prior.avg_lead_time_minutes, value => `${sf(value, 1)}m`, () => C.warning),
     metric('Success Rate', current.success_rate, prior.success_rate, value => `${sf(value, 1)}%`, value => value >= 80 ? C.success : C.danger),
     metric('Revision Rate', current.revision_rate, prior.revision_rate, value => `${sf(value, 1)}%`, value => value < 20 ? C.success : value < 40 ? C.warning : C.danger, 'Rework ratio'),

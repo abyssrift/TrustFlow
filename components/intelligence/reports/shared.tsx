@@ -1,6 +1,6 @@
 import React from 'react'
 import { View, Text, StyleSheet, Svg, Rect, Line, Page } from '@react-pdf/renderer'
-import { C, F, M, GAP, base, rateColor } from './theme'
+import { C, F, M, GAP, CONTENT_WIDTH, PDF_MIN_READABLE_FONT_SIZE, PDF_RENDERER_VERSION, base, rateColor } from './theme'
 import { formatDuration as fmtSec } from '@/lib/duration'
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -12,6 +12,14 @@ export const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 
 export { fmtSec }
+
+export const PDF_LAYOUT_CONTRACT = {
+  rendererVersion: PDF_RENDERER_VERSION,
+  minReadableFontSize: PDF_MIN_READABLE_FONT_SIZE,
+  contentWidth: CONTENT_WIDTH,
+  repeatedTableHeaders: true,
+  pageContext: true,
+} as const
 
 // ── Cover Page ────────────────────────────────────────────────────────────────
 
@@ -76,17 +84,21 @@ const footerS = StyleSheet.create({
   wrap: { position: 'absolute', bottom: 16, left: M, right: M, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   line: { position: 'absolute', top: -6, left: 0, right: 0 },
   txt: { color: C.dim, fontSize: F.xs },
+  pageContext: { position: 'absolute', top: 14, left: M, right: M, color: C.muted, fontSize: F.xs, fontFamily: 'Helvetica-Bold' },
 })
 
 export function Footer({ jobId, pageNum }: { jobId: string; pageNum?: number }) {
   return (
-    <View style={footerS.wrap} fixed>
+    <>
+      <Text style={footerS.pageContext} fixed>TrustFlow Report #{jobId.substring(0, 8).toUpperCase()}</Text>
+      <View style={footerS.wrap} fixed>
       <Svg height={1} width={523} style={footerS.line}>
         <Line x1={0} y1={0} x2={523} y2={0} stroke={C.border} strokeWidth={0.5} />
       </Svg>
       <Text style={footerS.txt}>TrustFlow · Report #{jobId.substring(0, 8).toUpperCase()}</Text>
       <Text style={footerS.txt} render={({ pageNumber, totalPages }) => `Page ${pageNumber} / ${totalPages}`} />
-    </View>
+      </View>
+      </>
   )
 }
 
@@ -129,6 +141,28 @@ export function Section({ title }: { title: string }) {
     <View style={sectionS.wrap}>
       <Text style={sectionS.text}>{title}</Text>
     </View>
+  )
+}
+
+const contextS = StyleSheet.create({
+  wrap: {
+    position: 'absolute', top: 14, left: M, right: M,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  },
+  title: { color: C.text, fontSize: F.xs, fontFamily: 'Helvetica-Bold' },
+  meta: { color: C.muted, fontSize: F.xs },
+})
+
+/** Repeated page context for long sections. Opt-in for compatibility with the
+ * existing report props until the renderer-neutral snapshot contract lands. */
+export function PageContext({ title, company, dateRange }: {
+  title: string; company?: string; dateRange?: string;
+}) {
+  return (
+    <View style={contextS.wrap} fixed>
+      <Text style={contextS.title}>{title}</Text>
+      {(company || dateRange) && <Text style={contextS.meta}>{[company, dateRange].filter(Boolean).join(' Â· ')}</Text>}
+      </View>
   )
 }
 
@@ -177,25 +211,29 @@ export function KpiRow({ items }: {
 
 const tableS = StyleSheet.create({
   wrap: { marginBottom: 10, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
-  header: { flexDirection: 'row', backgroundColor: C.primary, paddingVertical: 5, paddingHorizontal: 8 },
+  header: { flexDirection: 'row', backgroundColor: C.primary, paddingVertical: 6, paddingHorizontal: 8 },
   headerCell: { color: '#ffffff', fontSize: F.xs, fontFamily: 'Helvetica-Bold', letterSpacing: 0.3 },
-  row: { flexDirection: 'row', paddingVertical: 4, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: C.border },
+  context: { color: '#ffffff', fontSize: F.xs, fontFamily: 'Helvetica-Bold', marginBottom: 3 },
+  row: { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 8, borderTopWidth: 1, borderTopColor: C.border },
   cell: { fontSize: F.sm, color: C.text },
 })
 
 export interface TableRow { cells: string[]; colors?: (string | null | undefined)[] }
 
 export function Table({
-  headers, colFlex, rows,
+  headers, colFlex, rows, context,
 }: {
-  headers: string[]; colFlex: number[]; rows: TableRow[];
+  headers: string[]; colFlex: number[]; rows: TableRow[]; context?: string;
 }) {
   return (
-    <View style={tableS.wrap}>
-      <View style={tableS.header}>
-        {headers.map((h, i) => (
-          <Text key={i} style={[tableS.headerCell, { flex: colFlex[i] }]}>{h}</Text>
-        ))}
+    <View style={tableS.wrap} wrap>
+      <View fixed>
+        {context ? <Text style={[tableS.context, { backgroundColor: C.primary, paddingHorizontal: 8, paddingTop: 5 }]}>{context}</Text> : null}
+        <View style={tableS.header}>
+          {headers.map((h, i) => (
+            <Text key={i} style={[tableS.headerCell, { flex: colFlex[i] }]}>{h}</Text>
+          ))}
+        </View>
       </View>
       {rows.map((row, ri) => (
         <View key={ri} style={[tableS.row, { backgroundColor: ri % 2 === 0 ? C.card : C.bg }]}>
@@ -220,7 +258,7 @@ export function Table({
 const hbarS = StyleSheet.create({
   wrap: { marginBottom: 10 },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  label: { fontSize: F.xs, color: C.muted, width: 110 },
+  label: { fontSize: F.xs, color: C.muted, width: 135, paddingRight: 6 },
   track: { flex: 1, height: 14, backgroundColor: C.bg, borderRadius: 3, overflow: 'hidden', borderWidth: 1, borderColor: C.border },
   fill: { height: 14, borderRadius: 3 },
   valText: { fontSize: F.xs, color: C.text, fontFamily: 'Helvetica-Bold', width: 68, textAlign: 'right' },
@@ -229,14 +267,14 @@ const hbarS = StyleSheet.create({
 export function HBar({ data }: {
   data: { label: string; value: number; display?: string; color?: string }[]
 }) {
-  const max = Math.max(...data.map(d => d.value), 1)
+  const max = Math.max(...data.map(d => Number.isFinite(d.value) ? d.value : 0), 1)
   return (
     <View style={hbarS.wrap}>
       {data.map((item, i) => (
         <View key={i} style={hbarS.row}>
-          <Text style={hbarS.label}>{item.label}</Text>
+          <Text style={hbarS.label} wrap>{item.label}</Text>
           <View style={hbarS.track}>
-            <View style={[hbarS.fill, { width: `${(item.value / max) * 100}%`, backgroundColor: item.color || C.primary }]} />
+            <View style={[hbarS.fill, { width: `${(Number.isFinite(item.value) ? Math.max(0, item.value) : 0) / max * 100}%`, backgroundColor: item.color || C.primary }]} />
           </View>
           <Text style={hbarS.valText}>{item.display ?? String(item.value)}</Text>
         </View>
@@ -250,13 +288,14 @@ export function HBar({ data }: {
 const vbarS = StyleSheet.create({
   wrap: { marginBottom: 16 },
   labels: { flexDirection: 'row', marginTop: 3 },
-  labelTxt: { fontSize: 6, color: C.muted, textAlign: 'center' },
+  labelTxt: { fontSize: F.xs, color: C.muted, textAlign: 'center' },
 })
 
 export function VBar({ data, height = 80, color = C.primary }: {
   data: { label: string; value: number }[]; height?: number; color?: string
 }) {
-  const max = Math.max(...data.map(d => d.value), 1)
+  if (data.length === 0) return <Empty msg="No observations available for this period." />
+  const max = Math.max(...data.map(d => Number.isFinite(d.value) ? Math.max(0, d.value) : 0), 1)
   const chartW = 523 // content width (595 - 36*2)
   const n = data.length
   const barW = Math.max(6, Math.floor((chartW / n) * 0.65))
@@ -268,7 +307,7 @@ export function VBar({ data, height = 80, color = C.primary }: {
         {/* baseline */}
         <Line x1={0} y1={height} x2={chartW} y2={height} stroke={C.border} strokeWidth={0.5} />
         {data.map((item, i) => {
-          const barH = Math.max(2, (item.value / max) * (height - 4))
+          const barH = Math.max(2, ((Number.isFinite(item.value) ? Math.max(0, item.value) : 0) / max) * (height - 4))
           const x = i * gapW + (gapW - barW) / 2
           return (
             <Rect key={i} x={x} y={height - barH} width={barW} height={barH} fill={color} rx={2} />
@@ -292,6 +331,7 @@ export function StackedVBar({ data, height = 80 }: {
   data: { label: string; success: number; fail: number }[];
   height?: number;
 }) {
+  if (data.length === 0) return <Empty msg="No observations available for this period." />
   const maxTotal = Math.max(...data.map(d => d.success + d.fail), 1)
   const chartW = 523
   const n = data.length
@@ -334,9 +374,14 @@ const emptyS = StyleSheet.create({
   text: { color: C.muted, fontSize: F.sm, fontStyle: 'italic' },
 })
 
-export function Empty({ msg = 'No data available for this period.' }: { msg?: string }) {
+export type EmptyKind = 'no_data' | 'no_leader' | 'not_available'
+
+export function Empty({ msg = 'No data available for this period.', kind = 'no_data' }: { msg?: string; kind?: EmptyKind }) {
   return (
     <View style={emptyS.wrap}>
+      <Text style={[emptyS.text, { fontFamily: 'Helvetica-Bold', fontStyle: 'normal', marginBottom: 4 }]}>
+        {kind === 'no_leader' ? 'No leader' : kind === 'not_available' ? 'Not available' : 'No data'}
+      </Text>
       <Text style={emptyS.text}>{msg}</Text>
     </View>
   )

@@ -31,7 +31,7 @@ export interface OverviewPoint {
   throughput: number;
   points: number;
   hours: number;
-  success_rate: number;
+  success_rate: number | null;
 }
 
 const N_PERIODS: Record<OverviewPeriod, number> = { week: 8, month: 6 };
@@ -55,6 +55,20 @@ interface Bucket {
   failed: number;
   points: number;
   hours: number;
+}
+
+export function mapOverviewBuckets(buckets: Bucket[], period: OverviewPeriod): OverviewPoint[] {
+  return buckets.map((b) => {
+    const denom = b.succeeded + b.failed;
+    return {
+      key: b.key,
+      label: overviewLabel(b.key, period),
+      throughput: b.succeeded,
+      points: b.points,
+      hours: Math.round(b.hours * 10) / 10,
+      success_rate: denom > 0 ? Math.round((b.succeeded / denom) * 100) : null,
+    };
+  });
 }
 
 export function usePipelineOverviewData(
@@ -118,17 +132,7 @@ export function usePipelineOverviewData(
 
   useEffect(() => { load(); }, [load]);
 
-  const data = useMemo<OverviewPoint[]>(() => buckets.map((b) => {
-    const denom = b.succeeded + b.failed;
-    return {
-      key: b.key,
-      label: overviewLabel(b.key, period),
-      throughput: b.succeeded,
-      points: b.points,
-      hours: Math.round(b.hours * 10) / 10,
-      success_rate: denom > 0 ? Math.round((b.succeeded / denom) * 100) : 0,
-    };
-  }), [buckets, period]);
+  const data = useMemo(() => mapOverviewBuckets(buckets, period), [buckets, period]);
 
   return { data, loading, error };
 }

@@ -81,6 +81,7 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
   const maxPts = ranking.maxPoints
   const topPerformers = ranking.leaders
   const topPerf = topPerformers[0]
+  const hasObservedPoints = maxPts > 0
   const avgOtr = computeAverageObservedMetric(workers.map(w => w.on_time_rate))
   const avgEff = computeAverageObservedMetric(workers.map(w => w.timer_efficiency))
   const formatPercent = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? `${sf(value, 1)}%` : '—'
@@ -93,7 +94,7 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
         <Section title="Group Overview" />
         <KpiRow items={[
           { label: 'People Compared',   value: String(workers.length),                                 accent: C.primary },
-          { label: topPerformers.length === 1 ? 'Top Performer' : 'Top Performers', value: topPerformers.length === 1 ? String(topPerf.full_name || '—').substring(0, 14) : `${topPerformers.length} tied`, note: `${maxPts} pts${topPerformers.length === 1 ? '' : ' each'}`, accent: C.success },
+          { label: hasObservedPoints ? (topPerformers.length === 1 ? 'Top Performer' : 'Top Performers') : 'Top Performer', value: hasObservedPoints ? (topPerformers.length === 1 ? String(topPerf.full_name || '—').substring(0, 14) : `${topPerformers.length} tied`) : 'N/A', note: hasObservedPoints ? `${maxPts} pts${topPerformers.length === 1 ? '' : ' each'}` : 'No observed output', accent: hasObservedPoints ? C.success : C.muted },
           { label: 'Avg On-Time Rate',  value: avgOtr === null ? 'N/A' : `${sf(avgOtr, 1)}%`, accent: avgOtr === null ? C.muted : avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger, color: avgOtr === null ? C.muted : avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger },
           { label: 'Avg Efficiency',    value: avgEff === null ? 'N/A' : `${sf(avgEff, 1)}%`, accent: avgEff === null ? C.muted : avgEff <= 110 ? C.success : C.warning },
         ]} />
@@ -102,7 +103,7 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
         <HBar data={workers.map(w => ({
           label: String(w.full_name || '—').substring(0, 22),
           value: w.weight_points || 0,
-          color: (w.weight_points || 0) === maxPts ? C.success : C.primary,
+          color: hasObservedPoints && (w.weight_points || 0) === maxPts ? C.success : C.primary,
         }))} />
 
         <Sub title="Full Metrics Table" />
@@ -121,7 +122,7 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
               sf(w.points_per_hour, 2),
             ],
             colors: [
-              (w.weight_points || 0) === maxPts ? C.success : null,
+              hasObservedPoints && (w.weight_points || 0) === maxPts ? C.success : null,
               null, null,
               (w.failed_tasks || 0) > 0 ? C.danger : null,
               null,
@@ -132,12 +133,14 @@ export function WorkerComparisonReportPages({ data, jobId, isModule }: { data: W
           }))}
         />
 
-        <Insight
-          text={topPerformers.length === 1
-            ? `${topPerf.full_name || 'Top person'} leads with ${maxPts} pts.`
-            : `${topPerformers.length} people tie for the lead at ${maxPts} pts.`}
-          color={C.success}
-        />
+        {hasObservedPoints
+          ? <Insight
+              text={topPerformers.length === 1
+                ? `${topPerf.full_name || 'Top person'} leads with ${maxPts} pts.`
+                : `${topPerformers.length} people tie for the lead at ${maxPts} pts.`}
+              color={C.success}
+            />
+          : <Empty kind="no_leader" msg="All selected people have zero observed points in this period." />}
         <Footer jobId={jobId} />
       </Page>
     </>

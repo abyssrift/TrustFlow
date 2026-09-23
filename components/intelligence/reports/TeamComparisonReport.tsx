@@ -101,6 +101,7 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
   // ── N-team group table layout ─────────────────────────────────────────────
   const topSummary = findTopTeamPointLeaders(teams)!
   const { maxPoints, leaders } = topSummary
+  const hasObservedPoints = maxPoints > 0
   const avgAr   = computeAverageTeamSuccessRate(teams.map(ar))
 
   return (
@@ -111,7 +112,7 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
         <Section title="Group Overview" />
         <KpiRow items={[
           { label: 'Teams Compared',    value: String(teams.length),                             accent: C.primary },
-          { label: leaders.length === 1 ? 'Top Team' : 'Top Teams', value: leaders.length === 1 ? leaders[0].name.substring(0, 14) : `${leaders.length} tied`, note: `${maxPoints} pts${leaders.length === 1 ? '' : ' each'}`, accent: C.success },
+          { label: hasObservedPoints ? (leaders.length === 1 ? 'Top Team' : 'Top Teams') : 'Top Team', value: hasObservedPoints ? (leaders.length === 1 ? leaders[0].name.substring(0, 14) : `${leaders.length} tied`) : 'N/A', note: hasObservedPoints ? `${maxPoints} pts${leaders.length === 1 ? '' : ' each'}` : 'No observed output', accent: hasObservedPoints ? C.success : C.muted },
           { label: 'Avg Success Rate',  value: avgAr === null ? 'N/A' : `${sf(avgAr, 1)}%`, accent: avgAr === null ? C.muted : avgAr >= 80 ? C.success : avgAr >= 60 ? C.warning : C.danger, color: avgAr === null ? C.muted : avgAr >= 80 ? C.success : avgAr >= 60 ? C.warning : C.danger },
         ]} />
         {overlapNote && <Insight text={overlapNote} color={C.warning} />}
@@ -120,7 +121,7 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
         <HBar data={teams.map(t => ({
           label: t.name.substring(0, 22),
           value: t.pts,
-          color: t.pts === maxPoints ? C.success : C.primary,
+          color: hasObservedPoints && t.pts === maxPoints ? C.success : C.primary,
         }))} />
 
         <Sub title="Full Metrics Table" />
@@ -141,10 +142,10 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
                 sf(pph(t), 2),
               ],
               colors: [
-                t.pts === maxPoints ? C.success : null,
+                hasObservedPoints && t.pts === maxPoints ? C.success : null,
                 null, null,
                 t.failed > 0 ? C.danger : null,
-                t.pts === maxPoints ? C.success : null,
+                hasObservedPoints && t.pts === maxPoints ? C.success : null,
                 null,
                 successRate === null ? null : successRate >= 80 ? C.success : successRate >= 60 ? C.warning : C.danger,
                 null,
@@ -153,9 +154,11 @@ export function TeamComparisonReportPages({ data, jobId, isModule }: { data: Tea
           })}
         />
 
-        <Insight text={leaders.length === 1
-          ? `${leaders[0].name} leads with ${maxPoints} pts.`
-          : `${leaders.length} teams tie for the lead at ${maxPoints} pts.`} color={C.success} />
+        {hasObservedPoints
+          ? <Insight text={leaders.length === 1
+              ? `${leaders[0].name} leads with ${maxPoints} pts.`
+              : `${leaders.length} teams tie for the lead at ${maxPoints} pts.`} color={C.success} />
+          : <Empty kind="no_leader" msg="All selected teams have zero observed points in this period." />}
         <Footer jobId={jobId} />
       </Page>
     </>

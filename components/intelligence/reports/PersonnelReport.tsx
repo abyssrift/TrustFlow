@@ -35,6 +35,7 @@ export function PersonnelReportPages({ data, jobId, isModule }: { data: Personne
   const maxPts = ranking.maxPoints
   const topPerformers = ranking.leaders
   const topPerf = topPerformers[0]
+  const hasObservedPoints = maxPts > 0
   const avgOtr  = computeAverageObservedMetric(rows.map(r => r.on_time_rate))
   const avgEff  = computeAverageObservedMetric(rows.map(r => r.timer_efficiency))
   const formatPercent = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? `${sf(value, 1)}%` : '—'
@@ -51,7 +52,7 @@ export function PersonnelReportPages({ data, jobId, isModule }: { data: Personne
 
         <KpiRow items={[
           { label: 'People Compared', value: String(rows.length),          accent: C.primary },
-          { label: topPerformers.length === 1 ? 'Top Performer' : 'Top Performers', value: topPerformers.length === 1 ? String(topPerf.full_name || '—').substring(0, 14) : `${topPerformers.length} tied`, note: `${maxPts} pts${topPerformers.length === 1 ? '' : ' each'}`, accent: C.success },
+          { label: hasObservedPoints ? (topPerformers.length === 1 ? 'Top Performer' : 'Top Performers') : 'Top Performer', value: hasObservedPoints ? (topPerformers.length === 1 ? String(topPerf.full_name || '—').substring(0, 14) : `${topPerformers.length} tied`) : 'N/A', note: hasObservedPoints ? `${maxPts} pts${topPerformers.length === 1 ? '' : ' each'}` : 'No observed output', accent: hasObservedPoints ? C.success : C.muted },
           { label: 'Avg On-Time Rate', value: avgOtr === null ? 'N/A' : `${sf(avgOtr, 1)}%`, accent: avgOtr === null ? C.muted : avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger, color: avgOtr === null ? C.muted : avgOtr >= 80 ? C.success : avgOtr >= 60 ? C.warning : C.danger },
           { label: 'Avg Efficiency',   value: avgEff === null ? 'N/A' : `${sf(avgEff, 1)}%`, accent: avgEff === null ? C.muted : avgEff <= 110 ? C.success : C.warning },
         ]} />
@@ -60,7 +61,7 @@ export function PersonnelReportPages({ data, jobId, isModule }: { data: Personne
         <HBar data={rows.map(r => ({
           label: String(r.full_name || '—').substring(0, 22),
           value: r.weight_points || 0,
-          color: (r.weight_points || 0) === maxPts ? C.success : C.primary,
+          color: hasObservedPoints && (r.weight_points || 0) === maxPts ? C.success : C.primary,
         }))} />
 
         <Sub title="Full Metrics Table" />
@@ -79,7 +80,7 @@ export function PersonnelReportPages({ data, jobId, isModule }: { data: Personne
               sf(r.points_per_hour, 2),
             ],
             colors: [
-              (r.weight_points || 0) === maxPts ? C.success : null,
+              hasObservedPoints && (r.weight_points || 0) === maxPts ? C.success : null,
               null, null, (r.failed_tasks || 0) > 0 ? C.danger : null, null,
               typeof r.on_time_rate !== 'number' || !Number.isFinite(r.on_time_rate) ? null : r.on_time_rate >= 80 ? C.success : r.on_time_rate >= 60 ? C.warning : C.danger,
               typeof r.timer_efficiency !== 'number' || !Number.isFinite(r.timer_efficiency) ? null : r.timer_efficiency <= 110 ? C.success : C.warning,
@@ -106,12 +107,14 @@ export function PersonnelReportPages({ data, jobId, isModule }: { data: Personne
           </>
         )}
 
-        <Insight
-          text={topPerformers.length === 1
-            ? `${topPerf.full_name || 'Top person'} leads the group with ${maxPts} points.`
-            : `${topPerformers.length} people tie for the lead at ${maxPts} points.`}
-          color={C.success}
-        />
+        {hasObservedPoints
+          ? <Insight
+              text={topPerformers.length === 1
+                ? `${topPerf.full_name || 'Top person'} leads the group with ${maxPts} points.`
+                : `${topPerformers.length} people tie for the lead at ${maxPts} points.`}
+              color={C.success}
+            />
+          : <Empty kind="no_leader" msg="All selected people have zero observed points in this period." />}
 
         <Footer jobId={jobId} />
       </Page>

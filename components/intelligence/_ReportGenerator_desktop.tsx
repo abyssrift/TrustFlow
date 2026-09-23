@@ -556,6 +556,16 @@ export default function ReportGeneratorDesktop() {
                   </View>
                 </View>
               </View>
+
+              <View accessibilityLabel="Report preview summary" className="mt-8 rounded-2xl border border-brand-primary/30 bg-brand-primary/5 px-6 py-5">
+                <View className="flex-row items-center gap-2">
+                  <FontAwesome name="eye" size={13} color={colors.primary} />
+                  <Text className="text-brand-primary text-[10px] font-black uppercase tracking-widest">Preview before generation</Text>
+                </View>
+                <Text className="text-typography-main text-sm font-bold mt-2">{selectedTypes.map(type => REPORT_TYPES.find(item => item.value === type)?.label).filter(Boolean).join(', ') || 'No report selected'}</Text>
+                <Text className="text-typography-muted text-xs mt-1">{needsDateRange ? (timeFrame === 'custom' ? `${dateStart || 'Start'} → ${dateEnd || 'End'}` : `${timeFrame} day window`) : 'The selected report defines its own period.'}</Text>
+                <Text className="text-typography-muted text-xs mt-1">This is a request preview. The reader will show the immutable snapshot after generation; it does not change scope or permissions.</Text>
+              </View>
             </>
           )}
         </View>

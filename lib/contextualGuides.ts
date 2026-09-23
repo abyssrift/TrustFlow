@@ -54,6 +54,8 @@ export type GuideEligibilityContext = {
   isMobile: boolean;
 };
 
+export type GuideRouteSearchParams = Record<string, string | string[] | undefined>;
+
 export const GUIDE_PHASES: readonly GuidePhase[] = [
   { id: 'start', title: 'Start here', order: 0 },
   { id: 'get-work-done', title: 'Get work done', order: 1 },
@@ -189,6 +191,24 @@ export const GUIDE_REGISTRY: readonly GuideDefinition[] = [
     ],
   },
 ];
+
+export function guideRouteMatches(pathname: string, route: string, searchParams: GuideRouteSearchParams): boolean {
+  const [routePath, query = ''] = route.split('?');
+  if (pathname !== routePath) return false;
+  for (const [key, value] of new URLSearchParams(query)) {
+    const current = searchParams[key];
+    if (Array.isArray(current) ? !current.includes(value) : current !== value) return false;
+  }
+  return true;
+}
+
+export function getGuideForRoute(
+  definitions: readonly GuideDefinition[],
+  pathname: string,
+  searchParams: GuideRouteSearchParams,
+): GuideDefinition | null {
+  return definitions.find((guide) => guideRouteMatches(pathname, guide.route, searchParams)) ?? null;
+}
 
 export function eligibleGuides(ctx: GuideEligibilityContext): GuideDefinition[] {
   if (!ctx.authenticated || !ctx.profileReady || !ctx.accessReady) return [];

@@ -1,10 +1,12 @@
 import { BackButton } from '@/components/common/BackButton';
+import SearchableMultiSelect from '@/components/common/SearchableMultiSelect';
 import UserLink from '@/components/common/UserLink';
 import { ConversionFunnelDetails, PipelineLoadDetails } from '@/components/intelligence/AdaptivePipelineDetails';
 import { DateRangeControls, useGranularity } from '@/components/intelligence/DateRangeFilter';
 import PortfolioFlowTab from '@/components/intelligence/PortfolioFlowTab';
 import { PersonnelRow, StageDwell, ThroughputBucket, useAnalytics } from '@/contexts/AnalyticsContext';
 import type { OrganizationalAudit } from '@/lib/analyticsMetrics';
+import { summarizeAnalyticsSeries, type AnalyticsSeriesSnapshot } from '@/lib/analyticsSeriesState';
 import { bucketLabel } from '@/lib/chartBuckets';
 import { localIsoDay } from '@/lib/time';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,12 +16,11 @@ import { supabase } from '@/lib/supabase';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { formatDuration as fmtSeconds } from '@/lib/duration';
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   Text,
   TextInput,
@@ -54,12 +55,12 @@ function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
           <Svg height={chartH} width={width}>
             <Defs>
               <LinearGradient id="thrSuccess" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="rgb(34,197,94)"  stopOpacity="1" />
-                <Stop offset="1" stopColor="rgb(34,197,94)"  stopOpacity="0.5" />
+                <Stop offset="0" stopColor={colors.success} stopOpacity="1" />
+                <Stop offset="1" stopColor={colors.success} stopOpacity="0.5" />
               </LinearGradient>
               <LinearGradient id="thrFail" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="rgb(239,68,68)" stopOpacity="1" />
-                <Stop offset="1" stopColor="rgb(239,68,68)" stopOpacity="0.5" />
+                <Stop offset="0" stopColor={colors.danger} stopOpacity="1" />
+                <Stop offset="1" stopColor={colors.danger} stopOpacity="0.5" />
               </LinearGradient>
             </Defs>
             {chartData.map((d, i) => {
@@ -94,11 +95,11 @@ function ThroughputChart({ data }: { data: ThroughputBucket[] }) {
       <View className="flex-row justify-between items-center mt-3">
         <View className="flex-row gap-4">
           <View className="flex-row items-center gap-1.5">
-            <View className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgb(34,197,94)' }} />
+            <View className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.success }} />
             <Text className="text-typography-dim text-[9px] font-bold uppercase">Success</Text>
           </View>
           <View className="flex-row items-center gap-1.5">
-            <View className="w-3 h-3 rounded-sm" style={{ backgroundColor: 'rgb(239,68,68)' }} />
+            <View className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors.danger }} />
             <Text className="text-typography-dim text-[9px] font-bold uppercase">Failed</Text>
           </View>
         </View>
@@ -145,11 +146,10 @@ function DwellChart({ data }: { data: StageDwell[] }) {
         const pct = s.avg_seconds / maxSec;
         const barW = Math.max(4, pct * barAreaW);
         const color =
-          s.is_bottleneck ? 'rgb(245,158,11)' :
-          (s.is_terminal && s.terminal_type === 'success') ? 'rgb(34,197,94)' :
-          s.is_terminal ? 'rgb(239,68,68)' :
+          s.is_bottleneck ? colors.warning :
+          (s.is_terminal && s.terminal_type === 'success') ? colors.success :
+          s.is_terminal ? colors.danger :
           colors.primary;
-        const colorFaded = color.replace('rgb', 'rgba').replace(')', ', 0.45)');
 
         return (
           <View key={s.stage_id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
@@ -160,7 +160,7 @@ function DwellChart({ data }: { data: StageDwell[] }) {
               <Defs>
                 <LinearGradient id={`dg${i}`} x1="0" y1="0" x2="1" y2="0">
                   <Stop offset="0" stopColor={color}      stopOpacity="1" />
-                  <Stop offset="1" stopColor={colorFaded} stopOpacity="1" />
+                  <Stop offset="1" stopColor={color} stopOpacity="0.45" />
                 </LinearGradient>
               </Defs>
               <Rect x={0} y={4} width={barW} height={rowH - 8} fill={`url(#dg${i})`} rx={4} />
@@ -174,9 +174,9 @@ function DwellChart({ data }: { data: StageDwell[] }) {
       {/* Legend */}
       <View className="flex-row gap-3 flex-wrap mt-1">
         {[
-          { color: 'rgb(245,158,11)', label: 'Bottleneck' },
-          { color: 'rgb(34,197,94)',  label: 'Success' },
-          { color: 'rgb(239,68,68)', label: 'Failure' },
+          { color: colors.warning, label: 'Bottleneck' },
+          { color: colors.success,  label: 'Success' },
+          { color: colors.danger, label: 'Failure' },
           { color: colors.primary, label: 'Normal' },
         ].map(l => (
           <View key={l.label} className="flex-row items-center gap-1">
@@ -204,38 +204,88 @@ function PipelineTab({ limits, billingReady }: { limits: AnalyticsLimits; billin
   const [from, setFrom] = useState(localIsoDay(defaultFrom));
   const [to, setTo]     = useState(localIsoDay(today));
 
-  const [dwell, setDwell]           = useState<StageDwell[]>([]);
-  const [throughput, setThroughput] = useState<ThroughputBucket[]>([]);
-  const [auditData, setAuditData]   = useState<OrganizationalAudit | null>(null);
-  const [loading, setLoading]       = useState(false);
-  const [loaded, setLoaded]         = useState(false);
+  type PipelineState = 'loading' | 'updating' | 'ready' | 'empty' | 'error';
+  type SeriesState = 'loading' | 'ready' | 'error';
+  type PipelineSeries = {
+    dwell: SeriesState;
+    throughput: SeriesState;
+    audit: SeriesState;
+  };
+  type PipelineSnapshot = {
+    key: string;
+    dwell: StageDwell[];
+    throughput: ThroughputBucket[];
+    auditData: OrganizationalAudit | null;
+    series: PipelineSeries;
+  };
+
+  const requestKey = JSON.stringify([selectedPipeline, from, to, buckets]);
+  const currentKeyRef = useRef(requestKey);
+  const requestGenerationRef = useRef(0);
+  const snapshotKeyRef = useRef<string | null>(null);
+  const [snapshot, setSnapshot] = useState<PipelineSnapshot | null>(null);
+  const [pipelinesLoaded, setPipelinesLoaded] = useState(false);
+  currentKeyRef.current = requestKey;
 
   useEffect(() => {
     supabase.from('pipelines').select('id, name').is('deleted_at', null).order('name')
-      .then(({ data }) => { if (data?.length) { setPipelines(data); setSelected(data[0].id); } });
+      .then(({ data }) => { if (data?.length) { setPipelines(data); setSelected(data[0].id); } })
+      .finally(() => setPipelinesLoaded(true));
   }, []);
 
   const load = useCallback(async () => {
     if (!selectedPipeline) return;
-    setLoading(true);
-    try {
-      const nDays = Math.max(7, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000));
-      const [d, t, audit] = await Promise.all([
-        getPipelineStageDwell(selectedPipeline, from, to),
-        getPipelineThroughputRange(selectedPipeline, from, to, buckets),
-        getOrganizationalAudit(selectedPipeline, nDays).catch(error => {
-          console.error('[Analytics] Failed to load organizational audit:', error);
-          return null;
-        }),
-      ]);
-      setDwell(d);
-      setThroughput(t);
-      setAuditData(audit);
-      setLoaded(true);
-    } finally { setLoading(false); }
-  }, [selectedPipeline, from, to, buckets]);
+    const key = requestKey;
+    const generation = requestGenerationRef.current + 1;
+    requestGenerationRef.current = generation;
+    const nextSnapshot: PipelineSnapshot = {
+      key,
+      dwell: [],
+      throughput: [],
+      auditData: null,
+      series: { dwell: 'loading', throughput: 'loading', audit: 'loading' },
+    };
+    setSnapshot(nextSnapshot);
+    const commit = <K extends keyof PipelineSnapshot>(field: K, value: PipelineSnapshot[K], series: keyof PipelineSeries, status: SeriesState) => {
+      if (currentKeyRef.current !== key || requestGenerationRef.current !== generation) return;
+      snapshotKeyRef.current = key;
+      setSnapshot(previous => previous?.key === key ? {
+        ...previous,
+        [field]: value,
+        series: { ...previous.series, [series]: status },
+      } as PipelineSnapshot : previous);
+    };
+    const nDays = Math.max(7, Math.ceil((new Date(to).getTime() - new Date(from).getTime()) / 86400000));
+    void getPipelineStageDwell(selectedPipeline, from, to)
+      .then(data => commit('dwell', data ?? [], 'dwell', 'ready'))
+      .catch(() => commit('dwell', [], 'dwell', 'error'));
+    void getPipelineThroughputRange(selectedPipeline, from, to, buckets)
+      .then(data => commit('throughput', data ?? [], 'throughput', 'ready'))
+      .catch(() => commit('throughput', [], 'throughput', 'error'));
+    void getOrganizationalAudit(selectedPipeline, nDays)
+      .then(data => commit('auditData', data, 'audit', 'ready'))
+      .catch(() => commit('auditData', null, 'audit', 'error'));
+  }, [buckets, from, getOrganizationalAudit, getPipelineStageDwell, getPipelineThroughputRange, requestKey, selectedPipeline, to]);
 
   useEffect(() => { load(); }, [load]);
+
+  const currentSnapshot = snapshot?.key === requestKey ? snapshot : null;
+  const seriesSummary = currentSnapshot
+    ? summarizeAnalyticsSeries(([
+      ['dwell', currentSnapshot.dwell, currentSnapshot.series.dwell],
+      ['throughput', currentSnapshot.throughput, currentSnapshot.series.throughput],
+      ['audit', currentSnapshot.auditData, currentSnapshot.series.audit],
+    ] as const)
+      .filter(([, , status]) => status !== 'loading')
+      .map(([key, data, status]) => ({ key, data, status })) as AnalyticsSeriesSnapshot[])
+    : null;
+  const hasPendingSeries = currentSnapshot !== null && Object.values(currentSnapshot.series).some(status => status === 'loading');
+  const effectiveState: PipelineState = currentSnapshot === null || hasPendingSeries
+    ? (currentSnapshot ? 'updating' : 'loading')
+    : seriesSummary?.allFailed ? 'error'
+      : seriesSummary?.isEmpty ? 'empty'
+        : 'ready';
+  const showCharts = currentSnapshot !== null && (effectiveState === 'ready' || effectiveState === 'updating');
 
   return (
     <View className="gap-6">
@@ -255,9 +305,12 @@ function PipelineTab({ limits, billingReady }: { limits: AnalyticsLimits; billin
                 <TouchableOpacity
                   key={p.id}
                   onPress={() => setSelected(p.id)}
-                  className={`px-4 py-2 rounded-xl border ${selectedPipeline === p.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select pipeline ${p.name}`}
+                  accessibilityState={{ selected: selectedPipeline === p.id }}
+                  className={`min-h-[44px] px-4 py-2 rounded-xl border ${selectedPipeline === p.id ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
                 >
-                  <Text className={`text-xs font-bold ${selectedPipeline === p.id ? 'text-white' : 'text-typography-main'}`}>{p.name}</Text>
+                  <Text className={`text-xs font-bold ${selectedPipeline === p.id ? 'text-brand-on-primary' : 'text-typography-main'}`}>{p.name}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -265,30 +318,85 @@ function PipelineTab({ limits, billingReady }: { limits: AnalyticsLimits; billin
         </View>
       )}
 
-      {loading && !loaded ? (
-        <View className="py-16 items-center"><ActivityIndicator color={colors.primary} /></View>
-      ) : (
+      {!pipelinesLoaded ? (
+        <View accessible accessibilityRole="progressbar" accessibilityLabel="Loading analytics" className="py-16 items-center"><ActivityIndicator color={colors.primary} /></View>
+      ) : pipelines.length === 0 ? (
+        <View className="bg-surface-card border border-surface-border rounded-2xl p-6 items-center gap-2">
+          <Text className="text-typography-main font-black text-base">No Pipelines Found</Text>
+          <Text className="text-typography-muted text-xs">Create a pipeline to see analytics.</Text>
+        </View>
+      ) : effectiveState === 'loading' ? (
+        <View accessible accessibilityRole="progressbar" accessibilityLabel="Loading analytics" className="py-16 items-center"><ActivityIndicator color={colors.primary} /></View>
+      ) : effectiveState === 'error' ? (
+        <View accessible accessibilityRole="alert" className="bg-surface-card border border-surface-border rounded-2xl p-6 items-center gap-3">
+          <Text className="text-typography-main font-black text-base">Could not load analytics.</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Retry"
+            onPress={load}
+            className="min-h-[44px] min-w-[44px] px-4 rounded-xl bg-brand-primary items-center justify-center"
+          >
+            <Text className="text-brand-on-primary font-black">Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : effectiveState === 'empty' ? (
+        <View className="bg-surface-card border border-surface-border rounded-2xl p-6 items-center gap-2">
+          <Text className="text-typography-main font-black text-base">No stage movement in this range.</Text>
+          <Text className="text-typography-muted text-xs text-center">Try a longer date range or another pipeline.</Text>
+        </View>
+      ) : showCharts ? (
         <>
+          {hasPendingSeries && (
+            <View accessible accessibilityRole="progressbar" accessibilityLabel="Updating analytics" className="flex-row items-center gap-2">
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text className="text-typography-muted text-xs">Updating analytics</Text>
+            </View>
+          )}
           {/* Throughput chart */}
           {billingReady && limits.throughput && (
             <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-              <Text className="text-typography-main font-black text-base mb-1">Throughput Over Time</Text>
+              <Text className="text-typography-main font-black text-base mb-1">Completed tasks over time</Text>
               <Text className="text-typography-muted text-[10px] mb-5">Tasks completed vs failed per period</Text>
-              <ThroughputChart data={throughput} />
+              {currentSnapshot.series.throughput === 'error' ? (
+                <View className="flex-row items-center justify-between gap-3">
+                  <Text className="text-typography-muted text-sm flex-1">Completed task data is unavailable.</Text>
+                  <TouchableOpacity onPress={load} accessibilityRole="button" accessibilityLabel="Retry completed task data" className="min-h-[44px] px-3 rounded-xl bg-brand-primary items-center justify-center">
+                    <Text className="text-brand-on-primary text-xs font-black">Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : currentSnapshot.series.throughput === 'loading' ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : <ThroughputChart data={currentSnapshot.throughput} />}
             </View>
           )}
 
           {/* Stage dwell chart */}
           <View className="bg-surface-card border border-surface-border rounded-2xl p-5">
-            <Text className="text-typography-main font-black text-base mb-1">Stage Dwell Times</Text>
+            <Text className="text-typography-main font-black text-base mb-1">Stage dwell times</Text>
             <Text className="text-typography-muted text-[10px] mb-5">Avg time tasks spend per stage</Text>
-            <DwellChart data={dwell} />
+            {currentSnapshot.series.dwell === 'error' ? (
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-typography-muted text-sm flex-1">Stage dwell data is unavailable.</Text>
+                <TouchableOpacity onPress={load} accessibilityRole="button" accessibilityLabel="Retry stage dwell data" className="min-h-[44px] px-3 rounded-xl bg-brand-primary items-center justify-center">
+                  <Text className="text-brand-on-primary text-xs font-black">Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : currentSnapshot.series.dwell === 'loading' ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : <DwellChart data={currentSnapshot.dwell} />}
           </View>
 
-          {auditData && <PipelineLoadDetails audit={auditData} />}
-          {auditData && billingReady && limits.funnel && <ConversionFunnelDetails audit={auditData} />}
+          {currentSnapshot.series.audit === 'error' ? (
+            <View accessible accessibilityRole="alert" className="bg-surface-card border border-surface-border rounded-2xl p-4 flex-row items-center justify-between gap-3">
+              <Text className="text-typography-muted text-sm flex-1">Summary data is unavailable for this range.</Text>
+              <TouchableOpacity onPress={load} accessibilityRole="button" accessibilityLabel="Retry summary data" className="min-h-[44px] px-3 rounded-xl bg-brand-primary items-center justify-center">
+                <Text className="text-brand-on-primary text-xs font-black">Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : currentSnapshot.auditData && <PipelineLoadDetails audit={currentSnapshot.auditData} />}
+          {currentSnapshot.auditData && currentSnapshot.series.audit !== 'error' && billingReady && limits.funnel && <ConversionFunnelDetails audit={currentSnapshot.auditData} />}
         </>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -304,7 +412,6 @@ function PersonnelTab() {
   const [results, setResults]   = useState<PersonnelRow[]>([]);
   const [loading, setLoading]   = useState(false);
   const [ran, setRan]           = useState(false);
-  const [search, setSearch]     = useState('');
 
   const STORAGE_KEY = 'trustflow_personnel_salaries';
 
@@ -342,7 +449,11 @@ function PersonnelTab() {
     } finally { setLoading(false); }
   };
 
-  const filteredUsers = users.filter(u => u.full_name?.toLowerCase().includes(search.toLowerCase()));
+  const personnelItems = users.map(u => ({
+    id: u.id,
+    label: u.full_name || 'Unnamed person',
+    avatarUrl: u.avatar_url,
+  }));
 
   return (
     <View className="gap-6">
@@ -354,43 +465,22 @@ function PersonnelTab() {
 
       {/* User selector */}
       <View className="gap-3">
-        <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Select Personnel (min 2)</Text>
-        <View className="bg-surface-card border border-surface-border rounded-xl px-3 flex-row items-center">
-          <FontAwesome name="search" size={12} color="rgb(100,116,139)" />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search personnel..."
-            placeholderTextColor="rgba(100,116,139,0.5)"
-            className="flex-1 ml-2 py-2 text-typography-main text-xs"
-          />
-        </View>
-        <View className="flex-row flex-wrap gap-2">
-          {filteredUsers.map(u => {
-            const isSel = selected.includes(u.id);
-            return (
-              <TouchableOpacity
-                key={u.id}
-                onPress={() => toggleUser(u.id)}
-                className={`flex-row items-center gap-2 px-3 py-2 rounded-xl border ${isSel ? 'bg-brand-primary border-brand-primary' : 'bg-surface-card border-surface-border'}`}
-              >
-                {u.avatar_url
-                  ? <Image source={{ uri: u.avatar_url }} className="w-5 h-5 rounded-full" />
-                  : <View className="w-5 h-5 rounded-full bg-surface-background border border-surface-border items-center justify-center">
-                      <Text className="text-[8px] font-black text-brand-primary">{(u.full_name || 'A')[0]}</Text>
-                    </View>
-                }
-                <Text className={`text-xs font-bold ${isSel ? 'text-white' : 'text-typography-main'}`}>{u.full_name}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <SearchableMultiSelect
+          title="Select personnel (minimum 2)"
+          items={personnelItems}
+          selectedIds={selected}
+          onToggle={toggleUser}
+          onClearSelection={() => setSelected([])}
+          searchPlaceholder="Search personnel..."
+          emptyText="No personnel match that search."
+          flat
+        />
       </View>
 
       {/* Salary inputs */}
       {selected.length > 0 && (
         <View className="gap-3">
-          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Daily Rates (USD) — Persisted Locally</Text>
+          <Text className="text-typography-dim text-[10px] font-black uppercase tracking-widest">Daily rates (USD) - saved locally</Text>
           {selected.map(uid => {
             const u = users.find(x => x.id === uid);
             if (!u) return null;
@@ -420,7 +510,7 @@ function PersonnelTab() {
       >
         {loading
           ? <ActivityIndicator size="small" color="white" />
-          : <Text className="text-white font-black uppercase tracking-widest text-xs">Run Comparison</Text>
+          : <Text className="text-brand-on-primary font-black uppercase tracking-widest text-xs">Run Comparison</Text>
         }
       </TouchableOpacity>
 
@@ -434,10 +524,10 @@ function PersonnelTab() {
                 { label: 'Effort (OPS)',   value: `${row.activity_count}` },
                 { label: 'Active Hours',   value: `${row.active_hours.toFixed(1)}h` },
                 { label: 'Completed',      value: `${row.completed_tasks}` },
-                { label: 'On-Time Rate',   value: row.on_time_rate !== null ? `${row.on_time_rate.toFixed(1)}%` : '—' },
-                { label: 'Timer Eff.',     value: row.timer_efficiency !== null ? `${row.timer_efficiency.toFixed(1)}%` : '—' },
-                { label: 'Cost/Point',     value: row.cost_per_point !== null ? `$${row.cost_per_point.toFixed(2)}/pt` : '—' },
-                { label: 'Points/Hour',    value: row.points_per_hour !== null ? `${row.points_per_hour.toFixed(1)}/hr` : '—' },
+                { label: 'On-time rate',   value: row.on_time_rate !== null ? `${row.on_time_rate.toFixed(1)}%` : '-' },
+                { label: 'Timer efficiency', value: row.timer_efficiency !== null ? `${row.timer_efficiency.toFixed(1)}%` : '-' },
+                { label: 'Cost per point', value: row.cost_per_point !== null ? `$${row.cost_per_point.toFixed(2)}/pt` : '-' },
+                { label: 'Points per hour', value: row.points_per_hour !== null ? `${row.points_per_hour.toFixed(1)}/hr` : '-' },
               ].map((item, i, arr) => (
                 <View key={item.label} className={`flex-row justify-between py-2 ${i < arr.length - 1 ? 'border-b border-surface-border/50' : ''}`}>
                   <Text className="text-typography-muted text-sm">{item.label}</Text>
@@ -532,12 +622,15 @@ export default function AdminAnalyticsNative() {
       </View>
 
       {/* Tab switcher */}
-      <View className="flex-row bg-surface-card border border-surface-border rounded-2xl p-1 mx-6 mb-6">
+      <View accessibilityRole="tablist" className="flex-row bg-surface-card border border-surface-border rounded-2xl p-1 mx-6 mb-6">
         <TouchableOpacity
           onPress={() => setActiveTab('pipeline')}
-          className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'pipeline' ? 'bg-brand-primary' : ''}`}
+          accessibilityRole="tab"
+          accessibilityLabel="Pipeline analytics tab"
+          accessibilityState={{ selected: activeTab === 'pipeline' }}
+          className={`flex-1 min-h-[44px] py-2.5 rounded-xl items-center justify-center ${activeTab === 'pipeline' ? 'bg-brand-primary' : ''}`}
         >
-          <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'pipeline' ? 'text-white' : 'text-typography-muted'}`}>
+          <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'pipeline' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
             Pipeline
           </Text>
         </TouchableOpacity>
@@ -545,18 +638,24 @@ export default function AdminAnalyticsNative() {
           <TouchableOpacity
             onPress={() => canCompare && setActiveTab('personnel')}
             disabled={!canCompare}
-            className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'personnel' ? 'bg-brand-primary' : ''} ${!canCompare ? 'opacity-40' : ''}`}
+            accessibilityRole="tab"
+            accessibilityLabel="Personnel comparison tab"
+            accessibilityState={{ selected: activeTab === 'personnel', disabled: !canCompare }}
+            className={`flex-1 min-h-[44px] py-2.5 rounded-xl items-center justify-center ${activeTab === 'personnel' ? 'bg-brand-primary' : ''} ${!canCompare ? 'opacity-40' : ''}`}
           >
-            <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'personnel' ? 'text-white' : 'text-typography-muted'}`}>
+            <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'personnel' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
               Personnel
             </Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity
           onPress={() => setActiveTab('portfolio')}
-          className={`flex-1 py-2.5 rounded-xl items-center ${activeTab === 'portfolio' ? 'bg-brand-primary' : ''}`}
+          accessibilityRole="tab"
+          accessibilityLabel="Portfolio analytics tab"
+          accessibilityState={{ selected: activeTab === 'portfolio' }}
+          className={`flex-1 min-h-[44px] py-2.5 rounded-xl items-center justify-center ${activeTab === 'portfolio' ? 'bg-brand-primary' : ''}`}
         >
-          <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'portfolio' ? 'text-white' : 'text-typography-muted'}`}>
+          <Text className={`text-xs font-black uppercase tracking-widest ${activeTab === 'portfolio' ? 'text-brand-on-primary' : 'text-typography-muted'}`}>
             Portfolio
           </Text>
         </TouchableOpacity>

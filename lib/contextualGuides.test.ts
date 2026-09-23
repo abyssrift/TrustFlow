@@ -11,6 +11,7 @@ import {
   getNewGuideIds,
   getSubtleNewGuideIds,
   isGuideNew,
+  getGuideForRoute,
   visibleGuides,
 } from './contextualGuides';
 import { getShortcut, shortcutVisible } from '@/components/sidebar/constants';
@@ -25,6 +26,15 @@ const ready = (permissions: string[] = [], isOwner = false) => ({
 });
 
 describe('contextual guide registry', () => {
+  it('finds the first eligible guide with an exact pathname and declared query params', () => {
+    const eligible = eligibleGuides(ready(['user.view_all', 'role.manage']));
+
+    expect(getGuideForRoute(eligible, '/tasks', {} )?.id).toBe('tasks');
+    expect(getGuideForRoute(eligible, '/people', { section: 'teams' })?.id).toBe('team-people');
+    expect(getGuideForRoute(eligible, '/people', { section: 'people' })).toBeNull();
+    expect(getGuideForRoute(eligible, '/tasks/details', {})).toBeNull();
+  });
+
   it('provides a deep, screen-grounded curriculum grouped into ordered phases', () => {
     expect(GUIDE_REGISTRY.length).toBeGreaterThanOrEqual(12);
     expect(GUIDE_PHASES.length).toBeGreaterThanOrEqual(3);
