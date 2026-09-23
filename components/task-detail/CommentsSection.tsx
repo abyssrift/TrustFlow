@@ -7,8 +7,8 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from '@/lib/supabase';
 import { formatRelative } from '@/lib/time';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import CollapsibleCard from './CollapsibleCard';
 import LinkifiedText from '../common/LinkifiedText';
 import PermissionGate from './PermissionGate';
@@ -38,13 +38,41 @@ function timeAgo(dateStr: string): string {
   return formatRelative(dateStr);
 }
 
-function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUserId, checkIfMentioned, colors }: {
+type NameMap = Map<string, string[]>;
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// #461: highlight only the @Name tokens of users actually stored in
+// mentioned_user_ids -- never a substring guess.
+function CommentContent({ comment, names, colors }: {
+  comment: CommentData; names: NameMap; colors: ReturnType<typeof useThemeColors>;
+}) {
+  const className = `${comment.is_system ? 'text-typography-dim italic' : 'text-typography-label'} text-sm leading-5`;
+  const tokens = (comment.mentioned_user_ids || [])
+    .flatMap(id => names.get(id) || [])
+    .map(n => `@${n}`)
+    .sort((a, b) => b.length - a.length);
+  if (tokens.length === 0) return <LinkifiedText className={className}>{comment.content}</LinkifiedText>;
+
+  const parts = comment.content.split(new RegExp(`(${tokens.map(escapeRegExp).join('|')})`, 'g'));
+  return (
+    <Text className={className}>
+      {parts.map((part, i) => !part ? null : tokens.includes(part) ? (
+        <Text key={i} style={{ color: colors.primary, fontWeight: '700' }}>{part}</Text>
+      ) : (
+        <LinkifiedText key={i}>{part}</LinkifiedText>
+      ))}
+    </Text>
+  );
+}
+
+function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUserId, names, colors }: {
   comment: CommentTree; depth: number; onReply: (id: string) => void;
   onDelete: (id: string) => void; canComment: boolean; currentUserId: string | null;
-  checkIfMentioned: (content: string) => boolean;
+  names: NameMap;
   colors: ReturnType<typeof useThemeColors>;
 }) {
-  const isMentioned = checkIfMentioned(comment.content);
+  const isMentioned = !!currentUserId && !!comment.mentioned_user_ids?.includes(currentUserId);
   const maxIndent = Math.min(depth, 6); // Cap visual indent at 6 levels
 
   return (
@@ -86,9 +114,7 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
         </View>
 
         {/* Content */}
-        <LinkifiedText className={`${comment.is_system ? 'text-typography-dim italic' : 'text-typography-label'} text-sm leading-5`}>
-          {comment.content}
-        </LinkifiedText>
+        <CommentContent comment={comment} names={names} colors={colors} />
 
         {/* Reply button */}
         {canComment && !comment.is_system && (
@@ -109,7 +135,7 @@ function CommentNode({ comment, depth, onReply, onDelete, canComment, currentUse
           onDelete={onDelete}
           canComment={canComment}
           currentUserId={currentUserId}
-          checkIfMentioned={checkIfMentioned}
+          names={names}
           colors={colors}
         />
       ))}
@@ -124,27 +150,6 @@ export default function CommentsSection() {
   const colors = useThemeColors();
   const { showAlert, showConfirm } = useAlert();
   
-  // Calculate user variants for mention highlighting
-  const userVariants = useMemo(() => {
-    const variants = new Set<string>();
-    const full = profile?.full_name || user?.user_metadata?.full_name;
-    const disp = profile?.display_name;
-    
-    if (full) {
-      variants.add(full.toLowerCase());
-      const first = full.split(' ')[0];
-      if (first && first.length > 2) variants.add(first.toLowerCase());
-    }
-    if (disp) variants.add(disp.toLowerCase());
-    
-    return Array.from(variants);
-  }, [profile, user]);
-
-  const checkIfMentioned = (content: string) => {
-    if (!content || userVariants.length === 0) return false;
-    const lowerContent = content.toLowerCase();
-    return userVariants.some(v => lowerContent.includes(`@${v}`));
-  };
   const [input, setInput] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -153,8 +158,29 @@ export default function CommentsSection() {
   const [eligibleUsers, setEligibleUsers] = useState<any[]>([]);
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
+  const [activeIdx, setActiveIdx] = useState(0);
   const [cursorPos, setCursorPos] = useState(0);
   const [lastAck, setLastAck] = useState<string | null>(null);
+  // Users picked in the composer; on send only those whose "@Name" is still in
+  // the text are passed as p_mentioned_user_ids (the server re-sanitizes).
+  const [picked, setPicked] = useState<{ id: string; name: string }[]>([]);
+  const pickerRef = useRef<FlatList>(null);
+
+  // id -> names, for highlighting @Name tokens of mentioned users.
+  // ponytail: built from the mentionable list + me, so a user who has since
+  // lost task access keeps the mention but loses the colour. Fetch missing ids
+  // from users if that ever matters.
+  const names = useMemo<NameMap>(() => {
+    const map: NameMap = new Map();
+    const add = (id: string | undefined, ...ns: (string | null | undefined)[]) => {
+      if (id) map.set(id, ns.filter(Boolean) as string[]);
+    };
+    eligibleUsers.forEach(u => add(u.id, u.display_name, u.full_name));
+    add(user?.id, profile?.display_name, profile?.full_name);
+    return map;
+  }, [eligibleUsers, user?.id, profile?.display_name, profile?.full_name]);
+
+  const mentionsMe = (c: CommentData) => !!user?.id && !!c.mentioned_user_ids?.includes(user.id);
 
   // Fetch last acknowledgement time
   useEffect(() => {
@@ -173,11 +199,8 @@ export default function CommentsSection() {
 
   // Mark mentions as read when viewed
   useEffect(() => {
-    const hasMentions = data?.comments?.some(c => checkIfMentioned(c.content));
-    const hasNewMention = data?.comments?.some(c => {
-      const isMentioned = checkIfMentioned(c.content);
-      return isMentioned && (!lastAck || new Date(c.created_at) > new Date(lastAck));
-    });
+    const hasNewMention = data?.comments?.some(c =>
+      mentionsMe(c) && (!lastAck || new Date(c.created_at) > new Date(lastAck)));
 
     if (hasNewMention && user?.id && profile?.company_id && data?.task?.id) {
        // Upsert current time as acknowledged_at
@@ -199,21 +222,18 @@ export default function CommentsSection() {
 
   useEffect(() => {
     const fetchEligibleUsers = async () => {
-      if (!data?.task?.company_id) return;
-      
-      // Fetch all active users in the company
+      if (!data?.task?.id) return;
+
+      // Same-company active users who can see this task (#461).
       const { data: users, error } = await supabase
-        .from('users')
-        .select('id, full_name, display_name, avatar_url')
-        .eq('company_id', data.task.company_id)
-        .eq('is_active', true);
-      
+        .rpc('rpc_task_mentionable_users', { p_task_id: data.task.id });
+
       if (!error && users) {
         setEligibleUsers(users);
       }
     };
     fetchEligibleUsers();
-  }, [data?.task?.company_id]);
+  }, [data?.task?.id]);
 
   const filteredUsers = useMemo(() => {
     if (!mentionQuery) return eligibleUsers;
@@ -223,6 +243,8 @@ export default function CommentsSection() {
       (u.display_name || '').toLowerCase().includes(q)
     );
   }, [eligibleUsers, mentionQuery]);
+
+  useEffect(() => { setActiveIdx(0); }, [mentionQuery, showMentionPicker]);
 
   const updateMentionState = (text: string, position: number) => {
     // Detect mention trigger
@@ -264,7 +286,30 @@ export default function CommentsSection() {
     
     const newValue = `${beforeAt}@${nameToInsert} ${afterAt}`;
     setInput(newValue);
+    setPicked(prev => [...prev, { id: user.id, name: nameToInsert }]);
     setShowMentionPicker(false);
+  };
+
+  // Web keyboard nav for the picker. Native has no hardware arrows; tap works there.
+  const handlePickerKeyDown = (e: any) => {
+    if (!showMentionPicker || filteredUsers.length === 0) return;
+    const key = e.key ?? e.nativeEvent?.key;
+    if (key === 'ArrowDown' || key === 'ArrowUp') {
+      e.preventDefault();
+      const next = key === 'ArrowDown'
+        ? Math.min(activeIdx + 1, filteredUsers.length - 1)
+        : Math.max(activeIdx - 1, 0);
+      setActiveIdx(next);
+      pickerRef.current?.scrollToIndex({ index: next, viewPosition: 0.5, animated: false });
+    } else if ((key === 'Enter' && !e.shiftKey) || key === 'Tab') {
+      e.preventDefault();
+      const u = filteredUsers[Math.min(activeIdx, filteredUsers.length - 1)];
+      if (u) handleSelectUser(u);
+    } else if (key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation?.(); // don't also close an enclosing popup
+      setShowMentionPicker(false);
+    }
   };
 
   const tree = useMemo(() => buildTree(data?.comments || []), [data?.comments]);
@@ -275,10 +320,13 @@ export default function CommentsSection() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
+    const text = input.trim();
+    const mentionedIds = [...new Set(picked.filter(p => text.includes(`@${p.name}`)).map(p => p.id))];
     try {
       setSending(true);
-      await addComment(input.trim(), replyTo);
+      await addComment(text, replyTo, mentionedIds);
       setInput('');
+      setPicked([]);
       setReplyTo(null);
     } catch (err: any) {
       showAlert('Comment Error', err.message);
@@ -294,7 +342,8 @@ export default function CommentsSection() {
   return (
     <CollapsibleCard
       title={`Comments (${data.comments.length})`}
-      headerRight={data.comments.some(c => checkIfMentioned(c.content)) ? (
+      headerRight={data.comments.some(mentionsMe) && !data.comments.some(c =>
+        mentionsMe(c) && (!lastAck || new Date(c.created_at) > new Date(lastAck))) ? (
         <View className="flex-row items-center">
           <FontAwesome name="check-circle" size={10} color={colors.success} />
           <Text className="text-state-success text-[9px] font-bold ml-1 uppercase">Mentions Cleared</Text>
@@ -317,7 +366,7 @@ export default function CommentsSection() {
             onDelete={handleDelete}
             canComment={data.permissions.can_comment}
             currentUserId={user?.id || null}
-            checkIfMentioned={checkIfMentioned}
+            names={names}
             colors={colors}
           />
         ))
@@ -345,13 +394,17 @@ export default function CommentsSection() {
           {showMentionPicker && filteredUsers.length > 0 && (
             <View className="bg-surface-background border border-surface-border rounded-xl mb-2 overflow-hidden max-h-[160px]">
               <FlatList
+                ref={pickerRef}
                 data={filteredUsers}
                 keyExtractor={(item) => item.id}
                 keyboardShouldPersistTaps="always"
-                renderItem={({ item }) => (
-                  <TouchableOpacity 
+                onScrollToIndexFailed={() => {}}
+                renderItem={({ item, index }) => (
+                  <TouchableOpacity
                     onPress={() => handleSelectUser(item)}
-                    className="flex-row items-center p-3 border-b border-surface-border/30 active:bg-brand-primary/10"
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: index === activeIdx }}
+                    className={`flex-row items-center p-3 border-b border-surface-border/30 active:bg-brand-primary/10 ${Platform.OS === 'web' && index === activeIdx ? 'bg-brand-primary/10' : ''}`}
                   >
                     <View className="w-6 h-6 rounded-full bg-brand-primary/20 items-center justify-center mr-3">
                       <Text className="text-brand-primary text-[10px] font-black">
@@ -375,6 +428,7 @@ export default function CommentsSection() {
               value={input}
               onChangeText={handleInputChange}
               onSelectionChange={(e) => handleSelectionChange(e.nativeEvent.selection.start)}
+              {...(Platform.OS === 'web' ? { onKeyDown: handlePickerKeyDown } as any : {})}
               placeholder={replyTo ? 'Write a reply...' : 'Write a comment...'}
               placeholderTextColor={colors.textMuted}
               multiline

@@ -85,6 +85,20 @@ serve(async (req: Request) => {
     // 3. Exclude the actor who triggered the event
     if (event.actor_id) recipientSet.delete(event.actor_id)
 
+    // 3b. Never notify outside the event's company. Legacy company_id-null
+    // rules (specific_users lists, role names) can otherwise resolve users
+    // from any tenant. fn_emit_notification_event stamps company_id on every
+    // task/project/portfolio/template event (#461).
+    if (eventCompanyId && recipientSet.size) {
+      const { data: inCompany } = await db
+        .from('users')
+        .select('id')
+        .eq('company_id', eventCompanyId)
+        .in('id', [...recipientSet])
+      const allowed = new Set((inCompany ?? []).map((u: { id: string }) => u.id))
+      for (const uid of recipientSet) if (!allowed.has(uid)) recipientSet.delete(uid)
+    }
+
     // 4. Fetch the subject's name for notification content.
     // Fall back to entity_id when payload.task_id is absent (e.g. task.manual_time_flagged)
     const taskId = event.payload?.task_id ??
@@ -348,10 +362,25 @@ function buildContent(
       return { title: 'New Task Created', body: `${q} has been created.` }
     case 'task.assigned':
       return { title: 'Task Assigned to You', body: `${q} has been assigned to you.` }
-    case 'task.mentioned':
-      return { title: 'You Were Mentioned', body: `You were mentioned in a comment on ${q}.` }
-    case 'task.commented':
-      return { title: 'New Comment', body: `Someone commented on ${q}.` }
+    // actor_name / excerpt come from fn_trg_task_comments_notify (#461). The
+    // recipient is always same-company (step 3b), and task_comments are
+    // readable company-wide, so the excerpt reveals nothing new.
+    case 'task.mentioned': {
+      const who = (payload.actor_name as string | undefined) ?? 'Someone'
+      const excerpt = payload.excerpt as string | undefined
+      return {
+        title: `${who} mentioned you in ${q}`,
+        body: excerpt ? `"${excerpt}"` : `You were mentioned in a comment on ${q}.`,
+      }
+    }
+    case 'task.commented': {
+      const who = (payload.actor_name as string | undefined) ?? 'Someone'
+      const excerpt = payload.excerpt as string | undefined
+      return {
+        title: `${who} commented on ${q}`,
+        body: excerpt ? `"${excerpt}"` : `${who} commented on ${q}.`,
+      }
+    }
     case 'task.stage_transition': {
       const tag = (payload.stage_tag as string | undefined) ?? 'a new stage'
       return {

@@ -507,27 +507,15 @@ export function TasksScreenWeb() {
     if (rows.length === 0) return [];
     const ids = rows.map(t => t.id);
 
-    const [{ data: timeMetrics }, { data: acks }] = await Promise.all([
+    const [{ data: timeMetrics }, { data: acks }, { data: mentions }] = await Promise.all([
       supabase.from('view_task_time_metrics').select('*').in('task_id', ids),
       supabase.from('task_mention_acks').select('task_id, acknowledged_at').eq('user_id', user?.id).in('task_id', ids),
+      // #461: structured mentions (same source as the comment highlight and
+      // the server notification), not a name ilike scan.
+      user?.id
+        ? supabase.from('task_comments').select('task_id, created_at').contains('mentioned_user_ids', [user.id]).is('deleted_at', null).in('task_id', ids)
+        : Promise.resolve({ data: [] as any[] }),
     ]);
-
-    const variants = Array.from(new Set([
-      profile?.full_name,
-      profile?.display_name,
-      user?.user_metadata?.full_name,
-      user?.email?.split('@')[0],
-    ].filter(Boolean) as string[]));
-    const searchTerms = new Set<string>();
-    variants.forEach(v => {
-      searchTerms.add(v);
-      const first = v.split(' ')[0];
-      if (first && first.length > 2) searchTerms.add(first);
-    });
-    const orQuery = Array.from(searchTerms).map(term => `content.ilike.%@${term}%`).join(',');
-    const { data: mentions } = orQuery
-      ? await supabase.from('task_comments').select('task_id, created_at').or(orQuery).in('task_id', ids)
-      : { data: [] as any[] };
 
     const timeMap = (timeMetrics || []).reduce((acc, curr) => { acc[curr.task_id] = curr; return acc; }, {} as any);
     const ackMap = new Map((acks || []).map(a => [a.task_id, a.acknowledged_at]));
